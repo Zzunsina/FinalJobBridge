@@ -1,0 +1,9 @@
+{
+    "name":  "jobbridge",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "npm --prefix ../JobBridge-Frontend run dev",
+                    "build":  "npm --prefix ../JobBridge-Frontend run build",
+                    "lint":  "npm --prefix ../JobBridge-Frontend run lint"
+                }
+}

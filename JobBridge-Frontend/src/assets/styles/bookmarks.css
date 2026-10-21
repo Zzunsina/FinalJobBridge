@@ -1,0 +1,100 @@
+.card-top-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.bookmark-button.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #dbe1eb;
+  background: white;
+  color: #5c6980;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.bookmark-button svg {
+  width: 21px;
+  height: 21px;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.bookmark-button.secondary.compact {
+  padding: 6px;
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+.bookmark-button.secondary:hover {
+  background: #fffbec;
+  border-color: #efc65d;
+  color: #aa7500;
+}
+.bookmark-button.secondary.is-saved {
+  background: #fffbeb;
+  border-color: #edca72;
+  color: #946000;
+}
+.bookmark-button.is-saved svg {
+  fill: #f6bd30;
+  stroke: #d79306;
+}
+.bookmark-notice {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 15px 18px;
+  border-radius: 12px;
+  background: #172d50;
+  color: white;
+  box-shadow: 0 8px 28px rgb(15 30 55 / 22%);
+}
+.bookmark-notice > span {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #c4f0d7;
+  color: #165d3e;
+  font-weight: 700;
+}
+.bookmark-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.bookmark-notice button.plain {
+  min-height: 24px;
+  color: #e5edf8;
+  font-size: 22px;
+  padding: 0 3px;
+}
+.bookmark-notice.is-error {
+  background: #7f2332;
+}
+.bookmark-notice.is-error > span {
+  background: #ffdae1;
+  color: #7f2332;
+}
+@media (max-width: 600px) {
+  .bookmark-notice {
+    bottom: 16px;
+    padding: 12px 14px;
+  }
+}
