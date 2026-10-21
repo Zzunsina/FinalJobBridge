@@ -24,3 +24,21 @@ git checkout jjy
 git merge main
 
 -----------------------------------------------------------------------------------
+
+
+★★★★ 주의 ★★★★ 꼭 지켜주세요!!!
+-> 원격저장소(gitHub)에서는 Pull Request만 할것
+
+-> 로컬저장소 (자신의 PC (gitBash))의 main 브랜치에서는 Pull만 할것
+    git pull origin main (코드 수정 작업이나 push 절대 하지 마세요.!!)
+
+-> 로컬저장소(자신의 pc)의 서브브랜치(자신들의 브랜치)
+   git merge main <= 메인 브랜치 버전과 병합
+   코드 수정 작업 후 git add. , git commit -m "버전명"
+   git push origin 자신들 브랜치명
+
+   ※※※※※※※※※주의사항※※※※※※※※※※
+  백엔드 - application.properties파일, build.gradle 파일
+  프론트엔드 - App.jsx파일, main.jsx 파일 등 공통파일 수정시에는 마지막 수정파일로만 코드가 남기 때문에
+  수정 후 ★반드시★ 모든 사람에게 얘기하여 모두 동일하게 수정할것!!! 
+   
