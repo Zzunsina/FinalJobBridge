@@ -31,6 +31,7 @@ function SelectionForm({ record, options, onDone }) {
     try {
       await client.patch('/admin/employment-links/' + record.employmentLinkId, values);
       setSuccess('취업연계 정보를 저장했습니다.');
+      window.alert('취업연계 정보 저장이 완료되었습니다.');
       await onDone();
     } catch (ex) { setError(message(ex)); }
     finally { setBusy(false); }

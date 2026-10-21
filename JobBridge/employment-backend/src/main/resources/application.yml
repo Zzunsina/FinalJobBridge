@@ -10,6 +10,7 @@ spring:
 coolsms:
   api-key: ${COOLSMS_APIKEY}
   api-secret: ${COOLSMS_APISECRET}
+
   sender-number: ${COOLSMS_SENDERNUMBER} # 솔라피에 등록된 발신번호
 
 

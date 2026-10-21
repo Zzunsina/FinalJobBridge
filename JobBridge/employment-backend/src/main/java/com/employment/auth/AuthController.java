@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService auth;
-    private final SmsService smsService; // 💡 SMS 서비스 주입 추가
 
     public AuthController(AuthService auth, SmsService smsService) {
         this.auth = auth;
@@ -22,6 +21,11 @@ public class AuthController {
     @GetMapping("/auth/csrf")
     Map<String, String> csrf(CsrfToken token) {
         return Map.of("token", token.getToken());
+    }
+
+    @GetMapping("/auth/login-id/availability")
+    Map<String, Object> loginIdAvailability(@RequestParam String loginId) {
+        return auth.loginIdAvailability(loginId);
     }
 
     @PostMapping("/auth/signup/{kind}")
@@ -34,28 +38,7 @@ public class AuthController {
         return auth.signup(body, kind.equals("company"));
     }
 
-    // 💡 [추가] 인증번호 전송 API
-    @PostMapping("/auth/sms/send")
-    @ResponseStatus(HttpStatus.OK)
-    public void sendSmsCode(@RequestBody Map<String, String> body) {
-        String phone = body.get("phone");
-        if (phone == null || phone.isBlank()) {
-            throw new Problem(400, "휴대폰 번호를 입력해 주세요.");
-        }
-        smsService.sendCode(phone);
-    }
 
-    // 💡 [추가] 인증번호 확인 API
-    @PostMapping("/auth/sms/verify")
-    @ResponseStatus(HttpStatus.OK)
-    public void verifySmsCode(@RequestBody Map<String, String> body) {
-        String phone = body.get("phone");
-        String code = body.get("code");
-
-        boolean isValid = smsService.verifyCode(phone, code);
-        if (!isValid) {
-            throw new Problem(400, "인증번호가 일치하지 않거나 만료되었습니다.");
-        }
     }
 
     @PostMapping("/auth/login")

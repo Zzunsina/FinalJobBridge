@@ -28,6 +28,19 @@ public final class Input {
         return value;
     }
 
+    public static java.time.LocalDate birthDate(String value) {
+        try {
+            java.time.LocalDate date = value.length() == 8
+                ? java.time.LocalDate.parse(value, java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+                : java.time.LocalDate.parse(value);
+            java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+            if (date.isBefore(today.minusYears(100)) || date.isAfter(today)) throw new IllegalArgumentException();
+            return date;
+        } catch (RuntimeException ex) {
+            throw new Problem(400, "생년월일은 오늘 기준 100년 전부터 오늘까지의 실제 날짜로 입력해 주세요.");
+        }
+    }
+
     public static String password(Map<String, Object> body, String key) {
         String value = text(body, key, 10000, true);
         if (

@@ -27,6 +27,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class PlatformIntegrationTests {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.employment.auth.SmsService smsService;
+
     @Autowired
     MockMvc mvc;
 
@@ -72,8 +75,10 @@ class PlatformIntegrationTests {
                 ),
                 "name",
                 "관리자",
+                "birth_date", LocalDate.of(2000, 1, 1),
+                "gender", "MALE",
                 "phone",
-                "01012345678",
+                nextPhone(),
                 "role",
                 "ADMIN"
             )
@@ -108,6 +113,10 @@ class PlatformIntegrationTests {
         );
     }
 
+    static final java.util.concurrent.atomic.AtomicLong phoneSequence = new java.util.concurrent.atomic.AtomicLong(10000000);
+
+    static String nextPhone() { return "010" + phoneSequence.getAndIncrement(); }
+
     long signup(String name, boolean company) {
         var body = fields(
             "loginId",
@@ -123,10 +132,14 @@ class PlatformIntegrationTests {
             "name",
             name,
             "phone",
-            "01012345678",
+            nextPhone(),
             "role",
             "ADMIN"
         );
+        body.put("termsAccepted", true);
+        body.put("privacyAccepted", true);
+        body.put("agreementVersion", "2026-10-21");
+        body.put("smsVerificationToken", "platform-test-verification");
         if (company) {
             body.put("companyName", "테스트 기업");
             body.put(
@@ -137,6 +150,7 @@ class PlatformIntegrationTests {
                 )
             );
         }
+        body.put("smsVerificationToken", "platform-test-verification");
         return number(auth.signup(body, company), "userId");
     }
 
@@ -260,10 +274,14 @@ class PlatformIntegrationTests {
             "name",
             "중복 테스트",
             "phone",
-            "01012345678",
+            nextPhone(),
             "password",
             password
         );
+        signup.put("termsAccepted", true);
+        signup.put("privacyAccepted", true);
+        signup.put("agreementVersion", "2026-10-21");
+        signup.put("smsVerificationToken", "platform-test-verification");
         assertThatThrownBy(() -> auth.signup(signup, false)).isInstanceOfSatisfying(
             Problem.class,
             ex -> assertThat(ex.status).isEqualTo(409)
@@ -429,6 +447,85 @@ class PlatformIntegrationTests {
             .andExpect(status().isForbidden());
     }
 
+
+
+    @Test
+    void signupRequiresEveryMandatoryFieldAndDatabaseRejectsMissingValues() throws Exception {
+        for (boolean isCompany : List.of(false, true)) {
+            var body = fields("loginId", "required" + UUID.randomUUID().toString().replace("-", "").substring(0,10),
+                "password", password, "name", "필수 정보 검증", "email", UUID.randomUUID() + "@test.local",
+                "phone", nextPhone(), "birthDate", "20000123", "gender", "FEMALE",
+                "companyName", "필수 기업", "businessNumber", "1234509876",
+                "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-10-21", "smsVerificationToken", "platform-test-verification");
+            var required = new ArrayList<>(List.of("loginId", "password", "name", "email", "phone", "birthDate", "gender"));
+            if (isCompany) required.addAll(List.of("companyName", "businessNumber"));
+            for (String field : required) {
+                for (Object value : Arrays.asList(null, "", "   ")) {
+                    var invalid = new LinkedHashMap<>(body); invalid.put(field, value);
+                    assertThatThrownBy(() -> auth.signup(invalid, isCompany)).isInstanceOf(Problem.class);
+                }
+            }
+        }
+        for (String column : List.of("login_id", "password", "name", "email", "phone", "birth_date", "gender")) {
+            assertThatThrownBy(() -> db.update("UPDATE users SET " + column + "=NULL WHERE user_id=?", seeker))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        }
+        for (String column : List.of("login_id", "password", "name", "email", "phone")) {
+            assertThatThrownBy(() -> db.update("UPDATE users SET " + column + "='   ' WHERE user_id=?", seeker))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        }
+        for (String column : List.of("company_name", "business_number")) {
+            assertThatThrownBy(() -> db.update("UPDATE companies SET " + column + "=NULL WHERE company_id=?", company))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("UPDATE companies SET " + column + "='   ' WHERE company_id=?", company))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        }
+        assertThatThrownBy(() -> db.update("UPDATE user_signup_consents SET terms_accepted=FALSE WHERE user_id=?", seeker))
+            .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("UPDATE user_signup_consents SET privacy_accepted=FALSE WHERE user_id=?", seeker))
+            .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void loginIdAvailabilityAndInlineConflict() throws Exception {
+        String taken = auth.publicUser(seeker).get("loginId").toString();
+        mvc.perform(get("/api/auth/login-id/availability").param("loginId", taken.toUpperCase(Locale.ROOT)))
+            .andExpect(status().isOk()).andExpect(jsonPath("available").value(false));
+        mvc.perform(get("/api/auth/login-id/availability").param("loginId", "free" + UUID.randomUUID().toString().replace("-", "").substring(0,12)))
+            .andExpect(status().isOk()).andExpect(jsonPath("available").value(true));
+        mvc.perform(get("/api/auth/login-id/availability").param("loginId", "ab_"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/auth/signup/job-seeker").with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("loginId", taken))))
+            .andExpect(status().isConflict()).andExpect(jsonPath("fieldErrors[0].field").value("loginId"));
+    }
+
+    @Test
+    void phoneUniquenessCoversSignupProfileAndDatabase() throws Exception {
+        String taken = auth.publicUser(seeker).get("phone").toString();
+        String formatted = taken.substring(0,3) + "-" + taken.substring(3,7) + "-" + taken.substring(7);
+        var body = fields("loginId", "phone" + UUID.randomUUID().toString().replace("-", "").substring(0,12),
+            "email", UUID.randomUUID() + "@test.local", "name", "번호 검증", "phone", formatted,
+            "password", password, "birthDate", "20000123", "gender", "MALE",
+            "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-10-21", "smsVerificationToken", "platform-test-verification");
+        mvc.perform(post("/api/auth/signup/job-seeker").with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isConflict()).andExpect(jsonPath("message").value("이미 사용 중인 휴대폰번호입니다. 다른 번호를 입력해 주세요."));
+        body.put("companyName", "번호 검증 기업"); body.put("businessNumber", "1234509876");
+        mvc.perform(post("/api/auth/signup/company").with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isConflict());
+        Cookie session = login(other);
+        String previous = auth.publicUser(other).get("phone").toString();
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("name", "번호 검증", "phone", formatted))))
+            .andExpect(status().isConflict());
+        assertThat(auth.publicUser(other).get("phone")).isEqualTo(previous);
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("name", "번호 검증", "phone", previous))))
+            .andExpect(status().isOk());
+        String fresh = nextPhone();
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("name", "번호 검증", "phone", fresh))))
+            .andExpect(status().isOk());
+        assertThatThrownBy(() -> db.update("UPDATE users SET phone=? WHERE user_id=?", taken, other))
+            .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     @Test
     void signupSavesBirthAndGenderAndEnforcesNewInputRules() {
         assertThat(auth.publicUser(seeker).get("birthDate")).isEqualTo("2000-01-23");
@@ -444,7 +541,7 @@ class PlatformIntegrationTests {
             "name",
             "검증",
             "phone",
-            "01012345678",
+            nextPhone(),
             "password",
             password,
             "birthDate",
@@ -452,6 +549,10 @@ class PlatformIntegrationTests {
             "gender",
             "FEMALE"
         );
+        body.put("termsAccepted", true);
+        body.put("privacyAccepted", true);
+        body.put("agreementVersion", "2026-10-21");
+        body.put("smsVerificationToken", "platform-test-verification");
         for (String invalid : List.of("test_id", "test-id", "한글아이디", "abc")) {
             var changed = new LinkedHashMap<>(body);
             changed.put("loginId", invalid);
@@ -479,6 +580,7 @@ class PlatformIntegrationTests {
         assertThatThrownBy(() -> auth.signup(changed, false)).isInstanceOf(Problem.class);
         body.put("password", "1".repeat(20));
         body.put("birthDate", "20000229");
+        body.put("smsVerificationToken", "platform-test-verification");
         long user = number(auth.signup(body, false), "userId");
         assertThat(auth.publicUser(user).get("birthDate")).isEqualTo("2000-02-29");
         assertThat(auth.publicUser(user).get("gender")).isEqualTo("FEMALE");
@@ -1165,6 +1267,149 @@ class PlatformIntegrationTests {
         var after = json.readTree(filtered.getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         for (var row : after.get("companies")) assertThat(row.get("companyId").asLong()).isNotEqualTo(company);
         for (var row : after.get("jobs")) assertThat(row.get("jobId").asLong()).isNotEqualTo(job);
+    }
+
+    @Test
+    void signupRequiresExplicitConsentsAndRecordsOptionalChoice() throws Exception {
+        for (String kind : List.of("job-seeker", "company")) {
+            var body = fields("loginId", "agree" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
+                "email", UUID.randomUUID() + "@test.local", "name", "동의 검증", "phone", nextPhone(),
+                "password", password, "birthDate", "20000123", "gender", "MALE",
+                "companyName", "동의 기업", "businessNumber", String.format("%010d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 10000000000L)));
+            for (Object invalid : new Object[]{false, "true"}) {
+                body.put("termsAccepted", invalid); body.put("privacyAccepted", true);
+                body.put("agreementVersion", "2026-10-21");
+        body.put("smsVerificationToken", "platform-test-verification");
+                mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+                    .andExpect(status().isBadRequest());
+            }
+            body.put("termsAccepted", true); body.put("privacyAccepted", false);
+            mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+            body.put("privacyAccepted", true); body.put("agreementVersion", "old");
+            mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+                .andExpect(status().isConflict());
+            assertThat(db.list("SELECT user_id FROM users WHERE login_id=?", body.get("loginId"))).isEmpty();
+            body.put("agreementVersion", "2026-10-21");
+        body.put("smsVerificationToken", "platform-test-verification");
+            body.put("marketingAccepted", kind.equals("company"));
+            var response = mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+                .andExpect(status().isCreated()).andReturn().getResponse();
+            long user = json.readTree(response.getContentAsString()).get("userId").asLong();
+            var consent = db.one("SELECT * FROM user_signup_consents WHERE user_id=?", user);
+            assertThat(consent.get("termsAccepted")).isEqualTo(true);
+            assertThat(consent.get("privacyAccepted")).isEqualTo(true);
+            assertThat(consent.get("marketingAccepted")).isEqualTo(kind.equals("company"));
+            assertThat(consent.get("termsVersion")).isEqualTo("2026-10-21");
+            assertThat(consent.get("recordedAt")).isNotNull();
+        }
+    }
+
+    @Test
+    void companyImagesAreOwnedValidatedAndVisibleOnlyForActiveApprovedCompanies() throws Exception {
+        var image = new java.awt.image.BufferedImage(40, 40, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var output = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", output);
+        var body = fields("image", "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray()));
+        mvc.perform(put("/api/company/image").cookie(login(seeker)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isForbidden());
+        mvc.perform(put("/api/company/image").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isNoContent());
+        mvc.perform(get("/api/companies/" + company + "/image")).andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+        long another = signup("img" + UUID.randomUUID().toString().replace("-", "").substring(0, 8), true);
+        mvc.perform(get("/api/company/image").cookie(login(another))).andExpect(status().isNoContent());
+        mvc.perform(put("/api/company/image").cookie(login(companyUser)).with(csrf()).contentType("application/json").content("{\"image\":\"invalid\"}")).andExpect(status().isBadRequest());
+        db.update("UPDATE companies SET approval_status='PENDING' WHERE company_id=?", company);
+        mvc.perform(get("/api/companies/" + company + "/image")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/company/image").cookie(login(companyUser))).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/companies/" + company + "/image")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/companies/" + company + "/image").cookie(login(seeker))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/companies/" + company + "/image").cookie(login(companyUser))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/companies/" + company + "/image").cookie(login(admin))).andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+        mvc.perform(patch("/api/admin/companies/" + company + "/approval").cookie(login(admin)).with(csrf()).contentType("application/json").content("{\"status\":\"APPROVED\"}")).andExpect(status().isOk());
+        assertThat(db.one("SELECT title,notification_type FROM notifications WHERE user_id=? AND notification_type='COMPANY' ORDER BY notification_id DESC LIMIT 1", companyUser).get("title")).isEqualTo("기업 승인이 완료되었습니다.");
+        mvc.perform(delete("/api/company/image").cookie(login(companyUser)).with(csrf())).andExpect(status().isNoContent());
+        mvc.perform(get("/api/companies/" + company + "/image")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void noticeImagesPreserveShapeAndPublicationRules() throws Exception {
+        var bitmap = new java.awt.image.BufferedImage(120, 240, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var output = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(bitmap, "png", output);
+        String image = "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray());
+        var body = fields("title", "이미지 공지", "content", "공지 본문", "image", image, "isPublished", false, "isPinned", true);
+        var response = mvc.perform(post("/api/admin/notices").cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isCreated()).andReturn().getResponse();
+        long id = json.readTree(response.getContentAsString()).get("noticeId").asLong();
+        mvc.perform(get("/api/notices/" + id + "/image")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/admin/notices/" + id + "/image").cookie(login(seeker))).andExpect(status().isForbidden());
+        var stored = mvc.perform(get("/api/admin/notices/" + id + "/image").cookie(login(admin)))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        var decoded = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(stored));
+        assertThat(decoded.getHeight()).isEqualTo(decoded.getWidth() * 2);
+        body.remove("image"); body.put("isPublished", true);
+        mvc.perform(put("/api/admin/notices/" + id).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk());
+        mvc.perform(get("/api/notices/" + id)).andExpect(status().isOk()).andExpect(jsonPath("$.hasImage").value(true)).andExpect(jsonPath("$.isPinned").value(true));
+        mvc.perform(get("/api/notices/" + id + "/image")).andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+        body.put("image", "invalid");
+        long before = number(db.one("SELECT COUNT(*) AS n FROM notices"), "n");
+        mvc.perform(post("/api/admin/notices").cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        assertThat(number(db.one("SELECT COUNT(*) AS n FROM notices"), "n")).isEqualTo(before);
+        body.put("image", "");
+        mvc.perform(put("/api/admin/notices/" + id).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk());
+        mvc.perform(get("/api/notices/" + id)).andExpect(status().isOk()).andExpect(jsonPath("$.hasImage").value(false));
+    }
+
+    @Test
+    void faqExamplesArePublicButInquiriesRemainPrivate() throws Exception {
+        mvc.perform(get("/api/faqs")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(15))
+            .andExpect(jsonPath("$[0].question").value("회원가입은 어떻게 하나요?"))
+            .andExpect(jsonPath("$[0].answer").isNotEmpty());
+        mvc.perform(get("/api/inquiries")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/inquiries").with(csrf()).contentType("application/json").content("{\"title\":\"질문\",\"content\":\"내용\"}"))
+            .andExpect(status().isUnauthorized());
+        var response = mvc.perform(post("/api/inquiries").cookie(login(seeker)).with(csrf()).contentType("application/json").content("{\"title\":\"개인 문의\",\"content\":\"비공개 내용\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse();
+        long id = json.readTree(response.getContentAsString()).get("inquiryId").asLong();
+        mvc.perform(get("/api/inquiries/" + id).cookie(login(other))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/faqs")).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("비공개 내용"))));
+    }
+
+    @Test
+    void passwordChangeRejectsCurrentAndRecentPasswordsWithoutRevokingOnFailure() throws Exception {
+        Cookie session = login(seeker);
+        mvc.perform(patch("/api/me/password").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(fields("currentPassword", password, "password", password))))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/me").cookie(session)).andExpect(status().isOk());
+        assertThat(db.list("SELECT password_history_id FROM user_password_history WHERE user_id=?", seeker)).isEmpty();
+        String next = "DifferentPass123!";
+        mvc.perform(patch("/api/me/password").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(fields("currentPassword", password, "password", next))))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/me").cookie(session)).andExpect(status().isUnauthorized());
+        assertThatThrownBy(() -> auth.changePassword(seeker, fields("currentPassword", next, "password", password)))
+            .isInstanceOfSatisfying(Problem.class, error -> assertThat(error.status).isEqualTo(400));
+        var history = db.one("SELECT password_hash FROM user_password_history WHERE user_id=?", seeker);
+        assertThat(history.get("passwordHash").toString()).isNotEqualTo(password);
+        assertThat(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().matches(password, history.get("passwordHash").toString())).isTrue();
+        // Another account's history must not restrict this user's choice.
+        auth.changePassword(other, fields("currentPassword", password, "password", next));
+        assertThat(db.list("SELECT password_history_id FROM user_password_history WHERE user_id=?", other)).hasSize(1);
+    }
+
+    @Test
+    void passwordHistoryExpiresSixMonthsAfterLastUse() {
+        String next = "DifferentPass123!";
+        auth.changePassword(seeker, fields("currentPassword", password, "password", next));
+        db.update("UPDATE user_password_history SET used_until=? WHERE user_id=?",
+            java.sql.Timestamp.from(java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusMonths(6).plusDays(1).toInstant()), seeker);
+        assertThatThrownBy(() -> auth.changePassword(seeker, fields("currentPassword", next, "password", password))).isInstanceOf(Problem.class);
+        db.update("UPDATE user_password_history SET used_until=? WHERE user_id=?",
+            java.sql.Timestamp.from(java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusMonths(6).minusDays(1).toInstant()), seeker);
+        auth.changePassword(seeker, fields("currentPassword", next, "password", password));
+        assertThat(db.list("SELECT password_history_id FROM user_password_history WHERE user_id=?", seeker)).hasSize(1);
+        assertThatThrownBy(() -> auth.changePassword(seeker, fields("currentPassword", "wrong", "password", "AnotherPass123!"))).isInstanceOf(Problem.class);
     }
 
     @Test
