@@ -25,13 +25,15 @@ public class AuthService {
     private final ObjectMapper json;
     private final byte[] secret;
     private final boolean secure;
+    private final SmsService smsService; // 💡 SMS 인증 상태 확인용 서비스 주입
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthService(
         Database db,
         ObjectMapper json,
         @Value("${app.jwt-secret}") String secret,
-        @Value("${app.secure-cookie}") boolean secure
+        @Value("${app.secure-cookie}") boolean secure,
+        SmsService smsService // 💡 생성자에 SmsService 추가
     ) {
         if (secret.length() < 32) throw new IllegalArgumentException(
             "JWT_SECRET must be at least 32 characters"
@@ -40,6 +42,7 @@ public class AuthService {
         this.json = json;
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
         this.secure = secure;
+        this.smsService = smsService;
     }
 
     public Map<String, Object> publicUser(long id) {
@@ -105,6 +108,12 @@ public class AuthService {
             400,
             "전화번호는 10~11자리여야 합니다."
         );
+
+        // 💡 [핵심 추가] 백엔드 단에서 휴대폰 문자 인증 완료 여부 최종 검증
+        if (!smsService.isPhoneVerified(phone)) {
+            throw new Problem(400, "휴대폰 문자 인증이 완료되지 않았습니다.");
+        }
+
         long id = db.insert(
             "users",
             fields(
@@ -171,8 +180,8 @@ public class AuthService {
         String password = Input.text(body, "password", 64, true);
         if (
             rows.isEmpty() ||
-            !encoder.matches(password, rows.get(0).get("password").toString()) ||
-            !"ACTIVE".equals(rows.get(0).get("status"))
+                !encoder.matches(password, rows.get(0).get("password").toString()) ||
+                !"ACTIVE".equals(rows.get(0).get("status"))
         ) {
             throw new Problem(401, "아이디 또는 비밀번호를 확인해 주세요.");
         }
@@ -228,14 +237,14 @@ public class AuthService {
             String[] pieces = token.split("\\.");
             if (
                 pieces.length != 3 ||
-                !MessageDigest.isEqual(sign(pieces[0] + "." + pieces[1]), decode(pieces[2]))
+                    !MessageDigest.isEqual(sign(pieces[0] + "." + pieces[1]), decode(pieces[2]))
             ) {
                 throw new IllegalArgumentException();
             }
             var claims = json.readTree(decode(pieces[1]));
             if (
                 !type.equals(claims.path("type").asText()) ||
-                claims.path("exp").asLong() <= Instant.now().getEpochSecond()
+                    claims.path("exp").asLong() <= Instant.now().getEpochSecond()
             ) {
                 throw new IllegalArgumentException();
             }
@@ -245,9 +254,9 @@ public class AuthService {
             );
             if (
                 Boolean.TRUE.equals(session.get("revoked")) ||
-                !hash(token).equals(session.get(type + "Hash")) ||
-                !"ACTIVE".equals(publicUser(number(session, "userId")).get("status")) ||
-                !Long.toString(number(session, "userId")).equals(claims.path("sub").asText())
+                    !hash(token).equals(session.get(type + "Hash")) ||
+                    !"ACTIVE".equals(publicUser(number(session, "userId")).get("status")) ||
+                    !Long.toString(number(session, "userId")).equals(claims.path("sub").asText())
             ) {
                 throw new IllegalArgumentException();
             }
@@ -406,7 +415,6 @@ public class AuthService {
             db.update("UPDATE employment_links SET status='CLOSED' WHERE job_seeker_id IN (SELECT job_seeker_id FROM job_seekers WHERE user_id=?) AND status NOT IN ('EMPLOYED','CLOSED')", userId);
         }
         db.update("UPDATE interviews SET status='CANCELED' WHERE status='SCHEDULED' AND application_id IN (" + applications + ")", userId);
-        // Use the ownership predicate directly to remain compatible with MySQL's update rules.
         String ownership = "COMPANY".equals(user.get("role"))
             ? "job_id IN (SELECT job_id FROM job_postings WHERE company_id IN (SELECT company_id FROM companies WHERE user_id=?))"
             : "job_seeker_id IN (SELECT job_seeker_id FROM job_seekers WHERE user_id=?)";

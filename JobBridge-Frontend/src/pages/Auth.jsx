@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../stores/auth';
@@ -106,6 +106,62 @@ export function Login({ adminOnly = false }) {
 export function Signup() {
   const [kind, setKind] = useState('job-seeker');
   const navigate = useNavigate();
+
+  // --- 문자 인증 및 비밀번호 확인 상태 ---
+  const [phoneValue, setPhoneValue] = useState('');
+  const [passwordValue, setPasswordValue] = useState('');
+  const [passwordConfirmValue, setPasswordConfirmValue] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [timer, setTimer] = useState(180); // 3분 타이머 (초)
+  const [isTimerActive, setIsTimerActive] = useState(false);
+
+  // 타이머 작동 로직
+  useEffect(() => {
+    let interval = null;
+    if (isTimerActive && timer > 0) {
+      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
+    } else if (timer === 0) {
+      setIsTimerActive(false);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerActive, timer]);
+
+  // 인증번호 전송 요청 함수
+  const handleSendSms = async () => {
+    if (!phoneValue || phoneValue.length < 10) {
+      alert('올바른 휴대폰 번호를 입력해주세요.');
+      return;
+    }
+    try {
+      await client.post('/auth/sms/send', { phone: phoneValue });
+      alert('인증번호가 발송되었습니다.');
+      setIsCodeSent(true);
+      setTimer(180);
+      setIsTimerActive(true);
+    } catch (error) {
+      alert('인증번호 전송에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 인증번호 확인 요청 함수
+  const handleVerifySms = async () => {
+    if (!verificationCode) {
+      alert('인증번호를 입력해주세요.');
+      return;
+    }
+    try {
+      await client.post('/auth/sms/verify', { phone: phoneValue, code: verificationCode });
+      alert('휴대폰 인증이 완료되었습니다.');
+      setIsPhoneVerified(true);
+      setIsTimerActive(false);
+    } catch (error) {
+      alert('인증번호가 일치하지 않거나 만료되었습니다.');
+    }
+  };
+
+  // 💡 아이디 바로 다음(비밀번호, 비밀번호 확인)과 기본 정보 필드 구성
   const fields = [
     {
       name: 'loginId',
@@ -117,6 +173,27 @@ export function Signup() {
       sanitize: 'alphanumeric',
       autoComplete: 'username',
       autoCapitalize: 'none',
+    },
+    {
+      name: 'password',
+      label: '비밀번호 (공백 없이 8~20자)',
+      type: 'password',
+      required: true,
+      minLength: 8,
+      maxLength: 20,
+      pattern: '\\S{8,20}',
+      autoComplete: 'new-password',
+      onChange: (e) => setPasswordValue(e.target.value),
+    },
+    {
+      name: 'passwordConfirm',
+      label: '비밀번호 확인',
+      type: 'password',
+      required: true,
+      minLength: 8,
+      maxLength: 20,
+      autoComplete: 'new-password',
+      onChange: (e) => setPasswordConfirmValue(e.target.value),
     },
     { name: 'name', label: '이름', required: true, maxLength: 100 },
     {
@@ -147,18 +224,8 @@ export function Signup() {
       required: true,
       maxLength: 255,
     },
-    { name: 'phone', label: '전화번호', type: 'tel', required: true },
-    {
-      name: 'password',
-      label: '비밀번호 (공백 없이 8~20자)',
-      type: 'password',
-      required: true,
-      minLength: 8,
-      maxLength: 20,
-      pattern: '\\S{8,20}',
-      autoComplete: 'new-password',
-    },
   ];
+
   if (kind === 'company')
     fields.push(
       { name: 'companyName', label: '기업명', required: true, maxLength: 200 },
@@ -168,6 +235,7 @@ export function Signup() {
         required: true,
       },
     );
+
   return (
     <div className="auth-shell">
       <p className="eyebrow">JOIN JOBBRIDGE</p>
@@ -193,7 +261,24 @@ export function Signup() {
         key={kind}
         fields={fields}
         onSubmit={async (body) => {
-          await client.post(`/auth/signup/${kind}`, body);
+          // 비밀번호 일치 여부 확인
+          if (body.password !== passwordConfirmValue) {
+            alert('비밀번호가 일치하지 않습니다.');
+            return;
+          }
+
+          // 휴대폰 인증 완료 여부 확인
+          if (!isPhoneVerified) {
+            alert('휴대폰 문자 인증을 완료해주세요.');
+            return;
+          }
+
+          // 서버로 회원가입 요청 (전화번호 값 명시적 전달)
+          await client.post(`/auth/signup/${kind}`, {
+            ...body,
+            phone: phoneValue,
+          });
+
           navigate('/login', {
             replace: true,
             state: {
@@ -203,7 +288,57 @@ export function Signup() {
           });
         }}
         submit="가입하기"
-      />
+      >
+        {/* 💡 휴대폰 번호 입력 및 문자 인증 UI 영역 */}
+        <div className="sms-auth-section" style={{ marginTop: '5px', marginBottom: '15px' }}>
+          <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '5px' }}>
+            휴대폰번호 <span style={{ color: 'red' }}>*</span>
+          </label>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <input
+              type="tel"
+              placeholder="숫자만 입력 (예: 01012345678)"
+              value={phoneValue}
+              onChange={(e) => setPhoneValue(e.target.value)}
+              disabled={isPhoneVerified}
+              style={{ flex: 1, padding: '8px' }}
+            />
+            <button 
+              type="button" 
+              className="secondary" 
+              onClick={handleSendSms} 
+              disabled={isPhoneVerified}
+            >
+              {isCodeSent ? '인증번호 재전송' : '인증번호 전송'}
+            </button>
+          </div>
+
+          {isCodeSent && !isPhoneVerified && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+              <input
+                type="text"
+                placeholder="인증번호 6자리 입력"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                maxLength={6}
+                style={{ flex: 1, padding: '8px' }}
+              />
+              <button type="button" onClick={handleVerifySms}>
+                확인
+              </button>
+              <span style={{ color: 'red', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
+              </span>
+            </div>
+          )}
+
+          {isPhoneVerified && (
+            <p style={{ color: 'green', fontSize: '0.9rem', marginTop: '5px' }}>
+              ✓ 휴대폰 인증이 완료되었습니다.
+            </p>
+          )}
+        </div>
+      </Form>
       <p>
         이미 계정이 있으신가요? <Link to="/login">로그인</Link>
       </p>
