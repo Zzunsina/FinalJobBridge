@@ -77,7 +77,7 @@ public class ProfilePhotoController {
         return ResponseEntity.noContent().build();
     }
 
-    private byte[] normalize(Object value) {
+    public static byte[] normalize(Object value) {
         if (
             !(value instanceof String image) ||
             image.length() > 2800000 ||

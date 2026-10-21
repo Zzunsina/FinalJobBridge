@@ -12,6 +12,7 @@ import {
 } from '../components/common/UI';
 import { Interviews, Snapshot } from './Seeker';
 import WithdrawAccount from '../components/common/WithdrawAccount';
+import CompanyImageUpload from '../components/common/CompanyImageUpload';
 
 export function CompanyDashboard() {
   const resource = useResource('/company/dashboard');
@@ -199,6 +200,7 @@ export function JobForm() {
               }}
               submit="초안 저장"
             />
+            <CompanyImageUpload />
           </div>
         )}
       </Resource>
@@ -354,6 +356,7 @@ export function CompanyProfile() {
       <Resource resource={resource}>
         {(data) => (
           <div className="panel narrow">
+            <CompanyImageUpload />
             <Badge value={data.approvalStatus} />
             <p className="callout">
               {data.profileMissing
@@ -396,6 +399,7 @@ export function CompanyProfile() {
               ]}
               onSubmit={async (body) => {
                 await client.put('/company/profile', body);
+                window.alert('기업 정보를 저장했습니다.');
                 await resource.reload();
               }}
             />

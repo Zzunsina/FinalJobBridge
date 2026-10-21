@@ -1,0 +1,11 @@
+ALTER TABLE users MODIFY COLUMN login_id VARCHAR(30) NOT NULL;
+ALTER TABLE users MODIFY COLUMN birth_date DATE NOT NULL;
+ALTER TABLE users MODIFY COLUMN gender VARCHAR(10) NOT NULL;
+ALTER TABLE users ADD CONSTRAINT chk_users_login_required CHECK (CHAR_LENGTH(TRIM(login_id)) > 0);
+ALTER TABLE users ADD CONSTRAINT chk_users_password_required CHECK (CHAR_LENGTH(TRIM(password)) > 0);
+ALTER TABLE users ADD CONSTRAINT chk_users_name_required CHECK (CHAR_LENGTH(TRIM(name)) > 0);
+ALTER TABLE users ADD CONSTRAINT chk_users_email_required CHECK (CHAR_LENGTH(TRIM(email)) > 0);
+ALTER TABLE users ADD CONSTRAINT chk_users_phone_required CHECK (CHAR_LENGTH(TRIM(phone)) > 0);
+ALTER TABLE companies ADD CONSTRAINT chk_company_name_required CHECK (CHAR_LENGTH(TRIM(company_name)) > 0);
+ALTER TABLE companies ADD CONSTRAINT chk_company_business_required CHECK (CHAR_LENGTH(TRIM(business_number)) > 0);
+ALTER TABLE user_signup_consents ADD CONSTRAINT chk_required_signup_consents CHECK (terms_accepted = TRUE AND privacy_accepted = TRUE);

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { message } from '../../api/client';
 import { useAuth } from '../../stores/auth';
 import ResumeDocument from './ResumeDocument';
+import CalendarPicker from '../common/CalendarPicker';
 import ProfileAvatar from '../common/ProfileAvatar';
 import '../../assets/styles/resume.css';
 
@@ -317,6 +318,8 @@ export default function ResumeEditor({ initial = {}, onSave }) {
                                 <option key={o}>{o}</option>
                               ))}
                             </select>
+                          ) : item.type === 'month' ? (
+                            <CalendarPicker type="month" label={item.label} value={row[item.key] || ''} required={item.required} disabled={item.key === 'endDate' && Boolean(row.current)} min="1900-01" max="2100-12" onChange={(value) => updateRow(section.key, index, item.key, value)} />
                           ) : item.type === 'textarea' ? (
                             <textarea
                               value={row[item.key] || ''}

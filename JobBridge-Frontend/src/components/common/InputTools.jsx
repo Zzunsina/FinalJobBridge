@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import CalendarPicker from './CalendarPicker';
 
 let postcodeLoader;
 function loadPostcode() {
@@ -133,49 +134,8 @@ export function AddressInput({ id, name, value, onChange, required, maxLength = 
   );
 }
 
-export function ConfirmedDateTime({ id, name, value, onChange, required }) {
-  const [draft, setDraft] = useState(value || '');
-  const [acknowledged, setAcknowledged] = useState(Boolean(value));
-  const input = useRef(null);
-  const confirmed = acknowledged && Boolean(value) && value === draft;
-  return (
-    <div>
-      <div className="input-with-action">
-        <input
-          ref={input}
-          id={id}
-          name={name}
-          type="datetime-local"
-          value={draft}
-          required={required}
-          onChange={(e) => {
-            setAcknowledged(false);
-            setDraft(e.target.value);
-            e.target.setCustomValidity('면접 날짜와 시간을 선택한 후 확인 버튼을 눌러 주세요.');
-          }}
-        />
-        <button
-          type="button"
-          className={confirmed ? 'secondary' : ''}
-          disabled={!draft}
-          onClick={() => {
-            input.current.setCustomValidity('');
-            if (input.current.reportValidity()) {
-              setAcknowledged(true);
-              onChange(draft);
-            }
-          }}
-        >
-          {confirmed ? '확인됨' : '확인'}
-        </button>
-      </div>
-      <small className={confirmed ? 'success-text' : 'muted'} role="status">
-        {confirmed
-          ? `${new Date(`${value}:00+09:00`).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)으로 선택했습니다.`
-          : '날짜와 시간을 선택한 뒤 확인을 눌러 주세요.'}
-      </small>
-    </div>
-  );
+export function ConfirmedDateTime(props) {
+  return <CalendarPicker {...props} type="datetime-local" />;
 }
 
 export function AlphanumericInput({ id, value, onChange, ...props }) {
@@ -193,7 +153,7 @@ export function AlphanumericInput({ id, value, onChange, ...props }) {
         {...props}
         id={id}
         value={isComposing ? draft : value}
-        aria-describedby={warning ? id + '-hint' : undefined}
+        aria-describedby={[props['aria-describedby'], warning ? id + '-hint' : null].filter(Boolean).join(' ') || undefined}
         onCompositionStart={(e) => {
           composing.current = true;
           setDraft(e.currentTarget.value);
