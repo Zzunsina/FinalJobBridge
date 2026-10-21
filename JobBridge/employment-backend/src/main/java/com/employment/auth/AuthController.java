@@ -12,14 +12,21 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService auth;
+    private final SmsService smsService;
 
-    public AuthController(AuthService auth) {
+    public AuthController(AuthService auth, SmsService smsService) {
         this.auth = auth;
+        this.smsService = smsService;
     }
 
     @GetMapping("/auth/csrf")
     Map<String, String> csrf(CsrfToken token) {
         return Map.of("token", token.getToken());
+    }
+
+    @GetMapping("/auth/login-id/availability")
+    Map<String, Object> loginIdAvailability(@RequestParam String loginId) {
+        return auth.loginIdAvailability(loginId);
     }
 
     @PostMapping("/auth/signup/{kind}")
@@ -30,6 +37,19 @@ public class AuthController {
             "가입 유형을 확인해 주세요."
         );
         return auth.signup(body, kind.equals("company"));
+    }
+
+    @PostMapping("/auth/sms/send")
+    Map<String, Object> sendSmsCode(@RequestBody Map<String, Object> body, HttpServletRequest request) {
+        String phone = SmsService.normalize(Input.text(body, "phone", 30, true));
+        auth.requireAvailablePhone(phone, null);
+        return smsService.sendCode(phone, request.getRemoteAddr());
+    }
+
+    @PostMapping("/auth/sms/verify")
+    Map<String, Object> verifySmsCode(@RequestBody Map<String, Object> body) {
+        return smsService.verifyCode(Input.text(body, "phone", 30, true),
+            Input.text(body, "challengeId", 36, true), Input.text(body, "code", 6, true));
     }
 
     @PostMapping("/auth/login")

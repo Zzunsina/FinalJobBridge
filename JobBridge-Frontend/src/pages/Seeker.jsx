@@ -7,6 +7,7 @@ import ResumeDocument from '../components/resume/ResumeDocument';
 import BookmarkButton from '../components/common/BookmarkButton';
 import ProfilePhoto from '../components/common/ProfilePhoto';
 import WithdrawAccount from '../components/common/WithdrawAccount';
+import { ResumeCollection, ApplicationCollection } from '../components/common/CareerLists';
 import {
   Action,
   Badge,
@@ -38,53 +39,7 @@ export function Resumes() {
           이력서를 저장했습니다.
         </p>
       )}
-      <PagedResource resource={resource}>
-        {(rows) =>
-          rows.length ? (
-            <div className="stack">
-              {rows.map((r) => (
-                <article className="panel" key={r.resumeId}>
-                  <div className="row">
-                    <h2>{r.title}</h2>
-                    <div className="tags">
-                      {r.isDefault && <Badge value="기본 이력서" />}
-                      <Badge value={r.isPublic ? '공개' : '비공개'} />
-                    </div>
-                  </div>
-                  <p className="muted">최종 수정 {r.updatedAt?.slice(0, 10)}</p>
-                  <p>{r.skills || '등록한 기술이 없습니다.'}</p>
-                  <div className="actions">
-                    <Link className="button secondary" to={`/resumes/${r.resumeId}/edit`}>
-                      수정하기
-                    </Link>
-                    {!r.isDefault && (
-                      <Action
-                        url={`/resumes/${r.resumeId}/default`}
-                        method="put"
-                        onDone={resource.reload}
-                      >
-                        기본 지정
-                      </Action>
-                    )}
-                    <Action
-                      method="delete"
-                      url={`/resumes/${r.resumeId}`}
-                      onDone={resource.reload}
-                      confirm="이 이력서를 삭제할까요?"
-                    >
-                      삭제
-                    </Action>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <Empty to="/resumes/new" action="첫 이력서 작성">
-              나만의 이력서를 만들어 보세요.
-            </Empty>
-          )
-        }
-      </PagedResource>
+      <Resource resource={resource}>{(rows) => <ResumeCollection rows={rows} reload={resource.reload} />}</Resource>
     </>
   );
 }
@@ -118,42 +73,7 @@ export function Applications() {
   return (
     <>
       <Title description="제출한 지원서와 채용 진행 상황을 확인하세요.">지원 내역</Title>
-      <PagedResource resource={resource}>
-        {(rows) =>
-          rows.length ? (
-            <div className="stack">
-              {rows.map((r) => (
-                <Link
-                  className="panel row"
-                  key={r.applicationId}
-                  to={`/applications/${r.applicationId}`}
-                >
-                  <div>
-                    <p className="muted">{r.companyName}</p>
-                    <h2>{r.title}</h2>
-                    <p>지원일 {r.appliedAt?.slice(0, 10)}</p>
-                    {r.nextInterviewAt && (
-                      <p className="interview-highlight">
-                        면접 예정 ·{' '}
-                        {new Date(r.nextInterviewAt).toLocaleString('ko-KR', {
-                          timeZone: 'Asia/Seoul',
-                        })}{' '}
-                        (한국 시간)
-                      </p>
-                    )}
-                    <span className="text-link">지원 내역·면접 일정 확인 →</span>
-                  </div>
-                  <Badge value={r.status} />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Empty to="/jobs" action="채용공고 둘러보기">
-              아직 지원한 공고가 없습니다.
-            </Empty>
-          )
-        }
-      </PagedResource>
+      <Resource resource={resource}>{(rows) => <ApplicationCollection rows={rows} />}</Resource>
     </>
   );
 }
@@ -350,7 +270,7 @@ export function MyPage() {
           initial={user}
           fields={[
             { name: 'name', label: '이름', required: true, maxLength: 100 },
-            { name: 'phone', label: '전화번호', type: 'tel', required: true },
+            { name: 'phone', label: '휴대폰번호', type: 'tel', required: true },
           ]}
           onSubmit={async (body) => {
             const { data } = await client.patch('/me', body);
@@ -360,6 +280,7 @@ export function MyPage() {
         />
         <hr />
         <h2>비밀번호 변경</h2>
+        <p className="muted">현재 비밀번호와 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.</p>
         <Form
           fields={[
             {
@@ -384,7 +305,7 @@ export function MyPage() {
             setUser(null);
             navigate('/login');
           }}
-          submit="변경 후 다시 로그인"
+          submit="변경하기"
         />
         <WithdrawAccount />
       </div>
@@ -408,6 +329,8 @@ export function Notifications() {
                     <h3>{r.title}</h3>
                     <p>{r.content}</p>
                     <small>{r.createdAt?.slice(0, 10)}</small>
+                    {r.notificationType === 'INQUIRY' && <p><Link className="text-link" to="/inquiries?view=history">문의 답변 확인 →</Link></p>}
+                    {r.notificationType === 'COMPANY' && user?.role === 'COMPANY' && <p><Link className="text-link" to="/company/profile">기업 승인 결과 확인 →</Link></p>}
                     {['INTERVIEW', 'APPLICATION'].includes(r.notificationType) &&
                       r.relatedId &&
                       user?.role !== 'ADMIN' && (
@@ -447,39 +370,34 @@ export function Notifications() {
   );
 }
 
-export function Inquiries() {
-  const resource = useResource('/inquiries');
+export function InquiryWrite({ onSubmitted }) {
   return (
     <>
-      <Title description="궁금한 점을 남겨주시면 운영자가 답변해 드립니다.">고객센터</Title>
-      <div className="panel narrow">
-        <h2>1:1 문의하기</h2>
+      <h2>1:1 문의하기</h2>
+      <p className="muted">문의 내용은 작성자와 관리자만 확인할 수 있습니다.</p>
+      <div className="panel">
         <Form
-          resetOnSuccess
-          successMessage="문의가 접수되었습니다."
           fields={[
-            {
-              name: 'title',
-              label: '문의 제목',
-              required: true,
-              maxLength: 200,
-            },
-            {
-              name: 'content',
-              label: '문의 내용',
-              type: 'textarea',
-              required: true,
-            },
+            { name: 'title', label: '문의 제목', required: true, maxLength: 200 },
+            { name: 'content', label: '문의 내용', type: 'textarea', required: true },
           ]}
           onSubmit={async (body) => {
             await client.post('/inquiries', body);
-            await resource.reload();
-            window.alert('문의가 접수되었습니다.');
+            window.alert('문의가 접수되었습니다. 나의 문의에서 답변을 확인할 수 있습니다.');
+            onSubmitted();
           }}
           submit="문의 접수"
         />
       </div>
-      <h2 className="section">나의 문의</h2>
+    </>
+  );
+}
+
+export function Inquiries() {
+  const resource = useResource('/inquiries');
+  return (
+    <>
+      <div className="row inquiry-history-heading"><div><h2>나의 문의</h2><p className="muted">접수한 문의와 관리자의 답변을 확인하세요.</p></div><Link className="button secondary" to="/inquiries?view=inquiry">새 문의 작성</Link></div>
       <PagedResource resource={resource}>
         {(rows) =>
           rows.length ? (

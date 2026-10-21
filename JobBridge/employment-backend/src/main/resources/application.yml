@@ -7,6 +7,12 @@ spring:
     hikari:
       connection-init-sql: SET time_zone = '+00:00'
 
+coolsms:
+  api-key: ${COOLSMS_APIKEY}
+  api-secret: ${COOLSMS_APISECRET}
+  sender-number: ${COOLSMS_SENDERNUMBER} # 솔라피에 등록된 발신번호
+
+
   jpa:
     open-in-view: false
     hibernate:
@@ -29,15 +35,3 @@ spring:
   config:
     activate:
       on-profile: dev
-
-  datasource:
-    url: jdbc:h2:file:./data/employment;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
-    hikari:
-      connection-init-sql: SET TIME ZONE 'UTC'
-
-app:
-  jwt-secret: ${JWT_SECRET:local-development-only-secret-change-before-deploy-2026}
-  secure-cookie: false

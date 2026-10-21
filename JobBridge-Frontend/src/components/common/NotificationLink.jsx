@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { useResource } from '../../hooks/useResource';
 
 export default function NotificationLink() {
-  const resource = useResource('/notifications', { refreshInterval: 30000 });
+  const resource = useResource('/notifications', { refreshInterval: 10000 });
   const reload = resource.reload;
   useEffect(() => {
+    const visible = () => { if (!document.hidden) reload(); };
     window.addEventListener('notifications-changed', reload);
-    return () => window.removeEventListener('notifications-changed', reload);
+    document.addEventListener('visibilitychange', visible);
+    return () => { window.removeEventListener('notifications-changed', reload); document.removeEventListener('visibilitychange', visible); };
   }, [reload]);
   const unread = (resource.data || []).filter((n) => !n.isRead).length;
   return (

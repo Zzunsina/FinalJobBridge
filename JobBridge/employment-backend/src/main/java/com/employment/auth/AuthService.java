@@ -25,13 +25,15 @@ public class AuthService {
     private final ObjectMapper json;
     private final byte[] secret;
     private final boolean secure;
+    private final SmsService smsService;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthService(
         Database db,
         ObjectMapper json,
         @Value("${app.jwt-secret}") String secret,
-        @Value("${app.secure-cookie}") boolean secure
+        @Value("${app.secure-cookie}") boolean secure,
+        SmsService smsService
     ) {
         if (secret.length() < 32) throw new IllegalArgumentException(
             "JWT_SECRET must be at least 32 characters"
@@ -40,6 +42,7 @@ public class AuthService {
         this.json = json;
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
         this.secure = secure;
+        this.smsService = smsService;
     }
 
     public Map<String, Object> publicUser(long id) {
@@ -66,6 +69,20 @@ public class AuthService {
         return number(user, "userId");
     }
 
+    public Map<String, Object> loginIdAvailability(String value) {
+        String loginId = value.strip().toLowerCase(Locale.ROOT);
+        if (!loginId.matches("[a-z0-9]{4,30}")) throw new Problem(400, "아이디는 영문과 숫자로 4~30자를 입력해 주세요.", "loginId");
+        boolean available = db.list("SELECT user_id FROM users WHERE login_id=?", loginId).isEmpty();
+        return Map.of("available", available, "message", available ? "사용할 수 있는 아이디입니다." : "이미 사용 중인 아이디입니다.");
+    }
+
+    public void requireAvailablePhone(String phone, Long currentUserId) {
+        var rows = currentUserId == null
+            ? db.list("SELECT user_id FROM users WHERE phone=?", phone)
+            : db.list("SELECT user_id FROM users WHERE phone=? AND user_id<>?", phone, currentUserId);
+        if (!rows.isEmpty()) throw new Problem(409, "이미 사용 중인 휴대폰번호입니다. 다른 번호를 입력해 주세요.");
+    }
+
     @Transactional
     public Map<String, Object> signup(Map<String, Object> body, boolean company) {
         String loginId = Input.text(body, "loginId", 30, true).strip().toLowerCase(Locale.ROOT);
@@ -73,28 +90,11 @@ public class AuthService {
             throw new Problem(400, "아이디는 영문과 숫자만 사용하여 4~30자로 입력해 주세요.");
         }
         if (!db.list("SELECT user_id FROM users WHERE login_id=?", loginId).isEmpty()) {
-            throw new Problem(409, "이미 사용 중인 아이디입니다.");
+            throw new Problem(409, "이미 사용 중인 아이디입니다.", "loginId");
         }
         String email = Input.email(body, "email");
         String birthText = Input.text(body, "birthDate", 8, true);
-        LocalDate birth;
-        try {
-            if (!birthText.matches("[0-9]{8}")) throw new IllegalArgumentException();
-            birth = LocalDate.parse(
-                birthText,
-                java.time.format.DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(
-                    java.time.format.ResolverStyle.STRICT
-                )
-            );
-            if (
-                birth.getYear() < 1 || birth.isAfter(LocalDate.now(ZoneId.of("Asia/Seoul")))
-            ) throw new IllegalArgumentException();
-        } catch (RuntimeException ex) {
-            throw new Problem(
-                400,
-                "생년월일을 실제 날짜의 8자리 숫자로 입력해 주세요. 예: 20000123"
-            );
-        }
+        LocalDate birth = Input.birthDate(birthText);
         String gender = Input.text(body, "gender", 10, true);
         if (!Set.of("MALE", "FEMALE").contains(gender)) throw new Problem(
             400,
@@ -103,8 +103,21 @@ public class AuthService {
         String phone = Input.text(body, "phone", 30, true).replaceAll("[^0-9]", "");
         if (!phone.matches("[0-9]{10,11}")) throw new Problem(
             400,
-            "전화번호는 10~11자리여야 합니다."
+            "휴대폰번호는 10~11자리여야 합니다."
         );
+        requireAvailablePhone(phone, null);
+        if (!Boolean.TRUE.equals(body.get("termsAccepted")) || !Boolean.TRUE.equals(body.get("privacyAccepted"))) {
+            throw new Problem(400, "필수 이용약관 및 개인정보 수집·이용에 동의해 주세요.");
+        }
+        String agreementVersion = "2026-10-21";
+        if (!agreementVersion.equals(body.get("agreementVersion"))) {
+            throw new Problem(409, "약관이 변경되었습니다. 페이지를 새로고침하고 다시 확인해 주세요.");
+        }
+        if (body.containsKey("marketingAccepted") && !(body.get("marketingAccepted") instanceof Boolean)) {
+            throw new Problem(400, "광고성 정보 수신 동의 여부를 확인해 주세요.");
+        }
+        String smsToken = Input.text(body, "smsVerificationToken", 36, true);
+        smsService.requireVerified(phone, smsToken);
         long id = db.insert(
             "users",
             fields(
@@ -144,6 +157,11 @@ public class AuthService {
                 )
             );
         } else db.insert("job_seekers", fields("user_id", id, "birth_date", birth));
+        db.update(
+            "INSERT INTO user_signup_consents(user_id,terms_version,privacy_version,marketing_version,terms_accepted,privacy_accepted,marketing_accepted) VALUES(?,?,?,?,TRUE,TRUE,?)",
+            id, agreementVersion, agreementVersion, agreementVersion, Boolean.TRUE.equals(body.get("marketingAccepted"))
+        );
+        smsService.consumeAfterCommit(smsToken);
         return publicUser(id);
     }
 
@@ -414,6 +432,7 @@ public class AuthService {
         db.update("UPDATE users SET status='WITHDRAWN',updated_at=CURRENT_TIMESTAMP WHERE user_id=?", userId);
         db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
         db.update("DELETE FROM user_profile_photos WHERE user_id=?", userId);
+        db.update("DELETE FROM company_images WHERE company_id IN (SELECT company_id FROM companies WHERE user_id=?)", userId);
     }
 
     @Transactional
@@ -427,11 +446,26 @@ public class AuthService {
         ) {
             throw new Problem(400, "현재 비밀번호가 일치하지 않습니다.");
         }
+        String nextPassword = Input.password(body, "password");
+        String currentHash = user.get("password").toString();
+        Timestamp cutoff = Timestamp.from(ZonedDateTime.now(ZoneId.of("Asia/Seoul")).minusMonths(6).toInstant());
+        if (encoder.matches(nextPassword, currentHash)) {
+            throw new Problem(400, "현재 비밀번호 또는 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.");
+        }
+        var history = db.list("SELECT password_hash FROM user_password_history WHERE user_id=? AND used_until>=?", userId, cutoff);
+        for (var previous : history) {
+            if (encoder.matches(nextPassword, previous.get("passwordHash").toString())) {
+                throw new Problem(400, "현재 비밀번호 또는 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.");
+            }
+        }
+        // Record when the old password stopped being used, including long-lived passwords.
+        db.update("INSERT INTO user_password_history(user_id,password_hash,used_until) VALUES(?,?,?)", userId, currentHash, Timestamp.from(Instant.now()));
         db.update(
-            "UPDATE users SET password=? WHERE user_id=?",
-            encoder.encode(Input.password(body, "password")),
+            "UPDATE users SET password=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
+            encoder.encode(nextPassword),
             userId
         );
+        db.update("DELETE FROM user_password_history WHERE user_id=? AND used_until<?", userId, cutoff);
         db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
     }
 }

@@ -13,7 +13,6 @@ import {
   Employment,
   MyPage,
   Notifications,
-  Inquiries,
 } from './pages/Seeker';
 import {
   CompanyDashboard,
@@ -25,6 +24,7 @@ import {
 } from './pages/Company';
 import { AdminDashboard, AdminManage } from './pages/Admin';
 import NotificationLink from './components/common/NotificationLink';
+import CustomerCenter from './pages/CustomerCenter';
 import { BookmarkNotice } from './components/common/BookmarkButton';
 
 const companyLinks = [
@@ -94,6 +94,7 @@ export default function App() {
               ['/companies', '기업정보'],
               ['/employment', '취업연계'],
               ['/notices', '공지사항'],
+              ['/inquiries', '고객센터'],
             ].map(([to, label]) => (
               <NavLink key={to} to={to} onClick={() => setMenu(false)}>
                 {label}
@@ -192,7 +193,7 @@ export default function App() {
             <Route path="/employment" element={user?.role === 'ADMIN' ? protectedPage('ADMIN', <Navigate to="/admin/employment" replace />) : protectedPage('JOB_SEEKER', <Employment />)} />
             <Route path="/mypage" element={protectedPage(null, <MyPage />)} />
             <Route path="/notifications" element={protectedPage(null, <Notifications />)} />
-            <Route path="/inquiries" element={protectedPage(null, <Inquiries />)} />
+            <Route path="/inquiries" element={<CustomerCenter />} />
             <Route path="/company" element={protectedPage('COMPANY', <CompanyDashboard />)} />
             <Route path="/company/jobs" element={protectedPage('COMPANY', <JobManage />)} />
             <Route path="/company/jobs/new" element={protectedPage('COMPANY', <JobForm />)} />

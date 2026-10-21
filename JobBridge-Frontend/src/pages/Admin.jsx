@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useResource } from '../hooks/useResource';
 import client from '../api/client';
 import EmploymentLinkForm from '../components/common/EmploymentLinkForm';
+import CompanyImage from '../components/common/CompanyImage';
 import { Action, Badge, Empty, Form, PagedResource, Title } from '../components/common/UI';
 
 export { default as AdminDashboard } from './AdminDashboard';
@@ -101,7 +102,10 @@ function AdminRow({ name, row: r, reload }) {
     return (
       <>
         <div className="row">
-          <h2>{company ? r.companyName : r.title}</h2>
+          <div className="admin-review-company">
+            <CompanyImage companyId={r.companyId} companyName={r.companyName} admin className="company-symbol admin-review-image" />
+            <div><p className="muted">기업 대표 이미지</p><h2>{company ? r.companyName : r.title}</h2></div>
+          </div>
           <Badge value={status} />
         </div>
         <p className="prose">{r.description || '소개 미입력'}</p>
@@ -253,11 +257,14 @@ function NoticeForm({ initial, onDone }) {
           type: 'textarea',
           required: true,
         },
+        { name: 'image', label: '안내 이미지 (선택)', type: 'notice-image', previewUrl: initial?.hasImage ? '/api/admin/notices/' + initial.noticeId + '/image' : '' },
+        { name: 'isPinned', label: '중요 공지 · 목록 상단 고정', type: 'checkbox' },
         { name: 'isPublished', label: '공개 게시', type: 'checkbox' },
       ]}
       onSubmit={async (body) => {
         if (initial) await client.put(`/admin/notices/${initial.noticeId}`, body);
         else await client.post('/admin/notices', body);
+        window.alert('공지를 저장했습니다.');
         await onDone();
       }}
     />

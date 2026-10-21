@@ -1,9 +1,10 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
 import client from '../api/client';
 import RegionPicker from '../components/common/RegionPicker';
+import CompanyImage from '../components/common/CompanyImage';
 import BookmarkButton from '../components/common/BookmarkButton';
 import {
   Action,
@@ -23,58 +24,7 @@ export function Home() {
   const notices = useResource('/notices');
   return (
     <div className="home-page">
-      <section className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</p>
-          <h1>
-            당신의 가능성이,
-            <br />
-            <em>새로운 기회</em>를 만나는 곳.
-          </h1>
-          <p>
-            나에게 맞는 일자리부터 든든한 취업 지원까지.
-            <br />
-            잡브릿지가 다음 커리어를 함께 연결합니다.
-          </p>
-          <Search />
-          <div className="popular">
-            <span>추천 검색어</span>
-            {['개발자', '디자이너', '기획', '신입'].map((tag) => (
-              <Link key={tag} to={`/jobs?q=${encodeURIComponent(tag)}`}>
-                {tag}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="hero-art" aria-hidden="true">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="floating float-top">
-            <span className="art-icon">✦</span>
-            <div>
-              <strong>새로운 시작을 응원해요</strong>
-              <small>당신에게 꼭 맞는 다음 기회</small>
-            </div>
-            <span className="tiny-check">✓</span>
-          </div>
-          <div className="bridge">
-            <div className="bridge-line" />
-            <div className="bridge-pillar left" />
-            <div className="bridge-pillar right" />
-            <span className="bridge-dot dot-one" />
-            <span className="bridge-dot dot-two" />
-          </div>
-          <div className="floating float-bottom">
-            <span className="art-icon blue">↗</span>
-            <div>
-              <strong>가능성을 커리어로</strong>
-              <small>한 걸음 더 가까워진 내일</small>
-            </div>
-          </div>
-          <span className="spark spark-one">✳</span>
-          <span className="spark spark-two">＋</span>
-        </div>
-      </section>
+      <HomePromotion />
       <section className="quick-links">
         {[
           ['⌕', '나에게 맞는 채용', '조건에 맞는 기회를 찾아보세요', '/jobs'],
@@ -151,6 +101,91 @@ export function Home() {
       </section>
     </div>
   );
+}
+
+
+function HomePromotion() {
+  const [slide, setSlide] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [interacting, setInteracting] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    if (paused || interacting || reducedMotion) return;
+    const timer = window.setInterval(() => setSlide((value) => (value + 1) % 3), 3000);
+    return () => window.clearInterval(timer);
+  }, [paused, interacting, reducedMotion, slide]);
+  const labels = ['잡브릿지 소개', '함께하는 기업', '이력서 작성 안내'];
+  return <section className={'hero promo-carousel promo-theme-' + slide} aria-label="잡브릿지 홍보 배너" aria-roledescription="캐러셀"
+    onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
+    onFocusCapture={() => setInteracting(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
+    <div className="promo-slide" key={slide} role="group" aria-roledescription="슬라이드" aria-label={(slide + 1) + ' / 3 · ' + labels[slide]}>
+      {slide === 0 ? <>
+        <div className="hero-copy">
+          <p className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</p>
+          <h1>
+            당신의 가능성이,
+            <br />
+            <em>새로운 기회</em>를 만나는 곳.
+          </h1>
+          <p>
+            나에게 맞는 일자리부터 든든한 취업 지원까지.
+            <br />
+            잡브릿지가 다음 커리어를 함께 연결합니다.
+          </p>
+          <Search />
+          <div className="popular">
+            <span>추천 검색어</span>
+            {['개발자', '디자이너', '기획', '신입'].map((tag) => (
+              <Link key={tag} to={`/jobs?q=${encodeURIComponent(tag)}`}>
+                {tag}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="hero-art" aria-hidden="true">
+          <div className="orbit orbit-one" />
+          <div className="orbit orbit-two" />
+          <div className="floating float-top">
+            <span className="art-icon">✦</span>
+            <div>
+              <strong>새로운 시작을 응원해요</strong>
+              <small>당신에게 꼭 맞는 다음 기회</small>
+            </div>
+            <span className="tiny-check">✓</span>
+          </div>
+          <div className="bridge">
+            <div className="bridge-line" />
+            <div className="bridge-pillar left" />
+            <div className="bridge-pillar right" />
+            <span className="bridge-dot dot-one" />
+            <span className="bridge-dot dot-two" />
+          </div>
+          <div className="floating float-bottom">
+            <span className="art-icon blue">↗</span>
+            <div>
+              <strong>가능성을 커리어로</strong>
+              <small>한 걸음 더 가까워진 내일</small>
+            </div>
+          </div>
+          <span className="spark spark-one">✳</span>
+          <span className="spark spark-two">＋</span>
+        </div>
+</> : slide === 1 ? <>
+        <div className="hero-copy"><p className="eyebrow">MEET YOUR NEXT TEAM</p><h1>좋은 동료와 함께,<br /><em>더 크게 성장하세요.</em></h1><p>새로운 가능성을 만드는 기업들.<br />기업 소개와 채용 소식을 한곳에서 만나보세요.</p><Link className="button promo-cta" to="/companies">함께하는 기업 만나보기 ↗</Link><div className="promo-keywords"><span>기업 이야기</span><span>일하는 문화</span><span>새로운 기회</span></div></div>
+        <div className="promo-illustration promo-teams" aria-hidden="true"><div className="promo-orb" /><div className="promo-team-card team-back"><span className="promo-logo purple">ON</span><div><strong>아이디어가 자라는 곳</strong><small>함께 만드는 더 나은 경험</small></div></div><div className="promo-team-card team-front"><span className="promo-logo">BL</span><div><small>YOUR NEXT TEAM</small><strong>함께 성장할 동료를 찾아요</strong><p>개발 · 디자인 · 기획</p><span className="promo-mini-tags">협업 &nbsp; / &nbsp; 성장 &nbsp; / &nbsp; 도전</span></div></div><div className="promo-team-note">✦ 가능성을 연결하는 팀</div></div>
+      </> : <>
+        <div className="hero-copy"><p className="eyebrow">BUILD YOUR CAREER STORY</p><h1>차곡차곡 쌓은 경험,<br /><em>멋진 기회가 되도록.</em></h1><p>나만의 강점을 담은 이력서를 준비해 보세요.<br />작성부터 지원까지, 잡브릿지가 함께합니다.</p><Link className="button promo-cta" to="/resumes">내 이력서 준비하기 ↗</Link><div className="promo-keywords"><span>경험 정리</span><span>강점 발견</span><span>커리어 시작</span></div></div>
+        <div className="promo-illustration promo-resume" aria-hidden="true"><div className="promo-orb" /><div className="promo-paper"><span className="promo-paper-label">MY CAREER STORY</span><div className="promo-profile"><span>나</span><div><strong>나의 가능성을 소개합니다</strong><small>경험과 강점을 한눈에</small></div></div><div className="promo-paper-line" /><div className="promo-paper-line short" /><div className="promo-paper-section">01 &nbsp; 나의 경험과 프로젝트</div><div className="promo-paper-line" /><div className="promo-paper-line short" /><div className="promo-paper-section">02 &nbsp; 함께 성장할 나의 강점</div></div><div className="promo-resume-note">✓ 다음 기회를 향한 준비</div></div>
+      </>}
+    </div>
+    <div className="promo-controls"><div className="promo-dots">{labels.map((label, index) => <button key={label} type="button" className={slide === index ? 'active' : ''} aria-label={label + ' 배너 보기'} aria-current={slide === index ? 'true' : undefined} onClick={() => setSlide(index)} />)}</div><span className="promo-counter">{slide + 1} / 3</span><button type="button" className="promo-control" aria-label="이전 배너" onClick={() => setSlide((slide + 2) % 3)}>‹</button><button type="button" className="promo-control" aria-label={paused || reducedMotion ? '배너 자동 전환 시작' : '배너 자동 전환 일시정지'} onClick={() => { setPaused(!(paused || reducedMotion)); setReducedMotion(false); }}>{paused || reducedMotion ? '▶' : 'Ⅱ'}</button><button type="button" className="promo-control" aria-label="다음 배너" onClick={() => setSlide((slide + 1) % 3)}>›</button></div>
+  </section>;
 }
 
 function Search({ initial = '' }) {
@@ -302,7 +337,7 @@ export function JobDetail() {
               ))}
             </article>
             <aside className="panel apply-panel">
-              <span className="company-symbol large">{job.companyName[0]}</span>
+              <CompanyImage companyId={job.companyId} companyName={job.companyName} className="company-symbol large" />
               <h3>{job.companyName}</h3>
               <p className="muted">
                 새로운 가능성을 함께 만들어갈
@@ -401,13 +436,13 @@ export function Companies() {
                   key={c.companyId}
                   to={`/companies/${c.companyId}`}
                 >
-                  <span className="company-symbol large">{c.companyName[0]}</span>
-                  <h2>{c.companyName}</h2>
-                  <p>{c.industry || '산업 정보 준비 중'}</p>
+                  <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
+                  <div className="company-card-heading"><h2>{c.companyName}</h2>{c.description?.startsWith('[예시 기업]') && <span className="company-demo-label">예시 기업</span>}</div>
+                  <p className="company-industry">{c.industry || '산업 정보 준비 중'}</p>
                   <p className="muted">
-                    {c.companySize} · {c.address}
+                    {[c.companySize, c.address].filter(Boolean).join(' · ') || '기업 정보를 준비하고 있습니다.'}
                   </p>
-                  <span className="text-link">기업 알아보기 ↗</span>
+                  <p className="company-card-intro">{c.description?.replace(/^\[예시 기업\][^\n]*\n*/, '').split('\n').find((line) => line.trim()) || '새로운 가능성을 함께 만들어갈 팀을 만나보세요.'}</p><span className="text-link">기업 알아보기 ↗</span>
                 </Link>
               ))}
             </div>
@@ -427,6 +462,7 @@ export function CompanyDetail() {
     <Resource resource={resource}>
       {(c) => (
         <>
+          <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
           <Title description={c.industry}>{c.companyName}</Title>
           <article className="panel prose">
             <h2>기업 소개</h2>
@@ -447,38 +483,32 @@ export function CompanyDetail() {
 
 export function Notices() {
   const { id } = useParams();
-  const resource = useResource(id ? `/notices/${id}` : '/notices');
+  return <NoticeBoard key={id || 'list'} id={id} />;
+}
+
+function NoticeBoard({ id }) {
+  const resource = useResource(id ? '/notices/' + id : '/notices');
+  const [query, setQuery] = useState('');
   return (
-    <>
-      <Title description="서비스의 새로운 소식과 안내를 확인하세요.">공지사항</Title>
+    <div className="notice-board">
+      <Title description="잡브릿지의 서비스 소식과 중요한 안내를 확인하세요.">공지사항</Title>
       <Resource resource={resource}>
-        {(data) =>
-          id ? (
-            <article className="panel prose">
-              <h2>{data.title}</h2>
-              <p className="muted">{data.createdAt?.slice(0, 10)}</p>
-              <p>{data.content}</p>
-              <Link to="/notices">목록으로</Link>
-            </article>
-          ) : data.length ? (
-            <PagedRows rows={data}>
-              {(pageRows) => (
-                <div className="panel">
-                  {pageRows.map((n) => (
-                    <Link className="notice-row" key={n.noticeId} to={`/notices/${n.noticeId}`}>
-                      <strong>{n.title}</strong>
-                      <span>{n.createdAt?.slice(0, 10)}</span>
-                      <span>→</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </PagedRows>
-          ) : (
-            <Empty />
-          )
-        }
+        {(data) => {
+          if (id) return <article className="notice-detail">
+            <header className="notice-detail-heading"><span className="notice-category">{data.isPinned ? '중요 공지' : '공지사항'}</span><h2>{data.title}</h2><p>잡브릿지 운영팀 <span>·</span> {data.createdAt?.slice(0, 10).replaceAll('-', '.')}</p></header>
+            <div className="notice-detail-body">
+              {Boolean(data.hasImage) && <img className="notice-content-image" src={'/api/notices/' + data.noticeId + '/image'} alt={data.title + ' 안내 이미지'} />}
+              <div className="notice-copy">{data.content.split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+            </div>
+            <footer className="notice-detail-footer"><Link className="button secondary" to="/notices">목록으로 돌아가기</Link></footer>
+          </article>;
+          const rows = data.filter((notice) => notice.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+          return <>
+            <div className="notice-list-tools"><p>전체 <strong>{rows.length}</strong>건</p><label><span className="notice-search-label">공지 검색</span><input type="search" value={query} placeholder="제목으로 검색해 보세요" onChange={(e) => setQuery(e.target.value)} /></label></div>
+            {rows.length ? <PagedRows key={query} rows={rows}>{(pageRows) => <div className="notice-table-wrap"><table className="notice-table"><thead><tr><th scope="col">구분</th><th scope="col">제목</th><th scope="col">등록일</th></tr></thead><tbody>{pageRows.map((notice) => <tr key={notice.noticeId} className={notice.isPinned ? 'notice-pinned' : ''}><td><span className="notice-table-category">{notice.isPinned ? '중요' : '공지'}</span></td><td><Link to={'/notices/' + notice.noticeId}>{notice.title}{Boolean(notice.hasImage) && <span className="notice-image-mark" aria-label="안내 이미지 포함">이미지</span>}</Link></td><td><time>{notice.createdAt?.slice(0, 10).replaceAll('-', '.')}</time></td></tr>)}</tbody></table></div>}</PagedRows> : <Empty>{query ? '검색 결과가 없습니다.' : '등록된 공지사항이 없습니다.'}</Empty>}
+          </>;
+        }}
       </Resource>
-    </>
+    </div>
   );
 }

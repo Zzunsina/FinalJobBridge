@@ -21,10 +21,10 @@ class LoginIdMigrationTests {
                 "INSERT INTO users(user_id,email,password,name,phone,role) VALUES(1,'old@test.local','hash','기존회원','01012345678','JOB_SEEKER')"
             );
             s.execute(
-                "INSERT INTO users(user_id,login_id,email,password,name,phone,role) VALUES(2,'member1','taken@test.local','hash','아이디회원','01012345678','COMPANY')"
+                "INSERT INTO users(user_id,login_id,email,password,name,phone,role) VALUES(2,'member1','taken@test.local','hash','아이디회원','01012345679','COMPANY')"
             );
             s.execute("INSERT INTO job_seekers(user_id,birth_date) VALUES(1,'2000-01-23')");
-            Flyway.configure().dataSource(url, "sa", "").load().migrate();
+            Flyway.configure().dataSource(url, "sa", "").target("6").load().migrate();
             try (
                 ResultSet rows = s.executeQuery(
                     "SELECT login_id,birth_date,gender FROM users ORDER BY user_id"

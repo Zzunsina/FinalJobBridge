@@ -9,7 +9,7 @@
   margin-bottom: 26px;
 }
 .admin-page-heading .eyebrow {
-  font-size: 9px;
+  font-size: 12px;
   margin-bottom: 7px;
 }
 .admin-page-heading h1 {
@@ -17,12 +17,12 @@
   margin-bottom: 7px;
 }
 .admin-page-heading p:last-child {
-  font-size: 12px;
+  font-size: 14px;
   color: #8792a4;
   margin-bottom: 0;
 }
 .admin-refresh {
-  font-size: 12px;
+  font-size: 14px;
   gap: 8px;
   min-height: 40px;
   padding: 9px 14px;
@@ -52,7 +52,7 @@
   color: #31538c;
 }
 .admin-summary-banner p {
-  font-size: 11px;
+  font-size: 14px;
   margin: 5px 0 0;
   color: #7c90ae;
 }
@@ -73,12 +73,12 @@
 }
 .admin-date strong {
   display: block;
-  font-size: 11px;
+  font-size: 14px;
 }
 .admin-date small {
   display: block;
   margin-top: 5px;
-  font-size: 10px;
+  font-size: 13px;
   color: #8799b5;
 }
 .admin-metrics {
@@ -107,7 +107,7 @@
   justify-content: space-between;
   gap: 8px;
   align-items: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #718098;
 }
@@ -143,21 +143,21 @@
   color: #243450;
 }
 .admin-metric-value small {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: #94a0b1;
   margin-left: 7px;
   letter-spacing: 0;
 }
 .admin-metric > p {
-  font-size: 10px;
+  font-size: 13px;
   color: #939fb1;
   min-height: 32px;
   margin-bottom: 12px;
   line-height: 1.6;
 }
 .admin-metric-chip {
-  font-size: 10px;
+  font-size: 13px;
   background: #f3f7fe;
   border-radius: 4px;
   padding: 4px 7px;
@@ -196,14 +196,14 @@
 .admin-pending-strip > a > div > span {
   display: block;
   color: #8794a9;
-  font-size: 10px;
+  font-size: 13px;
 }
 .admin-pending-strip strong {
   font-size: 18px;
   color: #3d5479;
 }
 .admin-pending-strip strong small {
-  font-size: 9px;
+  font-size: 12px;
   color: #9aa6b7;
   font-weight: 400;
   margin-left: 5px;
@@ -243,7 +243,7 @@
   letter-spacing: -0.3px;
 }
 .admin-box-heading > a {
-  font-size: 10px;
+  font-size: 13px;
   color: #94a2b7;
   white-space: nowrap;
 }
@@ -257,7 +257,7 @@
   border-radius: 6px;
 }
 .admin-chart-tabs button {
-  font-size: 9px;
+  font-size: 12px;
   padding: 6px 9px;
   min-height: 28px;
   border-radius: 4px;
@@ -282,13 +282,13 @@
   color: #334c72;
 }
 .admin-chart-summary strong small {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 400;
   margin-left: 5px;
   color: #94a3b8;
 }
 .admin-chart-summary > span {
-  font-size: 10px;
+  font-size: 13px;
   color: #9aa7b8;
 }
 .admin-bar-chart {
@@ -322,7 +322,7 @@
 }
 .admin-chart-number {
   height: 24px;
-  font-size: 10px;
+  font-size: 13px;
   color: #87a0c8;
 }
 .admin-bar-track {
@@ -349,23 +349,23 @@
 }
 .admin-chart-date {
   padding-top: 10px;
-  font-size: 9px;
+  font-size: 12px;
   color: #96a3b7;
   text-align: center;
 }
 .admin-chart-date small {
   display: block;
   color: #5587d4;
-  font-size: 8px;
+  font-size: 11px;
 }
 .admin-chart-caption {
-  font-size: 9px;
+  font-size: 12px;
   color: #a3adbe;
   padding: 0 22px 15px;
   margin: 0;
 }
 .admin-box-description {
-  font-size: 10px;
+  font-size: 13px;
   color: #9ba7b9;
   padding: 0 22px;
   margin-bottom: 17px;
@@ -380,16 +380,16 @@
   justify-content: space-between;
   gap: 8px;
   align-items: center;
-  font-size: 10px;
+  font-size: 13px;
   margin-bottom: 5px;
 }
 .admin-pipeline strong {
   color: #4d6283;
-  font-size: 11px;
+  font-size: 14px;
 }
 .admin-pipeline small {
   color: #b0b8c7;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
   margin-left: 3px;
 }
@@ -462,7 +462,7 @@
   border-radius: 0;
   min-height: 40px;
   padding: 6px 0 12px;
-  font-size: 11px;
+  font-size: 14px;
 }
 .admin-queue-tabs button.selected {
   color: #3e77d9;
@@ -473,7 +473,7 @@
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: 4px;
-  font-size: 9px;
+  font-size: 12px;
 }
 .admin-table-wrap {
   width: 100%;
@@ -483,7 +483,7 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 10px;
+  font-size: 13px;
 }
 .admin-table th {
   font-weight: 500;
@@ -511,17 +511,17 @@
   min-width: 130px;
 }
 .admin-table .badge {
-  font-size: 9px;
+  font-size: 12px;
   padding: 3px 6px;
 }
 .admin-table-action {
-  font-size: 10px;
+  font-size: 13px;
   color: #5d83bf;
   white-space: nowrap;
 }
 .admin-table-caption {
   padding: 12px 22px;
-  font-size: 9px;
+  font-size: 12px;
   color: #a2aec0;
   margin: 0;
 }
@@ -558,20 +558,20 @@
 }
 .admin-inquiry strong {
   display: block;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   color: #65758f;
   overflow-wrap: anywhere;
 }
 .admin-inquiry small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: #a3afc0;
   margin-top: 4px;
 }
 .admin-inquiry > span:last-child {
   color: #a6b5c9;
-  font-size: 12px;
+  font-size: 14px;
 }
 .admin-box-bottom {
   margin-top: 10px;
@@ -583,7 +583,7 @@
   justify-content: space-between;
   align-items: center;
   color: #7e96ba;
-  font-size: 10px;
+  font-size: 13px;
 }
 .admin-box-bottom svg {
   width: 14px;
@@ -606,7 +606,7 @@
   color: #b8c9e1;
 }
 .admin-empty p {
-  font-size: 11px;
+  font-size: 14px;
   color: #96a5bb;
   margin: 0;
 }
@@ -624,7 +624,7 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 13px;
 }
 .admin-link-row {
   display: flex;
@@ -639,18 +639,18 @@
 }
 .admin-link-row strong {
   display: block;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   color: #64758f;
 }
 .admin-link-row small {
   display: block;
   color: #a3afbf;
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 3px;
 }
 .admin-link-row .badge {
-  font-size: 9px;
+  font-size: 12px;
 }
 .admin-shortcuts {
   display: grid;
@@ -663,11 +663,11 @@
   border-radius: 12px;
 }
 .admin-shortcuts .eyebrow {
-  font-size: 8px;
+  font-size: 11px;
   margin-bottom: 5px;
 }
 .admin-shortcuts h2 {
-  font-size: 12px;
+  font-size: 14px;
   margin: 0;
   letter-spacing: -0.3px;
 }
@@ -681,7 +681,7 @@
   border-radius: 8px;
   padding: 14px 8px;
   color: #6c86ad;
-  font-size: 10px;
+  font-size: 13px;
   white-space: nowrap;
 }
 .admin-shortcuts > a:hover {
@@ -696,7 +696,7 @@
   color: #a5b6ce;
 }
 .admin-data-note {
-  font-size: 9px;
+  font-size: 12px;
   color: #a0acc0;
   text-align: right;
   margin: 18px 0 0;
@@ -732,7 +732,7 @@
   font-size: 14px;
 }
 .signup-complete p {
-  font-size: 12px;
+  font-size: 14px;
   color: #609473;
   margin: 5px 0 0;
 }
@@ -781,7 +781,7 @@
     font-size: 25px;
   }
   .admin-page-heading p:last-child {
-    font-size: 11px;
+    font-size: 14px;
   }
   .admin-summary-banner {
     align-items: flex-start;
@@ -811,7 +811,7 @@
     padding: 0 20px;
   }
   .admin-summary-banner strong {
-    font-size: 12px;
+    font-size: 14px;
   }
   .admin-data-note {
     text-align: left;
@@ -824,7 +824,7 @@
   }
   .admin-refresh {
     min-height: 36px;
-    font-size: 11px;
+    font-size: 14px;
   }
   .admin-metrics {
     gap: 12px;
@@ -833,7 +833,7 @@
     padding: 15px;
   }
   .admin-metric-top {
-    font-size: 11px;
+    font-size: 14px;
   }
   .admin-icon {
     width: 28px;
@@ -849,7 +849,7 @@
   }
   .admin-metric > p {
     min-height: 42px;
-    font-size: 9px;
+    font-size: 12px;
   }
   .admin-box-heading {
     padding: 18px 16px 14px;
@@ -867,13 +867,13 @@
     gap: 6px;
   }
   .admin-chart-number {
-    font-size: 9px;
+    font-size: 12px;
   }
   .admin-chart-date {
-    font-size: 8px;
+    font-size: 11px;
   }
   .admin-chart-summary > span {
-    font-size: 9px;
+    font-size: 12px;
   }
   .admin-chart-caption {
     padding-left: 16px;
@@ -904,9 +904,9 @@
     gap: 8px;
   }
   .signup-complete strong {
-    font-size: 12px;
+    font-size: 14px;
   }
   .signup-complete p {
-    font-size: 11px;
+    font-size: 14px;
   }
 }
