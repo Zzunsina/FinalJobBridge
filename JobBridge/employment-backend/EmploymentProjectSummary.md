@@ -52,7 +52,8 @@
 | 인증·인가 | Spring Security, JWT HttpOnly 쿠키, CSRF | 보완 제안 |
 | HTTP·라우팅·상태 | axios, react-router-dom, zustand | 보완 제안 |
 | 스타일 | 공통 CSS 변수 + 공통 컴포넌트 + 화면별 CSS | CSS 예시를 확장한 제안 |
-| DB 변경 관리 | Flyway, JPA `ddl-auto=validate` | 보완 제안 |
+
+[//]: # (| DB 변경 관리 | Flyway, JPA `ddl-auto=validate` | 보완 제안 |)
 | 검증 | 백엔드 통합 테스트, 프런트 build·lint, 브라우저 시나리오 | 보완 제안 |
 
 원본에는 Java·Spring Boot·React·MySQL의 정확한 버전이 없다. 기존 쇼핑몰 문서의 버전을 자동 적용하지 않는다. 구현 시작 시 공식 호환성을 확인하고 JDK·Gradle Wrapper·Node.js·각 패키지 버전을 README와 lockfile에 고정한다.
@@ -351,7 +352,9 @@ users 1 ─ N notices / inquiries / notifications
 - 기본 이력서 지정·연계 중복 신청은 구직자 행을 잠가 직렬화한다.
 - 원본 인덱스에 더해 applications(job_seeker_id, applied_at), applications(job_id, status), employment_links(status, requested_at), inquiries(status, created_at)를 제안한다.
 - `created_at`, `updated_at`, `interview_at` 등 시각은 UTC로 저장하고 Asia/Seoul로 표시한다. 공고 시작·마감은 날짜 의미를 유지한다.
-- 실제 데이터는 초기화하지 않는다. Flyway로 스키마를 관리하고 dev 데이터는 없을 때만 생성한다.
+- 실제 데이터는 초기화하지 않는다. 
+
+[//]: # (- Flyway로 스키마를 관리하고 dev 데이터는 없을 때만 생성한다.)
 
 ## 7. API 계약
 
@@ -760,7 +763,6 @@ employment/
       admin/
     src/main/resources/
       application.yml
-      db/migration/          # 추가: Flyway
       static/
     src/test/java/com/employment/
     build.gradle
@@ -867,19 +869,18 @@ job/
    employment_db의 12개 테이블·역할·상태 enum을 유지해주세요.
 2. 구현 전에 Java·Spring Boot·Gradle·Node·React·MySQL의
    호환 버전을 공식 자료로 확인하고 README와 lockfile에 고정해주세요.
-3. 문서의 보완 제안을 적용하고 스키마 변경을 Flyway로 기록해주세요.
-4. 구직자·기업·관리자 인증, HttpOnly JWT 쿠키, CSRF,
+3. 구직자·기업·관리자 인증, HttpOnly JWT 쿠키, CSRF,
    로그인 복원·refresh·로그아웃을 구현해주세요.
-5. 기업 승인·공고 심사·이력서·관심 공고·지원 스냅샷·중복 지원 방지·
+4. 기업 승인·공고 심사·이력서·관심 공고·지원 스냅샷·중복 지원 방지·
    면접·취업연계·공지·문의·내부 알림을 연결해주세요.
-6. 역할뿐 아니라 본인 소유권·기업 승인·상태 전이를 서버에서 검증하고,
+5. 역할뿐 아니라 본인 소유권·기업 승인·상태 전이를 서버에서 검증하고,
    이력서 개인정보와 기업·관리자 내부 메모의 노출 범위를 지켜주세요.
-7. css선택자.txt의 색상과 선택자를 공통 컴포넌트로 정리하고,
+6. css선택자.txt의 색상과 선택자를 공통 컴포넌트로 정리하고,
    SB-01~SB-12 및 반응형·접근성·각종 상태 화면을 적용해주세요.
-8. 비밀값은 환경 변수로 관리하고 실제 개발 DB를 초기화하지 마세요.
-9. 단계별로 실제 동작을 확인하며 테스트·build·lint 결과,
+7. 비밀값은 환경 변수로 관리하고 실제 개발 DB를 초기화하지 마세요.
+8. 단계별로 실제 동작을 확인하며 테스트·build·lint 결과,
    환경 예제·README·API 문서·제한 사항을 함께 제공해주세요.
-10. 명세 보완이나 변경은 docs/decisions.md에 기록해주세요.
+9. 명세 보완이나 변경은 docs/decisions.md에 기록해주세요.
 ```
 
 ### 12.1 구현 시작 시 확정할 항목
