@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../stores/auth';
@@ -109,6 +109,62 @@ export function Signup() {
   const [kind, setKind] = useState('job-seeker');
   const [agreements, setAgreements] = useState(emptyAgreements);
   const navigate = useNavigate();
+
+  // --- 문자 인증 및 비밀번호 확인 상태 ---
+  const [phoneValue, setPhoneValue] = useState('');
+  const [passwordValue, setPasswordValue] = useState('');
+  const [passwordConfirmValue, setPasswordConfirmValue] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [timer, setTimer] = useState(180); // 3분 타이머 (초)
+  const [isTimerActive, setIsTimerActive] = useState(false);
+
+  // 타이머 작동 로직
+  useEffect(() => {
+    let interval = null;
+    if (isTimerActive && timer > 0) {
+      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
+    } else if (timer === 0) {
+      setIsTimerActive(false);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerActive, timer]);
+
+  // 인증번호 전송 요청 함수
+  const handleSendSms = async () => {
+    if (!phoneValue || phoneValue.length < 10) {
+      alert('올바른 휴대폰 번호를 입력해주세요.');
+      return;
+    }
+    try {
+      await client.post('/auth/sms/send', { phone: phoneValue });
+      alert('인증번호가 발송되었습니다.');
+      setIsCodeSent(true);
+      setTimer(180);
+      setIsTimerActive(true);
+    } catch (error) {
+      alert('인증번호 전송에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 인증번호 확인 요청 함수
+  const handleVerifySms = async () => {
+    if (!verificationCode) {
+      alert('인증번호를 입력해주세요.');
+      return;
+    }
+    try {
+      await client.post('/auth/sms/verify', { phone: phoneValue, code: verificationCode });
+      alert('휴대폰 인증이 완료되었습니다.');
+      setIsPhoneVerified(true);
+      setIsTimerActive(false);
+    } catch (error) {
+      alert('인증번호가 일치하지 않거나 만료되었습니다.');
+    }
+  };
+
+  // 💡 아이디 바로 다음(비밀번호, 비밀번호 확인)과 기본 정보 필드 구성
   const fields = [
     {
       name: 'loginId',
@@ -131,10 +187,7 @@ export function Signup() {
       maxLength: 20,
       pattern: '\\S{8,20}',
       autoComplete: 'new-password',
-    },
-    { name: 'passwordConfirm', label: '비밀번호 확인', type: 'password', required: true,
-      maxLength: 20, autoComplete: 'new-password',
-      validate: (value, values) => value === values.password ? '' : '비밀번호가 일치하지 않습니다.',
+
     },
     { name: 'name', label: '이름', required: true, maxLength: 100 },
     {
@@ -165,13 +218,9 @@ export function Signup() {
       required: true,
       maxLength: 255,
     },
-    { name: 'phone', label: '휴대폰번호', required: true,
-      validate: (_value, values) => values.smsVerificationToken ? '' : '휴대폰 문자 인증을 완료해 주세요.',
-      render: ({ id, values, setValues, error, clearError }) => <SmsPhoneInput id={id} value={values.phone || ''} serverError={error}
-        onChange={(phone) => { clearError(); setValues((old) => ({ ...old, phone, smsVerificationToken: '' })); }}
-        onVerified={(smsVerificationToken) => { clearError(); setValues((old) => ({ ...old, smsVerificationToken })); }} />,
-    },
+
   ];
+
   if (kind === 'company')
     fields.push(
       { name: 'companyName', label: '기업명', required: true, maxLength: 200 },
@@ -181,6 +230,7 @@ export function Signup() {
         required: true,
       },
     );
+
   return (
     <div className="auth-shell">
       <p className="eyebrow">JOIN JOBBRIDGE</p>
@@ -206,7 +256,7 @@ export function Signup() {
         key={kind}
         fields={fields}
         onSubmit={async (body) => {
-          await client.post(`/auth/signup/${kind}`, { ...body, ...agreements, agreementVersion: AGREEMENT_VERSION });
+
           navigate('/login', {
             replace: true,
             state: {
@@ -216,25 +266,3 @@ export function Signup() {
           });
         }}
         submit="가입하기"
-        submitDisabled={!agreements.termsAccepted || !agreements.privacyAccepted}
-      >
-        <SignupAgreements value={agreements} onChange={setAgreements} />
-      </Form>
-      <p>
-        이미 계정이 있으신가요? <Link to="/login">로그인</Link>
-      </p>
-    </div>
-  );
-}
-
-export function FindPassword() {
-  return (
-    <div className="auth-shell">
-      <h1>비밀번호 재설정</h1>
-      <p className="callout">
-        메일 서비스가 아직 설정되지 않았습니다. 운영자에게 비밀번호 재설정을 문의해 주세요.
-      </p>
-      <Link to="/login">로그인으로 돌아가기</Link>
-    </div>
-  );
-}

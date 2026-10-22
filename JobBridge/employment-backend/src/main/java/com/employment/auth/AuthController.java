@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService auth;
-    private final SmsService smsService;
 
     public AuthController(AuthService auth, SmsService smsService) {
         this.auth = auth;
@@ -39,17 +38,7 @@ public class AuthController {
         return auth.signup(body, kind.equals("company"));
     }
 
-    @PostMapping("/auth/sms/send")
-    Map<String, Object> sendSmsCode(@RequestBody Map<String, Object> body, HttpServletRequest request) {
-        String phone = SmsService.normalize(Input.text(body, "phone", 30, true));
-        auth.requireAvailablePhone(phone, null);
-        return smsService.sendCode(phone, request.getRemoteAddr());
-    }
 
-    @PostMapping("/auth/sms/verify")
-    Map<String, Object> verifySmsCode(@RequestBody Map<String, Object> body) {
-        return smsService.verifyCode(Input.text(body, "phone", 30, true),
-            Input.text(body, "challengeId", 36, true), Input.text(body, "code", 6, true));
     }
 
     @PostMapping("/auth/login")
