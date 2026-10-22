@@ -46,6 +46,8 @@ public class DevSeed implements CommandLineRunner {
                 "운영 관리자",
                 "phone",
                 "01000000001",
+                "birth_date", java.time.LocalDate.of(2000, 1, 1),
+                "gender", "MALE",
                 "role",
                 "ADMIN"
             )
@@ -63,6 +65,8 @@ public class DevSeed implements CommandLineRunner {
                 "김지원",
                 "phone",
                 "01000000002",
+                "birth_date", java.time.LocalDate.of(2000, 1, 1),
+                "gender", "MALE",
                 "role",
                 "JOB_SEEKER"
             )
@@ -113,7 +117,9 @@ public class DevSeed implements CommandLineRunner {
                     "채용 담당자",
                     "phone",
                     "0101000000" + i,
-                    "role",
+                    "birth_date", java.time.LocalDate.of(2000, 1, 1),
+                "gender", "MALE",
+                "role",
                     "COMPANY"
                 )
             );

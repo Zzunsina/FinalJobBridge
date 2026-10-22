@@ -13,13 +13,19 @@ public class AuthController {
 
     private final AuthService auth;
 
-    public AuthController(AuthService auth) {
+    public AuthController(AuthService auth, SmsService smsService) {
         this.auth = auth;
+        this.smsService = smsService;
     }
 
     @GetMapping("/auth/csrf")
     Map<String, String> csrf(CsrfToken token) {
         return Map.of("token", token.getToken());
+    }
+
+    @GetMapping("/auth/login-id/availability")
+    Map<String, Object> loginIdAvailability(@RequestParam String loginId) {
+        return auth.loginIdAvailability(loginId);
     }
 
     @PostMapping("/auth/signup/{kind}")
@@ -30,6 +36,9 @@ public class AuthController {
             "가입 유형을 확인해 주세요."
         );
         return auth.signup(body, kind.equals("company"));
+    }
+
+
     }
 
     @PostMapping("/auth/login")

@@ -21,17 +21,20 @@ public class OperationsController {
     private final AuthService auth;
     private final EmploymentService service;
     private final AdminDashboardService dashboardService;
+    private final NoticeImages noticeImages;
 
     public OperationsController(
         Database db,
         AuthService auth,
         EmploymentService service,
-        AdminDashboardService dashboardService
+        AdminDashboardService dashboardService,
+        NoticeImages noticeImages
     ) {
         this.db = db;
         this.auth = auth;
         this.service = service;
         this.dashboardService = dashboardService;
+        this.noticeImages = noticeImages;
     }
 
     private long member(HttpServletRequest req) {
@@ -45,14 +48,14 @@ public class OperationsController {
     @GetMapping("/notices")
     Object notices() {
         return db.list(
-            "SELECT notice_id,title,content,created_at FROM notices WHERE is_published=TRUE ORDER BY notice_id DESC"
+            "SELECT notice_id,title,content,is_pinned,created_at,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image FROM notices WHERE is_published=TRUE ORDER BY is_pinned DESC,notice_id DESC"
         );
     }
 
     @GetMapping("/notices/{id}")
     Object notice(@PathVariable long id) {
         return db.one(
-            "SELECT notice_id,title,content,created_at FROM notices WHERE notice_id=? AND is_published=TRUE",
+            "SELECT notice_id,title,content,is_pinned,created_at,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image FROM notices WHERE notice_id=? AND is_published=TRUE",
             id
         );
     }
@@ -75,6 +78,11 @@ public class OperationsController {
             ) ==
             0
         ) throw new Problem(404, "알림을 찾을 수 없습니다.");
+    }
+
+    @GetMapping("/faqs")
+    Object faqs() {
+        return db.list("SELECT faq_id,category,audience,question,answer FROM customer_faqs WHERE is_published=TRUE ORDER BY sort_order,faq_id");
     }
 
     @GetMapping("/inquiries")
@@ -138,8 +146,9 @@ public class OperationsController {
         );
         if (!phone.matches("[0-9]{10,11}")) throw new Problem(
             400,
-            "전화번호를 확인해 주세요."
+            "휴대폰번호를 확인해 주세요."
         );
+        auth.requireAvailablePhone(phone, id);
         db.update(
             "UPDATE users SET name=?,phone=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
             Input.text(body, "name", 100, true),
@@ -164,12 +173,7 @@ public class OperationsController {
     ) {
         long id = auth.require(req, "JOB_SEEKER");
         String birth = Input.text(body, "birthDate", 10, false);
-        java.time.LocalDate date = birth.isBlank()
-            ? null
-            : java.time.LocalDate.parse(birth);
-        if (
-            date != null && date.isAfter(EmploymentService.today())
-        ) throw new Problem(400, "생년월일을 확인해 주세요.");
+        java.time.LocalDate date = birth.isBlank() ? null : Input.birthDate(birth);
         int years = Integer.parseInt(
             body.getOrDefault("experienceYears", 0).toString()
         );
@@ -368,7 +372,7 @@ public class OperationsController {
         if (table == null) throw new Problem(404, "정보를 찾을 수 없습니다.");
         String columns = resource.equals("users")
             ? "user_id,email,name,phone,role,status,created_at"
-            : "*";
+            : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
         return db.list(
             "SELECT " +
                 columns +
@@ -391,7 +395,7 @@ public class OperationsController {
         if (table == null) throw new Problem(404, "정보를 찾을 수 없습니다.");
         String columns = resource.equals("users")
             ? "user_id,email,name,phone,role,status,created_at"
-            : "*";
+            : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
         return db.one(
             "SELECT " +
                 columns +
@@ -435,8 +439,8 @@ public class OperationsController {
         );
         service.notify(
             number(company, "userId"),
-            "기업 심사 결과가 등록되었습니다.",
-            "기업 정보에서 확인해 주세요.",
+            status.equals("APPROVED") ? "기업 승인이 완료되었습니다." : "기업 심사가 반려되었습니다.",
+            status.equals("APPROVED") ? "채용공고를 작성하고 심사를 요청할 수 있습니다. 기업 정보에서 승인 결과를 확인해 주세요." : "기업 정보에서 반려 사유를 확인한 뒤 수정하여 재심사를 요청해 주세요.",
             "COMPANY",
             id
         );
@@ -554,10 +558,13 @@ public class OperationsController {
                 Input.text(body, "content", 10000, true),
                 "author_user_id",
                 admin(req),
+                "is_pinned",
+                Boolean.TRUE.equals(body.get("isPinned")),
                 "is_published",
                 Boolean.TRUE.equals(body.get("isPublished"))
             )
         );
+        if (body.containsKey("image")) noticeImages.save(id, body.get("image"));
         return fields("noticeId", id);
     }
 
@@ -569,12 +576,14 @@ public class OperationsController {
     ) {
         adminDetail("notices", id, req);
         db.update(
-            "UPDATE notices SET title=?,content=?,is_published=? WHERE notice_id=?",
+            "UPDATE notices SET title=?,content=?,is_pinned=?,is_published=? WHERE notice_id=?",
             Input.text(body, "title", 200, true),
             Input.text(body, "content", 10000, true),
+            Boolean.TRUE.equals(body.get("isPinned")),
             Boolean.TRUE.equals(body.get("isPublished")),
             id
         );
+        if (body.containsKey("image")) noticeImages.save(id, body.get("image"));
     }
 
     @PutMapping("/admin/inquiries/{id}/answer")

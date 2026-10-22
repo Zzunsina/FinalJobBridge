@@ -6,20 +6,20 @@ spring:
     password: "1111"
     hikari:
       connection-init-sql: SET time_zone = '+00:00'
-
-coolsms:
-  api-key: ${COOLSMS_APIKEY}
-  api-secret: ${COOLSMS_APIKEYSECRET}
-  sender-number: ${COOLSMS_SENDERNUMBER} # 솔라피에 등록된 발신번호
-
-
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-
   flyway:
     enabled: true
+  config:
+    activate:
+      on-profile: dev
+
+coolsms:
+  api-key: ${COOLSMS_APIKEY}
+  api-secret: ${COOLSMS_APISECRET}
+  sender-number: ${COOLSMS_SENDERNUMBER} # 솔라피에 등록된 발신번호
 
 server:
   error:
@@ -29,9 +29,3 @@ app:
   jwt-secret: ${JWT_SECRET}
   secure-cookie: false
   seed-password: ${DEV_SEED_PASSWORD:}
-
----
-spring:
-  config:
-    activate:
-      on-profile: dev

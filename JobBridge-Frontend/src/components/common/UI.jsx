@@ -4,7 +4,12 @@ import { useAuth } from '../../stores/auth';
 import client, { message } from '../../api/client';
 import { AddressInput, ConfirmedDateTime, AlphanumericInput } from './InputTools';
 import BookmarkButton from './BookmarkButton';
+import CompanyImage from './CompanyImage';
+import NoticeImageInput from './NoticeImageInput';
 import EmailInput from './EmailInput';
+import SignupLoginId from './SignupLoginId';
+import CalendarPicker from './CalendarPicker';
+import { BirthDateInput, MobileInput } from './MemberInputs';
 
 export const labels = {
   ACTIVE: '활성',
@@ -54,7 +59,7 @@ export function Title({ eyebrow, children, description, action }) {
   );
 }
 export function Resource({ resource, children }) {
-  if (resource.loading)
+  if (resource.loading && resource.data == null)
     return (
       <div className="empty" role="status">
         정보를 불러오는 중입니다…
@@ -194,6 +199,7 @@ export function Form({
   initial = {},
   onSubmit,
   submit = '저장하기',
+  submitDisabled = false,
   children,
   resetOnSuccess = false,
   successMessage = '저장되었습니다.',
@@ -203,17 +209,25 @@ export function Form({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   async function save(event) {
     event.preventDefault();
     setBusy(true);
     setError('');
     setSuccess('');
+    setFieldErrors({});
+    const invalid = fields.filter((field) => field.validate && (!field.visibleWhen || field.visibleWhen(values)))
+      .map((field) => [field.name, field.validate(values[field.name], values)]).filter(([, problem]) => problem);
+    if (invalid.length) { setFieldErrors(Object.fromEntries(invalid)); setBusy(false); return; }
     try {
       await onSubmit(values);
       if (resetOnSuccess) setValues({});
       setSuccess(successMessage);
     } catch (error) {
-      setError(message(error));
+      const details = error.response?.data?.fieldErrors;
+      if (Array.isArray(details) && details.length && details.every((item) => fields.some((field) => field.name === item.field))) {
+        setFieldErrors(Object.fromEntries(details.map((item) => [item.field, item.message])));
+      } else setError(message(error));
     } finally {
       setBusy(false);
     }
@@ -230,6 +244,9 @@ export function Form({
           maxLength = 10000,
           sanitize,
           visibleWhen,
+          previewUrl,
+          render,
+          validate: _validate,
           ...rest
         }) =>
           (!visibleWhen || visibleWhen(values)) && (
@@ -238,7 +255,9 @@ export function Form({
                 {label}
                 {required && <small> *</small>}
               </label>
-              {type === 'address' ? (
+              {render ? render({ id: formId + '-' + name, values, setValues, error: fieldErrors[name], clearError: () => setFieldErrors((old) => ({ ...old, [name]: '' })), validate: _validate }) : type === 'signup-login-id' ? (
+                <SignupLoginId {...rest} id={formId + '-' + name} value={values[name] || ''} required={required} maxLength={maxLength} serverError={fieldErrors[name]} onChange={(value) => { setValues((old) => ({ ...old, [name]: value })); setFieldErrors((old) => ({ ...old, [name]: '' })); }} />
+              ) : type === 'address' ? (
                 <AddressInput
                   id={`${formId}-${name}`}
                   name={name}
@@ -247,6 +266,8 @@ export function Form({
                   maxLength={maxLength}
                   onChange={(value) => setValues((old) => ({ ...old, [name]: value }))}
                 />
+              ) : type === 'notice-image' ? (
+                <NoticeImageInput id={formId + '-' + name} value={values[name]} previewUrl={previewUrl} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
               ) : type === 'confirmed-datetime' ? (
                 <ConfirmedDateTime
                   id={`${formId}-${name}`}
@@ -255,6 +276,12 @@ export function Form({
                   required={required}
                   onChange={(value) => setValues((old) => ({ ...old, [name]: value }))}
                 />
+              ) : type === 'date' || type === 'month' ? (
+                <CalendarPicker {...rest} id={formId + '-' + name} name={name} type={type} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
+              ) : name === 'birthDate' ? (
+                <BirthDateInput id={formId + '-' + name} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
+              ) : type === 'tel' && name === 'phone' ? (
+                <MobileInput id={formId + '-' + name} name={name} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
               ) : type === 'email-select' ? (
                 <EmailInput id={formId + '-' + name} name={name} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
               ) : sanitize === 'alphanumeric' ? (
@@ -318,6 +345,7 @@ export function Form({
                   {...rest}
                 />
               )}
+              {!render && type !== 'signup-login-id' && fieldErrors[name] && <p className="input-guidance" role="alert">{fieldErrors[name]}</p>}
             </div>
           ),
       )}
@@ -333,7 +361,7 @@ export function Form({
         </div>
       )}
       <div className="form-actions">
-        <button type="submit" disabled={busy}>
+        <button type="submit" disabled={busy || submitDisabled}>
           {busy ? '처리 중…' : submit}
         </button>
       </div>
@@ -346,7 +374,7 @@ export function JobCard({ job, onBookmarkChange }) {
   return (
     <article className="job-card">
       <div className="card-top">
-        <span className="company-symbol">{job.companyName?.slice(0, 1)}</span>
+        <CompanyImage companyId={job.companyId} companyName={job.companyName} />
         <div className="card-top-actions">
           <span className="deadline">
             {days < 0 ? '마감' : days === 0 ? '오늘 마감' : `D-${days}`}
