@@ -369,35 +369,61 @@ export function Form({
   );
 }
 
+
 export function JobCard({ job, onBookmarkChange }) {
-  const days = Math.ceil((Date.parse(job.endDate + 'T23:59:59+09:00') - Date.now()) / 86400000);
+  const days = Math.ceil(
+    (Date.parse(job.endDate + 'T23:59:59+09:00') - Date.now()) /
+      86400000
+  );
+
   return (
     <article className="job-card">
+      {/* 카드 전체를 클릭하는 링크 */}
+      <Link
+        className="job-card-link-overlay"
+        to={`/jobs/${job.jobId}`}
+        aria-label={`${job.companyName} ${job.title} 자세히 보기`}
+      />
+
       <div className="card-top">
-        <CompanyImage companyId={job.companyId} companyName={job.companyName} />
+        <CompanyImage
+          companyId={job.companyId}
+          companyName={job.companyName}
+        />
+
         <div className="card-top-actions">
           <span className="deadline">
-            {days < 0 ? '마감' : days === 0 ? '오늘 마감' : `D-${days}`}
+            {days < 0
+              ? '마감'
+              : days === 0
+                ? '오늘 마감'
+                : `D-${days}`}
           </span>
-          <BookmarkButton jobId={job.jobId} compact onChanged={onBookmarkChange} />
+
+          <BookmarkButton
+            jobId={job.jobId}
+            compact
+            onChanged={onBookmarkChange}
+          />
         </div>
       </div>
+
       <p className="company-name">{job.companyName}</p>
-      <h3>
-        <Link to={`/jobs/${job.jobId}`}>{job.title}</Link>
-      </h3>
+
+      <h3>{job.title}</h3>
+
       <p className="muted">
         {job.workLocation} <span>·</span> {job.careerType}
       </p>
+
       <div className="tags">
         <span>{job.jobType}</span>
         <span>{job.education || '학력 무관'}</span>
       </div>
+
       <div className="card-bottom">
         <span>{job.endDate} 마감</span>
-        <Link to={`/jobs/${job.jobId}`} aria-label={`${job.title} 자세히 보기`}>
-          자세히 보기 ↗
-        </Link>
+        <span className="job-card-more">자세히 보기 ↗</span>
       </div>
     </article>
   );

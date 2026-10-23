@@ -599,6 +599,7 @@ public class EmploymentService {
         values.put("start_date", start);
         values.put("end_date", end);
         values.put("status", "DRAFT");
+        values.put("banner_image_url", Input.text(body, "bannerImageUrl", 2000, false));
         if (id == null) {
             values.put("company_id", company);
             id = db.insert("job_postings", values);

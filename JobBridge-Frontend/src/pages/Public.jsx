@@ -19,12 +19,16 @@ import {
   Title,
 } from '../components/common/UI';
 
+
+
 export function Home() {
   const jobs = useResource('/jobs?size=6');
   const notices = useResource('/notices');
+
   return (
     <div className="home-page">
       <HomePromotion />
+
       <section className="quick-links">
         {[
           ['⌕', '나에게 맞는 채용', '조건에 맞는 기회를 찾아보세요', '/jobs'],
@@ -42,6 +46,7 @@ export function Home() {
           </Link>
         ))}
       </section>
+
       <section className="section">
         <div className="section-heading">
           <div>
@@ -53,20 +58,28 @@ export function Home() {
             전체 공고 보기 →
           </Link>
         </div>
+
         <Resource resource={jobs}>
-          {(data) =>
-            data.content.length ? (
-              <div className="job-grid">
-                {data.content.map((job) => (
-                  <JobCard key={job.jobId} job={job} />
+          {(data) => {
+            const allJobs = data.content || [];
+
+            if (!allJobs.length) {
+              return <Empty>현재 게시된 채용공고가 없습니다.</Empty>;
+            }
+
+            return (
+              <div className="regular-job-grid">
+                {allJobs.map((job) => (
+                  <div className="regular-job-item" key={job.jobId}>
+                    <JobCard job={job} />
+                  </div>
                 ))}
               </div>
-            ) : (
-              <Empty>현재 게시된 채용공고가 없습니다.</Empty>
-            )
-          }
+            );
+          }}
         </Resource>
       </section>
+
       <section className="support-banner">
         <div>
           <p className="eyebrow">WE ARE HERE FOR YOU</p>
@@ -77,16 +90,22 @@ export function Home() {
           취업연계 알아보기 ↗
         </Link>
       </section>
+
       <section className="section notice-preview">
         <div className="section-heading">
           <h2>잡브릿지 소식</h2>
           <Link to="/notices">전체 보기 →</Link>
         </div>
+
         <Resource resource={notices}>
           {(rows) =>
             rows.length ? (
               rows.slice(0, 3).map((n) => (
-                <Link className="notice-row" key={n.noticeId} to={`/notices/${n.noticeId}`}>
+                <Link
+                  className="notice-row"
+                  key={n.noticeId}
+                  to={`/notices/${n.noticeId}`}
+                >
                   <Badge value="공지" />
                   <strong>{n.title}</strong>
                   <span>{n.createdAt?.slice(0, 10)}</span>
@@ -102,6 +121,7 @@ export function Home() {
     </div>
   );
 }
+
 
 
 function HomePromotion() {
@@ -511,4 +531,29 @@ function NoticeBoard({ id }) {
       </Resource>
     </div>
   );
+
+  
 }
+function PremiumJobBanner({ job }) {
+  return (
+    <Link
+      to={`/jobs/${job.jobId}`}
+      className="premium-banner"
+      aria-label={`${job.companyName} ${job.title} 채용공고 보기`}
+    >
+      <img
+        className="premium-banner-image"
+        src={job.bannerImageUrl}
+        alt=""
+      />
+
+      <div className="premium-banner-overlay">
+        <span className="premium-banner-label">PREMIUM 채용</span>
+        <h3>{job.title}</h3>
+        <p>{job.companyName} · {job.workLocation}</p>
+      </div>
+    </Link>
+  );
+}
+
+export default PremiumJobBanner;

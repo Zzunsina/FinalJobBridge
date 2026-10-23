@@ -173,8 +173,16 @@ const jobFields = [
   },
   { name: 'startDate', label: '접수 시작일', type: 'date', required: true },
   { name: 'endDate', label: '접수 마감일', type: 'date', required: true },
-  { name: 'description', label: '상세 설명', type: 'textarea', required: true },
-  { name: 'requirements', label: '자격요건', type: 'textarea' },
+ { name: 'description', label: '상세 설명', type: 'textarea', required: true },
+
+{
+  name: 'bannerImageUrl',
+  label: '기업 홍보 배너 이미지',
+  type: 'notice-image',
+  previewUrl: '',
+},
+
+{ name: 'requirements', label: '자격요건', type: 'textarea' },
   { name: 'preferredQualifications', label: '우대사항', type: 'textarea' },
 ];
 export function JobForm() {

@@ -2024,3 +2024,922 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
 .signup-id-row { display:flex; gap:8px; align-items:start; flex-wrap:wrap; }.signup-id-row input { flex:1; min-width:0; }.signup-id-row .input-guidance { flex-basis:100%; }.signup-id-row button { white-space:nowrap; }.signup-id-feedback { margin:7px 0 0; font-size:13px; color:#748399; line-height:1.6; }.signup-id-feedback.available { color:#15805c; }.signup-id-feedback.invalid { color:#d43b47; }.signup-id-row input[aria-invalid="true"] { border-color:#e57a83; }
 
 .sms-input-row,.sms-code-row { display:flex; gap:8px; align-items:center; }.sms-input-row input { flex:1; min-width:0; }.sms-input-row button,.sms-code-row button { flex-shrink:0; white-space:nowrap; padding:11px 14px; font-size:13px; }.sms-code-row { margin-top:10px; flex-wrap:wrap; }.sms-code-label { width:100%; margin:0!important; font-size:13px; }.sms-code-input { position:relative; flex:1; min-width:0; }.sms-code-input input { width:100%; padding-right:62px; }.sms-code-input span { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#d14a54; font-size:13px; font-variant-numeric:tabular-nums; }.sms-feedback { font-size:13px; color:#68758a; margin:8px 0 0; line-height:1.7; }.sms-feedback.verified { color:#16825c; }
+
+
+
+/* =========================================
+   JOBBRIDGE PREMIUM MEGA MENU
+   ========================================= */
+
+#header {
+  position: relative;
+  z-index: 100;
+}
+
+.main-nav {
+  align-items: center;
+}
+
+.nav-mega {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.main-nav .nav-mega-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.nav-chevron {
+  display: inline-block;
+  font-size: 17px;
+  transition: transform 180ms ease;
+}
+
+.nav-mega:hover .nav-chevron,
+.nav-mega:focus-within .nav-chevron {
+  transform: rotate(180deg);
+}
+
+.mega-panel {
+  position: absolute;
+  top: calc(100% + 24px);
+  left: -170px;
+  width: min(1000px, calc(100vw - 48px));
+  padding: 32px;
+  color: #17233d;
+  background: #fff;
+  border: 1px solid #e8edf5;
+  border-radius: 20px;
+  box-shadow:
+    0 24px 70px rgba(17, 37, 72, 0.16),
+    0 4px 12px rgba(17, 37, 72, 0.05);
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px);
+
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms ease;
+}
+
+.mega-panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -25px;
+  height: 26px;
+}
+
+.nav-mega:hover .mega-panel,
+.nav-mega:focus-within .mega-panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.mega-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.mega-eyebrow {
+  color: #3868cf;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.7px;
+}
+
+.mega-heading h2 {
+  margin: 10px 0 7px;
+  color: #17233d;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -1.1px;
+}
+
+.mega-heading p {
+  margin: 0;
+  color: #78859a;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.mega-all {
+  flex-shrink: 0;
+  padding: 12px 15px;
+  border: 1px solid #dce5f4;
+  border-radius: 10px;
+  color: #234d9b;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 160ms ease;
+}
+
+.mega-all:hover {
+  background: #f0f5ff;
+}
+
+.mega-all span {
+  margin-left: 8px;
+}
+
+.mega-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 28px;
+  padding-top: 26px;
+}
+
+.mega-categories {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
+  row-gap: 30px;
+}
+
+.mega-category {
+  min-width: 0;
+}
+
+.mega-category-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.mega-category-title > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: #edf3ff;
+  color: #3564bf;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.mega-category-title h3 {
+  margin: 0;
+  color: #1c2b45;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.mega-job-list {
+  display: grid;
+  gap: 3px;
+}
+
+.main-nav .mega-job-list a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: 6px;
+  color: #65738a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: normal;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.main-nav .mega-job-list a:hover,
+.main-nav .mega-job-list a:focus-visible {
+  color: #2457b6;
+  background: #f1f5ff;
+}
+
+.mega-job-arrow {
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: 150ms ease;
+}
+
+.mega-job-list a:hover .mega-job-arrow,
+.mega-job-list a:focus-visible .mega-job-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.mega-feature {
+  align-self: stretch;
+  padding: 24px 20px;
+  border-radius: 15px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(130, 174, 255, 0.28),
+      transparent 45%
+    ),
+    linear-gradient(145deg, #edf3ff 0%, #f6f8ff 100%);
+}
+
+.mega-feature-label {
+  color: #5273b7;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.mega-feature-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-top: 26px;
+  border-radius: 14px;
+  background: #fff;
+  color: #3868cf;
+  font-size: 26px;
+  box-shadow: 0 5px 18px rgba(43, 82, 151, 0.08);
+}
+
+.mega-feature h3 {
+  margin: 19px 0 10px;
+  color: #1b3159;
+  font-size: 20px;
+  line-height: 1.5;
+  letter-spacing: -0.8px;
+}
+
+.mega-feature p {
+  margin: 0;
+  color: #6f7e96;
+  font-size: 12px;
+  line-height: 1.9;
+  word-break: keep-all;
+}
+
+.mega-feature > a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #dbe5f8;
+  color: #2859b2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* 태블릿 */
+@media (max-width: 1050px) {
+  .mega-panel {
+    left: -100px;
+    width: min(850px, calc(100vw - 32px));
+    padding: 24px;
+  }
+
+  .mega-content {
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 18px;
+  }
+
+  .mega-categories {
+    column-gap: 12px;
+  }
+}
+
+/* 모바일: 기존 햄버거 메뉴 안에서는 hover 대신 터치로 열기 */
+@media (max-width: 760px) {
+  .main-nav .nav-mega {
+    display: block;
+    width: 100%;
+  }
+
+  .main-nav .nav-mega-trigger {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .main-nav .mega-panel {
+    display: none;
+    position: static;
+    width: 100%;
+    max-height: 65vh;
+    overflow-y: auto;
+    margin: 8px 0 14px;
+    padding: 18px;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .main-nav .nav-mega:hover .mega-panel,
+  .main-nav .nav-mega:focus-within .mega-panel {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .main-nav .nav-mega:focus-within .mega-panel {
+    display: block;
+  }
+
+  .mega-heading {
+    display: block;
+  }
+
+  .mega-heading h2 {
+    font-size: 20px;
+  }
+
+  .mega-all {
+    display: inline-block;
+    margin-top: 15px;
+  }
+
+  .mega-content {
+    grid-template-columns: 1fr;
+  }
+
+  .mega-categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 12px;
+  }
+
+  .mega-feature {
+    padding: 18px;
+  }
+
+  .mega-feature-icon {
+    margin-top: 16px;
+  }
+
+  .mega-feature h3 {
+    font-size: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mega-panel,
+  .nav-chevron,
+  .mega-job-arrow {
+    transition: none;
+  }
+}
+
+
+
+/* ===================================
+   메인 채용공고 - 프리미엄 영역
+   =================================== */
+
+.premium-jobs,
+.regular-jobs {
+  margin-top: 36px;
+}
+
+.premium-heading,
+.regular-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.premium-eyebrow {
+  color: #3568cf;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.premium-heading h3,
+.regular-heading h3 {
+  margin: 6px 0;
+  color: #17233d;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+
+.premium-heading p,
+.regular-heading p {
+  margin: 0;
+  color: #778398;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.premium-label {
+  padding: 7px 10px;
+  border: 1px solid #dbe5ff;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #315db4;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+/* 프리미엄 공고: 데스크톱 4열 */
+
+/* ===================================
+   프리미엄 이미지형 채용 배너
+   =================================== */
+
+.premium-jobs {
+  margin-top: 32px;
+}
+
+.premium-job-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+
+/* 유료 배너 등장 애니메이션 */
+.premium-banner {
+  position: relative;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+
+  animation: premium-enter 650ms ease-out both;
+  animation-delay: var(--delay, 0ms);
+
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease;
+}
+
+/* 마우스를 올리면 배너 확대 */
+.premium-banner:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 30px rgba(34, 68, 130, 0.2);
+}
+
+/* 배너 이미지 확대 */
+.premium-banner .premium-banner-image {
+  transition: transform 300ms ease;
+}
+
+.premium-banner:hover .premium-banner-image {
+  transform: scale(1.06);
+}
+
+/* 순차적으로 아래에서 위로 등장 */
+@keyframes premium-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 애니메이션 최소화 설정 */
+@media (prefers-reduced-motion: reduce) {
+  .premium-banner {
+    animation: none;
+    transition: none;
+  }
+
+  .premium-banner .premium-banner-image {
+    transition: none;
+  }
+}
+
+
+/* 태블릿 */
+@media (max-width: 800px) {
+  .premium-job-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .premium-banner {
+    height: 200px;
+  }
+}
+
+/* 모바일 */
+@media (max-width: 520px) {
+  .premium-job-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .premium-banner {
+    height: 190px;
+  }
+
+  .premium-banner-content {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-banner,
+  .premium-banner-image {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* 일반 공고: 데스크톱 5열 */
+.regular-heading {
+  margin-top: 32px;
+}
+
+.regular-job-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.regular-job-item {
+  min-width: 0;
+  padding: 2px;
+  overflow: hidden;
+  border: 1px solid #e6eaf1;
+  border-radius: 11px;
+  background: #fff;
+  animation: regular-enter 450ms ease both;
+  animation-delay: var(--delay, 0ms);
+  transition: transform 180ms ease, border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.regular-job-item:hover {
+  transform: translateY(-2px);
+  border-color: #c5d4ef;
+  box-shadow: 0 6px 16px rgba(23, 35, 61, 0.07);
+}
+
+@keyframes regular-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 태블릿 */
+@media (max-width: 800px) {
+  .premium-job-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .regular-job-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* 모바일 */
+@media (max-width: 520px) {
+  .premium-job-grid,
+  .regular-job-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .premium-jobs,
+  .regular-jobs {
+    margin-top: 28px;
+  }
+
+  .premium-heading h3,
+  .regular-heading h3 {
+    font-size: 19px;
+  }
+
+  .premium-heading,
+  .regular-heading {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .premium-label {
+    padding: 6px 8px;
+  }
+}
+
+/* 애니메이션 최소화 설정 */
+@media (prefers-reduced-motion: reduce) {
+  .premium-job-item,
+  .regular-job-item {
+    animation: none;
+    transition: none;
+  }
+}
+
+
+/* 상단 프리미엄 채용공고 배너 높이 줄이기 */
+.premium-job-item .job-card {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+/* 하단 일반 채용공고 배너 높이 줄이기 */
+.regular-job-item .job-card {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* 배너 안의 요소 사이 간격 줄이기 */
+.job-card .card-top {
+  margin-bottom: 5px;
+}
+
+.job-card .company-name {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.job-card h3 {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.job-card .muted {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.job-card .card-bottom {
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.premium-banner {
+  position: relative;
+  display: block;
+  height: 240px;
+  overflow: hidden;
+  border-radius: 12px;
+  color: #fff;
+  text-decoration: none;
+  background: #172c83;
+  isolation: isolate;
+}
+
+.premium-banner-image {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 250ms ease;
+}
+
+.premium-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    transparent 20%,
+    rgba(5, 12, 65, 0.15) 45%,
+    rgba(3, 7, 52, 0.98) 100%
+  );
+}
+
+.premium-banner-overlay {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  left: 20px;
+}
+
+.premium-banner-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.premium-banner h3 {
+  margin: 0 0 7px;
+  font-size: 21px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+
+.premium-banner p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.premium-banner:hover .premium-banner-image {
+  transform: scale(1.04);
+}
+
+.premium-banner:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+  .premium-banner {
+    height: 190px;
+  }
+
+  .premium-banner-overlay {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+  }
+
+  .premium-banner h3 {
+    font-size: 17px;
+  }
+}
+
+/* 일반 채용공고 카드 전체 클릭 */
+.job-card {
+  position: relative;
+}
+
+.job-card-link-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+/* 북마크 버튼은 카드 링크 위에서 별도 동작 */
+.job-card .card-top-actions {
+  position: relative;
+  z-index: 2;
+}
+
+.job-card .card-top-actions .bookmark-button,
+.job-card .card-top-actions button {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+/* 상세 보기 문구 */
+.job-card-more {
+  color: #5476b8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.job-card:has(.job-card-link-overlay:hover) {
+  border-color: #c5d4ef;
+  box-shadow: 0 8px 22px rgba(23, 35, 61, 0.1);
+}
+
+/* ===================================
+   기업 홍보 이미지형 유료 배너
+   =================================== */
+
+.premium-job-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.premium-banner {
+  position: relative;
+  display: block;
+  height: 260px;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #4268e8, #070b45);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 5px 18px rgba(23, 35, 61, 0.10);
+  animation: premium-enter 650ms ease-out both;
+  animation-delay: var(--delay, 0ms);
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+
+.premium-banner-image {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+.premium-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    transparent 25%,
+    rgba(0, 0, 0, 0.12) 45%,
+    rgba(0, 0, 0, 0.82) 100%
+  );
+}
+
+.premium-banner-content {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  left: 18px;
+}
+
+.premium-banner-content h3 {
+  margin: 8px 0;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.premium-banner-content p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.premium-banner:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px rgba(23, 35, 61, 0.18);
+}
+
+.premium-banner:hover .premium-banner-image {
+  transform: scale(1.05);
+}
+
+@keyframes premium-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 800px) {
+  .premium-job-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .premium-banner {
+    height: 220px;
+  }
+}
+
+@media (max-width: 520px) {
+  .premium-job-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .premium-banner {
+    height: 200px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-banner,
+  .premium-banner-image {
+    animation: none;
+    transition: none;
+  }
+}
+
