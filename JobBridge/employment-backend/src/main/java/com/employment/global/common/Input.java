@@ -69,6 +69,29 @@ public final class Input {
         return value;
     }
 
+    public static String jobType(String value, boolean optional) {
+        if (optional && "".equals(value)) return value;
+        if (value == null || !java.util.Set.of("정규직", "계약직", "인턴").contains(value))
+            throw new Problem(400, "고용형태를 확인해 주세요.", "jobType");
+        return value;
+    }
+
+    public static java.time.LocalDate date(Map<String, Object> body, String key) {
+        try {
+            return java.time.LocalDate.parse(text(body, key, 10, true));
+        } catch (java.time.DateTimeException ex) {
+            throw new Problem(400, "실제 날짜를 YYYY-MM-DD 형식으로 입력해 주세요.", key);
+        }
+    }
+
+    public static java.time.Instant instant(Map<String, Object> body, String key) {
+        try {
+            return java.time.OffsetDateTime.parse(text(body, key, 50, true)).toInstant();
+        } catch (java.time.DateTimeException ex) {
+            throw new Problem(400, "시간대를 포함한 올바른 일시를 입력해 주세요.", key);
+        }
+    }
+
     public static long id(Map<String, Object> body, String key) {
         try {
             long value = Long.parseLong(String.valueOf(body.get(key)));

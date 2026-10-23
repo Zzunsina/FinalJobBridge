@@ -1,6 +1,8 @@
 package com.employment.global.common;
 
 import java.sql.Timestamp;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -18,6 +20,7 @@ public class Database {
     public List<Map<String, Object>> list(String sql, Object... args) {
         return jdbc.query(
             sql,
+            ps -> bind(ps, args),
             (rs, row) -> {
                 Map<String, Object> result = new LinkedHashMap<>();
                 for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
@@ -32,13 +35,15 @@ public class Database {
                         }
                     }
                     Object value = rs.getObject(i);
-                    if (value instanceof Timestamp time) value = time.toInstant().toString();
+                    // SQL TIMESTAMP/DATETIME values are exchanged in the configured UTC session.
+                    // JDBC's default Calendar uses the JVM zone, which can differ from that session.
+                    if (value instanceof Timestamp) value = rs.getTimestamp(i, utc()).toInstant().toString();
+                    if ("has_image".equals(raw) && value != null) value = rs.getBoolean(i);
                     if (value instanceof java.sql.Date date) value = date.toLocalDate().toString();
                     result.put(key.toString(), value);
                 }
                 return result;
-            },
-            args
+            }
         );
     }
 
@@ -49,7 +54,7 @@ public class Database {
     }
 
     public int update(String sql, Object... args) {
-        return jdbc.update(sql, args);
+        return jdbc.update(sql, ps -> bind(ps, args));
     }
 
     public long insert(String table, Map<String, Object> fields) {
@@ -69,10 +74,7 @@ public class Database {
                     sql,
                     java.sql.Statement.RETURN_GENERATED_KEYS
                 );
-                for (int i = 0; i < keys.size(); i++) statement.setObject(
-                    i + 1,
-                    fields.get(keys.get(i))
-                );
+                bind(statement, fields.values().toArray());
                 return statement;
             },
             holder
@@ -86,6 +88,17 @@ public class Database {
             .findFirst()
             .orElseThrow()
             .longValue();
+    }
+
+    private static Calendar utc() {
+        return Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    }
+
+    private static void bind(PreparedStatement statement, Object[] args) throws SQLException {
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] instanceof Timestamp time) statement.setTimestamp(i + 1, time, utc());
+            else statement.setObject(i + 1, args[i]);
+        }
     }
 
     public static long number(Map<String, Object> row, String key) {

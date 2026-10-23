@@ -52,7 +52,7 @@
 | 인증·인가 | Spring Security, JWT HttpOnly 쿠키, CSRF | 보완 제안 |
 | HTTP·라우팅·상태 | axios, react-router-dom, zustand | 보완 제안 |
 | 스타일 | 공통 CSS 변수 + 공통 컴포넌트 + 화면별 CSS | CSS 예시를 확장한 제안 |
-| DB 변경 관리 | Flyway, JPA `ddl-auto=validate` | 보완 제안 |
+| DB 변경 관리 | 일반 SQL 신규 스키마, 기존 DB 자동 변경 없음 | 보완 제안 |
 | 검증 | 백엔드 통합 테스트, 프런트 build·lint, 브라우저 시나리오 | 보완 제안 |
 
 원본에는 Java·Spring Boot·React·MySQL의 정확한 버전이 없다. 기존 쇼핑몰 문서의 버전을 자동 적용하지 않는다. 구현 시작 시 공식 호환성을 확인하고 JDK·Gradle Wrapper·Node.js·각 패키지 버전을 README와 lockfile에 고정한다.
@@ -351,7 +351,7 @@ users 1 ─ N notices / inquiries / notifications
 - 기본 이력서 지정·연계 중복 신청은 구직자 행을 잠가 직렬화한다.
 - 원본 인덱스에 더해 applications(job_seeker_id, applied_at), applications(job_id, status), employment_links(status, requested_at), inquiries(status, created_at)를 제안한다.
 - `created_at`, `updated_at`, `interview_at` 등 시각은 UTC로 저장하고 Asia/Seoul로 표시한다. 공고 시작·마감은 날짜 의미를 유지한다.
-- 실제 데이터는 초기화하지 않는다. Flyway로 스키마를 관리하고 dev 데이터는 없을 때만 생성한다.
+- 실제 데이터는 초기화하지 않는다. 신규 DB는 일반 SQL로 구성하고 dev 데이터는 명시한 개발 환경에서만 생성한다.
 
 ## 7. API 계약
 
@@ -760,7 +760,7 @@ employment/
       admin/
     src/main/resources/
       application.yml
-      db/migration/          # 추가: Flyway
+      db/                    # schema.sql, reference-data.sql
       static/
     src/test/java/com/employment/
     build.gradle
@@ -852,7 +852,7 @@ job/
 - 로딩·빈 상태·오류·마감·반려·미승인에서 다음 행동을 안내한다.
 - 키보드·모바일 확대 상태에서 핵심 사용자 흐름을 완료할 수 있다.
 - 백엔드 테스트와 프런트 build·lint가 통과한다.
-- 빈 테스트 DB에 Flyway가 적용되고 README만으로 실행·가입·지원·기업 처리·관리자 승인을 재현할 수 있다.
+- 빈 테스트 DB에 일반 SQL 스키마가 적용되고 README만으로 실행·가입·지원·기업 처리·관리자 승인을 재현할 수 있다.
 - 미구현 항목과 외부 연동 미설정은 완료로 표시하지 않는다.
 
 ## 12. Codex에 전달할 시작 프롬프트
@@ -867,7 +867,7 @@ job/
    employment_db의 12개 테이블·역할·상태 enum을 유지해주세요.
 2. 구현 전에 Java·Spring Boot·Gradle·Node·React·MySQL의
    호환 버전을 공식 자료로 확인하고 README와 lockfile에 고정해주세요.
-3. 문서의 보완 제안을 적용하고 스키마 변경을 Flyway로 기록해주세요.
+3. 문서의 보완 제안을 적용하고 신규 스키마를 일반 SQL로 명시하고 기존 DB를 자동 변경하지 마세요.
 4. 구직자·기업·관리자 인증, HttpOnly JWT 쿠키, CSRF,
    로그인 복원·refresh·로그아웃을 구현해주세요.
 5. 기업 승인·공고 심사·이력서·관심 공고·지원 스냅샷·중복 지원 방지·

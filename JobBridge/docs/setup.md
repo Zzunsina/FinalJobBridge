@@ -19,7 +19,7 @@
 cd C:\FinalJobBridge\JobBridge\employment-backend
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-17.0.19'
 $env:DEV_SEED_PASSWORD = 'JobBridge123!'
-.\gradlew.bat bootRun --args='--spring.profiles.active=dev'
+.\gradlew.bat bootRun --args='--spring.profiles.active=dev --spring.sql.init.mode=always --spring.sql.init.schema-locations=classpath:db/schema.sql --spring.sql.init.data-locations=classpath:db/reference-data.sql --spring.sql.init.encoding=UTF-8'
 ```
 
 ```powershell
@@ -80,3 +80,5 @@ node node_modules/prettier/bin/prettier.cjs --plugin=prettier-plugin-java --tab-
 
 JSX/CSS/JSON은 2칸, Java는 4칸 들여쓰기를 사용합니다.
 
+
+신규 DB 초기화와 기존 DB의 검토는 [DB 실행 설정](mariadb-intellij.md)을 따릅니다. 일반 실행은 자동 초기화하지 않습니다.

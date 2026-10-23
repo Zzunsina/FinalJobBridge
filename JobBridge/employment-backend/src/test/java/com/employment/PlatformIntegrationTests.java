@@ -686,7 +686,7 @@ class PlatformIntegrationTests {
         );
         assertThatThrownBy(() ->
             service.apply(seeker, job, fields("resumeId", resume))
-        ).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        ).isInstanceOf(Problem.class).hasMessageContaining("중복 지원");
         assertThatThrownBy(() -> service.deleteResume(seeker, resume)).isInstanceOf(Problem.class);
         db.update("UPDATE job_postings SET status='CLOSED' WHERE job_id=?", job);
         assertThatThrownBy(() ->
@@ -1519,7 +1519,8 @@ class PlatformIntegrationTests {
                             try {
                                 service.apply(seeker, job, fields("resumeId", resume));
                                 return true;
-                            } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                            } catch (Problem ex) {
+                                assertThat(ex.status).isEqualTo(409);
                                 return false;
                             }
                         }
@@ -1571,4 +1572,296 @@ class PlatformIntegrationTests {
             pool.shutdownNow();
         }
     }
+
+    private Map<String, Object> regressionJobBody() {
+        return fields("title", "Regression job", "jobType", "정규직", "careerType", "신입",
+            "workLocation", "서울", "description", "Description", "headcount", 1,
+            "startDate", EmploymentService.today().minusDays(1).toString(),
+            "endDate", EmploymentService.today().plusDays(10).toString());
+    }
+
+    @Test
+    void frameworkClientErrorsKeep400404405AndAllowHeader() throws Exception {
+        mvc.perform(get("/api/auth/login-id/availability"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("HTTP_400"));
+        mvc.perform(get("/api/no-such-regression-route"))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("HTTP_404"));
+        mvc.perform(post("/api/jobs").with(csrf()))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(header().string("Allow", org.hamcrest.Matchers.containsString("GET")))
+            .andExpect(jsonPath("$.code").value("HTTP_405"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2026-02-30", "not-a-date"})
+    void malformedJobDatesAre400WithoutSaving(String invalid) throws Exception {
+        Cookie session = login(companyUser);
+        for (String key : List.of("startDate", "endDate")) {
+            var body = regressionJobBody();
+            body.put(key, invalid);
+            mvc.perform(post("/api/company/jobs").cookie(session).with(csrf())
+                .contentType("application/json").content(json.writeValueAsString(body)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[0].field").value(key));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2026-02-30T10:00:00+09:00", "not-a-date", "2030-01-01T10:00:00"})
+    void malformedInterviewCreationAndUpdateAre400(String invalid) throws Exception {
+        long app = number(service.apply(seeker, job, fields("resumeId", resume)), "applicationId");
+        db.update("UPDATE applications SET status='DOCUMENT_PASSED' WHERE application_id=?", app);
+        Cookie session = login(companyUser);
+        var body = fields("interviewAt", invalid, "interviewType", "OFFLINE", "location", "Office");
+        mvc.perform(post("/api/company/applications/" + app + "/interviews").cookie(session).with(csrf())
+            .header("Idempotency-Key", UUID.randomUUID().toString())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[0].field").value("interviewAt"));
+        long interview = db.insert("interviews", fields("application_id", app,
+            "interview_at", java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(86400)),
+            "interview_type", "OFFLINE", "location", "Office", "request_key", UUID.randomUUID().toString(),
+            "request_hash", "regression"));
+        db.update("UPDATE applications SET status='INTERVIEW' WHERE application_id=?", app);
+        mvc.perform(put("/api/company/interviews/" + interview).cookie(session).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[0].field").value("interviewAt"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"INVALID", "정규", "%", "", "프리랜서"})
+    void invalidEmploymentTypesCannotBeCreatedUpdatedOrFiltered(String invalid) throws Exception {
+        var body = regressionJobBody();
+        body.put("jobType", invalid);
+        Cookie session = login(companyUser);
+        mvc.perform(post("/api/company/jobs").cookie(session).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isBadRequest());
+        db.update("UPDATE job_postings SET status='DRAFT' WHERE job_id=?", job);
+        mvc.perform(put("/api/company/jobs/" + job).cookie(session).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isBadRequest());
+        assertThat(db.one("SELECT job_type FROM job_postings WHERE job_id=?", job).get("jobType")).isEqualTo("정규직");
+        if (!invalid.isEmpty()) mvc.perform(get("/api/jobs").param("type", invalid))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void legacyInvalidEmploymentTypeCannotEnterReviewOrPublish() throws Exception {
+        db.update("UPDATE job_postings SET status='DRAFT',job_type='INVALID' WHERE job_id=?", job);
+        mvc.perform(post("/api/company/jobs/" + job + "/review-request").cookie(login(companyUser)).with(csrf()))
+            .andExpect(status().isBadRequest());
+        assertThat(db.one("SELECT status FROM job_postings WHERE job_id=?", job).get("status")).isEqualTo("DRAFT");
+        db.update("UPDATE job_postings SET status='PENDING' WHERE job_id=?", job);
+        mvc.perform(patch("/api/admin/jobs/" + job + "/status").cookie(login(admin)).with(csrf())
+            .contentType("application/json").content("{\"status\":\"PUBLISHED\"}"))
+            .andExpect(status().isBadRequest());
+        assertThat(db.one("SELECT status FROM job_postings WHERE job_id=?", job).get("status")).isEqualTo("PENDING");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"정규직", "계약직", "인턴"})
+    void supportedEmploymentTypesCanPassCreateReviewPublishUpdateAndExactFilter(String type) throws Exception {
+        Cookie companySession = login(companyUser);
+        var body = regressionJobBody();
+        body.put("jobType", type);
+        var result = mvc.perform(post("/api/company/jobs").cookie(companySession).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isCreated()).andReturn();
+        long id = json.readTree(result.getResponse().getContentAsString()).get("jobId").asLong();
+        mvc.perform(post("/api/company/jobs/" + id + "/review-request").cookie(companySession).with(csrf()))
+            .andExpect(status().isOk());
+        mvc.perform(patch("/api/admin/jobs/" + id + "/status").cookie(login(admin)).with(csrf())
+            .contentType("application/json").content("{\"status\":\"PUBLISHED\"}"))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/jobs").param("type", type)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[*].jobType", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(type))));
+        mvc.perform(put("/api/company/jobs/" + id).cookie(companySession).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk());
+        mvc.perform(get("/api/jobs")).andExpect(status().isOk()); // Omitted/empty filter retains "all".
+    }
+
+    @Test
+    void experienceYearsOmissionRemainsZeroAndExplicitNullIs400WithoutMutation() throws Exception {
+        Cookie session = login(seeker);
+        long seekerId = service.seeker(seeker);
+        db.update("UPDATE job_seekers SET experience_years=7 WHERE job_seeker_id=?", seekerId);
+        var body = fields("birthDate", "2000-01-23", "experienceYears", null);
+        mvc.perform(patch("/api/job-seekers/me").cookie(session).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[0].field").value("experienceYears"));
+        assertThat(number(db.one("SELECT experience_years FROM job_seekers WHERE job_seeker_id=?", seekerId), "experienceYears")).isEqualTo(7);
+        body.remove("experienceYears");
+        mvc.perform(patch("/api/job-seekers/me").cookie(session).with(csrf())
+            .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.experienceYears").value(0));
+    }
+
+    @Test
+    void unavailablePasswordResetDoesNotClaimSuccess() throws Exception {
+        for (String action : List.of("request", "confirm"))
+            mvc.perform(post("/api/auth/password-reset/" + action).with(csrf())
+                .contentType("application/json").content("{\"email\":\"never-send@test.local\"}"))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("HTTP_503"));
+    }
+
+    @Test
+    void noticeBooleanContractAndInquiryNoticeUtcCreationTimesMatchApis() throws Exception {
+        java.time.Instant before = java.time.Instant.now().minusSeconds(3);
+        long notice = db.insert("notices", fields("title", "UTC notice", "content", "Content",
+            "author_user_id", admin, "is_published", true));
+        var created = mvc.perform(post("/api/inquiries").cookie(login(seeker)).with(csrf())
+            .contentType("application/json").content("{\"title\":\"UTC inquiry\",\"content\":\"Content\"}"))
+            .andExpect(status().isCreated()).andReturn();
+        long inquiry = json.readTree(created.getResponse().getContentAsString()).get("inquiryId").asLong();
+        var detail = mvc.perform(get("/api/inquiries/" + inquiry).cookie(login(seeker)))
+            .andExpect(status().isOk()).andReturn();
+        assertThat(java.time.Instant.parse(json.readTree(detail.getResponse().getContentAsString()).get("createdAt").asText()))
+            .isBetween(before, java.time.Instant.now().plusSeconds(3));
+        Cookie adminSession = login(admin);
+        for (boolean image : List.of(false, true)) {
+            if (image) db.update("INSERT INTO notice_images(notice_id,image_data) VALUES(?,?)", notice, new byte[]{1,2,3});
+            for (String path : List.of("/api/notices", "/api/notices/" + notice, "/api/admin/notices", "/api/admin/notices/" + notice)) {
+                var response = mvc.perform(get(path).cookie(adminSession)).andExpect(status().isOk()).andReturn();
+                var tree = json.readTree(response.getResponse().getContentAsString());
+                var nodes = tree.isArray() ? tree : json.createArrayNode().add(tree);
+                boolean found = false;
+                for (var node : nodes) {
+                    assertThat(node.get("hasImage").isBoolean()).isTrue();
+                    if (node.get("noticeId").asLong() == notice) {
+                        found = true;
+                        assertThat(node.get("hasImage").asBoolean()).isEqualTo(image);
+                        assertThat(java.time.Instant.parse(node.get("createdAt").asText()))
+                            .isBetween(before, java.time.Instant.now().plusSeconds(3));
+                    }
+                }
+                assertThat(found).isTrue();
+            }
+        }
+    }
+
+
+    @Autowired com.employment.job.service.Assessments assessments;
+
+    private static final List<Integer> CORRECT_EXAMPLE_ANSWERS = List.of(2,1,1,2,2,1,2,0,2,2);
+
+    @Test
+    void exampleQuestionsHideAnswersAndServerComputesScoreAndValidatesCompleteness() throws Exception {
+        var body=mvc.perform(get("/api/assessments/questions")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(json.readTree(body).path("questions").size()).isEqualTo(10);
+        assertThat(body).doesNotContain("answer","minScore");
+        assertThatThrownBy(() -> service.saveResume(seeker,resume,fields("title","검사","assessmentAnswers",List.of(0))))
+            .isInstanceOf(Problem.class);
+        assertThatThrownBy(() -> service.saveResume(seeker,resume,fields("title","검사","assessmentAnswers",Collections.nCopies(10,0.5))))
+            .isInstanceOf(Problem.class);
+        var result=service.saveResume(seeker,resume,fields("title","검사","score",0,"assessmentAnswers",CORRECT_EXAMPLE_ANSWERS));
+        assertThat(((Map<?,?>)result.get("assessment")).get("score")).isEqualTo(100);
+        assertThatThrownBy(() -> service.saveResume(other,resume,fields("title","도용","assessmentAnswers",CORRECT_EXAMPLE_ANSWERS)))
+            .isInstanceOf(Problem.class);
+    }
+
+    @Test
+    void assessmentThresholdIsPrivateAndSubmissionScoreIsImmutable() throws Exception {
+        assessments.configure(job,70);
+        assertThatThrownBy(() -> service.apply(seeker,job,fields("resumeId",resume))).isInstanceOf(Problem.class);
+        assertThat(service.applications(seeker)).isEmpty();
+        service.saveResume(seeker,resume,fields("title","검사","assessmentAnswers",CORRECT_EXAMPLE_ANSWERS));
+        long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        service.saveResume(seeker,resume,fields("title","다시 검사","assessmentAnswers",Collections.nCopies(10,3)));
+        assertThat(service.ownJob(companyUser,job,false).get("assessmentMinScore")).isEqualTo(70);
+        var publicBody=mvc.perform(get("/api/jobs/"+job)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(publicBody).doesNotContain("minScore","assessmentMinScore");
+        String seekerBody=json.writeValueAsString(service.application(seeker,app));
+        assertThat(seekerBody).doesNotContain("minScore","assessmentMinScore","belowThreshold");
+        var internal=(Map<?,?>)service.companyApplication(companyUser,app).get("assessment");
+        assertThat(internal.get("score")).isEqualTo(100);
+        assertThat(internal.get("minScore")).isEqualTo(70);
+        assertThatThrownBy(() -> assessments.configure(job,101)).isInstanceOf(Problem.class);
+    }
+
+    @Test
+    void firstEmployerViewStartsFortyEightHourReviewWithoutAutomaticRejection() throws Exception {
+        assessments.configure(job,70);
+        service.saveResume(seeker,resume,fields("title","검토","assessmentAnswers",Collections.nCopies(10,3)));
+        long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        assertThat(db.one("SELECT first_viewed_at FROM application_assessments WHERE application_id=?",app).get("firstViewedAt")).isNull();
+        var first=(Map<?,?>)service.companyApplication(companyUser,app).get("assessment");
+        var start=java.time.Instant.parse(first.get("firstViewedAt").toString());
+        var due=java.time.Instant.parse(first.get("reviewDueAt").toString());
+        assertThat(java.time.Duration.between(start,due).toHours()).isEqualTo(48);
+        assertThat(first.get("reviewRequired")).isEqualTo(false);
+        var again=(Map<?,?>)service.companyApplication(companyUser,app).get("assessment");
+        assertThat(again.get("reviewDueAt")).isEqualTo(first.get("reviewDueAt"));
+        db.update("UPDATE application_assessments SET review_due_at=? WHERE application_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),app);
+        assessments.flagDueReviews();assessments.flagDueReviews();
+        assertThat(service.application(seeker,app).get("status")).isEqualTo("APPLIED");
+        assertThat(((Map<?,?>)service.companyApplication(companyUser,app).get("assessment")).get("reviewRequired")).isEqualTo(true);
+        assertThat(number(db.one("SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND related_id=? AND title='지원서 검토 시간이 도래했습니다.'",companyUser,app),"n")).isEqualTo(1);
+        service.applicationStatus(companyUser,app,"REJECTED");
+        assertThat(((Map<?,?>)service.companyApplication(companyUser,app).get("assessment")).get("reviewRequired")).isEqualTo(false);
+    }
+
+    private Map<String,Object> examplePdf(String name,String content) {
+        return fields("fileName",name,"data",Base64.getEncoder().encodeToString(("%PDF-1.4\n"+content+"\n%%EOF").getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void attachmentsRemainPrivateAndSubmissionKeepsOriginalFileAfterReplacementOrRemoval() throws Exception {
+        service.saveResume(seeker,resume,fields("title","첨부","attachment",examplePdf("portfolio.pdf","original")));
+        long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        var current=mvc.perform(get("/api/resumes/"+resume+"/attachment").cookie(login(seeker))).andExpect(status().isOk())
+            .andExpect(header().string("Content-Type","application/pdf")).andExpect(header().string("X-Content-Type-Options","nosniff")).andReturn().getResponse().getContentAsByteArray();
+        mvc.perform(get("/api/resumes/"+resume+"/attachment").cookie(login(other))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/resumes/"+resume+"/attachment")).andExpect(status().isUnauthorized());
+        service.saveResume(seeker,resume,fields("title","교체","attachment",examplePdf("new.pdf","replacement")));
+        var submitted=mvc.perform(get("/api/applications/"+app+"/attachment").cookie(login(companyUser))).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        assertThat(submitted).isEqualTo(current);
+        mvc.perform(get("/api/applications/"+app+"/attachment").cookie(login(other))).andExpect(status().isNotFound());
+        service.saveResume(seeker,resume,fields("title","제거","attachment",null));
+        mvc.perform(get("/api/resumes/"+resume+"/attachment").cookie(login(seeker))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/applications/"+app+"/attachment").cookie(login(seeker))).andExpect(status().isOk()).andExpect(content().bytes(current));
+    }
+
+    @Test
+    void malformedAttachmentsAreRejectedAndFailedSavePreservesPriorResume() {
+        for(var file:List.of(fields("fileName","bad.exe","data","JVBERi0x"), fields("fileName","bad.pdf","data","bm90LXBkZg=="),
+            fields("fileName","../bad.pdf","data","JVBERi0x"), fields("fileName","large.pdf","data","A".repeat(7000001)))) {
+            assertThatThrownBy(() -> service.saveResume(seeker,resume,fields("title","invalid change","attachment",file))).isInstanceOf(Problem.class);
+            assertThat(service.resume(seeker,resume).get("title")).isEqualTo("원본 이력서");
+        }
+    }
+
+    @Test
+    void answeredInquiryCannotBeDeletedButUnansweredOwnedInquiryCanBeDeleted() throws Exception {
+        long answered=db.insert("inquiries",fields("user_id",seeker,"title","완료","content","문의","status","ANSWERED","answer","답변"));
+        mvc.perform(delete("/api/inquiries/"+answered).cookie(login(seeker)).with(csrf())).andExpect(status().isConflict());
+        assertThat(db.one("SELECT answer FROM inquiries WHERE inquiry_id=?",answered).get("answer")).isEqualTo("답변");
+        mvc.perform(delete("/api/inquiries/"+answered).cookie(login(other)).with(csrf())).andExpect(status().isNotFound());
+        long pending=db.insert("inquiries",fields("user_id",seeker,"title","대기","content","문의"));
+        mvc.perform(delete("/api/inquiries/"+pending).cookie(login(seeker)).with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void pendingApplicationReturnsClearConflictAndFinalResultAllowsNewAttemptWithSeparateSnapshot() throws Exception {
+        long first=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        mvc.perform(post("/api/jobs/"+job+"/applications").cookie(login(seeker)).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("resumeId",resume))))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("전형 결과가 나오기 전까지 같은 공고에 중복 지원할 수 없습니다."));
+        service.applicationStatus(companyUser,first,"REJECTED");
+        long second=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        assertThat(second).isNotEqualTo(first);
+        assertThat(service.applications(seeker)).hasSize(2);
+        assertThat(service.applications(other)).isEmpty();
+        assertThatThrownBy(() -> service.application(other,second)).isInstanceOf(Problem.class);
+    }
+
+    @Test
+    void defaultJobPaginationReturnsTwelveAndThirteenthOnNextPage() throws Exception {
+        String title="pagination-"+UUID.randomUUID();
+        for(int i=0;i<13;i++) {
+            var row=service.saveJob(companyUser,null,fields("title",title,"jobType","계약직","careerType","신입","workLocation","서울","description","테스트","headcount",1,"startDate",LocalDate.now().minusDays(1).toString(),"endDate",LocalDate.now().plusDays(10).toString()));
+            db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",row.get("jobId"));
+        }
+        mvc.perform(get("/api/jobs").param("q",title).param("type","계약직").param("region","서울"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(12)).andExpect(jsonPath("$.totalElements").value(13)).andExpect(jsonPath("$.totalPages").value(2));
+        mvc.perform(get("/api/jobs").param("q",title).param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1));
+    }
+
 }
