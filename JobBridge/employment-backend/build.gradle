@@ -19,8 +19,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-//    implementation 'org.flywaydb:flyway-core'
-//    implementation 'org.flywaydb:flyway-mysql'
     runtimeOnly 'com.mysql:mysql-connector-j'
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     runtimeOnly 'com.h2database:h2'
@@ -41,9 +39,29 @@ tasks.named('test') {
     systemProperty 'spring.profiles.active', 'test'
 }
 
-tasks.register('adoptLegacyDatabase', JavaExec) {
-    group = 'application'
-    description = 'Explicitly adopt the reviewed original twelve-table database without deleting rows'
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'com.employment.tools.AdoptLegacyDatabase'
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+// Only a deliberately named disposable loopback database may be used here.
+tasks.register('mariaDbTest', Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    outputs.upToDateWhen { false }
+    doFirst {
+        def url = System.getenv('JOBBRIDGE_TEST_MARIADB_URL') ?: ''
+        if (!(url ==~ /jdbc:mariadb:\/\/127\.0\.0\.1:\d+\/jobbridge_regression_[a-f0-9]+/))
+            throw new GradleException('An explicit disposable loopback test URL is required')
+        systemProperty 'spring.datasource.url', url
+    }
+    systemProperty 'spring.datasource.driver-class-name', 'org.mariadb.jdbc.Driver'
+    systemProperty 'spring.datasource.username', 'root'
+    systemProperty 'spring.datasource.password', ''
+    systemProperty 'spring.datasource.hikari.connection-init-sql', "SET time_zone = '+00:00'"
+    systemProperty 'spring.sql.init.mode', 'always'
+    systemProperty 'spring.sql.init.schema-locations', 'classpath:db/schema.sql'
+    systemProperty 'spring.sql.init.data-locations', 'classpath:db/reference-data.sql'
+    systemProperty 'spring.config.import', ''
+    systemProperty 'spring.profiles.active', 'test'
+    systemProperty 'user.timezone', 'Asia/Seoul'
 }

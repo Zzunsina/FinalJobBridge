@@ -59,6 +59,13 @@ public class Problem extends RuntimeException {
 
         @ExceptionHandler(Exception.class)
         ResponseEntity<?> unexpected(Exception ex) {
+            // Preserve Spring MVC's binding/routing/method errors, including Allow on 405.
+            if (ex instanceof org.springframework.web.ErrorResponse error
+                && error.getStatusCode().is4xxClientError()) {
+                return ResponseEntity.status(error.getStatusCode())
+                    .headers(error.getHeaders())
+                    .body(response(error.getStatusCode().value(), "요청 경로·메서드·입력값을 확인해 주세요.").getBody());
+            }
             String traceId = UUID.randomUUID().toString();
             // Do not log exception messages or request bodies: provider exceptions can contain secrets.
             Throwable cause = ex;

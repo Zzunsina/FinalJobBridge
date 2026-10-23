@@ -122,16 +122,11 @@ public class OperationsController {
     @DeleteMapping("/inquiries/{id}")
     @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     void deleteInquiry(@PathVariable long id, HttpServletRequest req) {
-        if (
-            db.update(
-                "DELETE FROM inquiries WHERE inquiry_id=? AND user_id=?",
-                id,
-                member(req)
-            ) ==
-            0
-        ) {
-            throw new Problem(404, "문의를 찾을 수 없습니다.");
-        }
+        long user = member(req);
+        var inquiry = db.one("SELECT status,answer FROM inquiries WHERE inquiry_id=? AND user_id=? FOR UPDATE", id, user);
+        if ("ANSWERED".equals(inquiry.get("status")) || inquiry.get("answer") != null)
+            throw new Problem(409, "답변을 받은 문의는 삭제할 수 없습니다.");
+        db.update("DELETE FROM inquiries WHERE inquiry_id=? AND user_id=?", id, user);
     }
 
     @PatchMapping("/me")
@@ -174,9 +169,10 @@ public class OperationsController {
         long id = auth.require(req, "JOB_SEEKER");
         String birth = Input.text(body, "birthDate", 10, false);
         java.time.LocalDate date = birth.isBlank() ? null : Input.birthDate(birth);
-        int years = Integer.parseInt(
-            body.getOrDefault("experienceYears", 0).toString()
-        );
+        // Preserve the existing omission default (0); explicit null is not a valid year count.
+        if (body.containsKey("experienceYears") && body.get("experienceYears") == null)
+            throw new Problem(400, "경력 연수를 확인해 주세요.", "experienceYears");
+        int years = Integer.parseInt(body.getOrDefault("experienceYears", 0).toString());
         if (years < 0 || years > 80) throw new Problem(
             400,
             "경력 연수를 확인해 주세요."
@@ -459,6 +455,7 @@ public class OperationsController {
         );
         String next = Input.text(body, "status", 20, true);
         String current = job.get("status").toString();
+        if (next.equals("PUBLISHED")) Input.jobType((String) job.get("jobType"), false);
         if (
             !(current.equals("PENDING") &&
                 Set.of("PUBLISHED", "REJECTED").contains(next)) &&

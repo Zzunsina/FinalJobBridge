@@ -28,7 +28,7 @@ public class JobController {
         @RequestParam(defaultValue = "") String career,
         @RequestParam(defaultValue = "latest") String sort,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size
+        @RequestParam(defaultValue = "12") int size
     ) {
         return service.jobs(q, region, type, career, sort, page, size);
     }
