@@ -30,6 +30,7 @@ public class JobController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "12") int size
     ) {
+        System.out.println("get의 /api/jobs");
         return service.jobs(q, region, type, career, sort, page, size);
     }
 

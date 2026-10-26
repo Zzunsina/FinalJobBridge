@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api")
 public class AuthController {
-
     private final AuthService auth;
+
     private final SmsService smsService;
 
     public AuthController(AuthService auth, SmsService smsService) {
