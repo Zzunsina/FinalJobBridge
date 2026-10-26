@@ -589,3 +589,7 @@
 img.resume-profile-avatar {
   object-fit: cover;
 }
+
+.assessment-question { margin: 20px 0; padding: 16px; border: 1px solid #dce4f1; border-radius: 10px; }
+.assessment-choice { display: block; margin: 10px 0; }
+.assessment-choice input { width: auto; margin-right: 8px; }

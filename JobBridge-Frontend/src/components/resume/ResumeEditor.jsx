@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { message } from '../../api/client';
 import { useAuth } from '../../stores/auth';
 import ResumeDocument from './ResumeDocument';
+import AssessmentQuiz from './AssessmentQuiz';
 import CalendarPicker from '../common/CalendarPicker';
 import ProfileAvatar from '../common/ProfileAvatar';
 import '../../assets/styles/resume.css';
@@ -71,7 +72,6 @@ const sections = [
         wide: true,
         placeholder: '프로젝트의 목표, 사용한 기술, 본인의 기여와 결과를 작성해 주세요.',
       },
-      { key: 'url', label: '프로젝트 링크', type: 'url', wide: true, placeholder: 'https://' },
     ],
   },
   {
@@ -130,6 +130,8 @@ export default function ResumeEditor({ initial = {}, onSave }) {
     },
   }));
   const [preview, setPreview] = useState(false);
+  const [attachmentChanged, setAttachmentChanged] = useState(false);
+  const [assessmentAnswers, setAssessmentAnswers] = useState(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const details = values.details;
@@ -143,7 +145,7 @@ export default function ResumeEditor({ initial = {}, onSave }) {
     details.experiences.length || details.projects.length || details.legacyCareerDescription,
     skills.length,
     details.summary.trim(),
-    values.portfolioUrl || details.certificates.length,
+    values.attachment || details.certificates.length,
   ].filter(Boolean).length;
   function field(name, value) {
     setValues((old) => ({ ...old, [name]: value }));
@@ -183,7 +185,10 @@ export default function ResumeEditor({ initial = {}, onSave }) {
         .filter(Boolean)
         .join('\n\n')
         .slice(0, 10000);
-      await onSave({ ...values, education, careerDescription });
+      const body = { ...values, education, careerDescription };
+      if (!attachmentChanged) delete body.attachment;
+      if (assessmentAnswers !== undefined) body.assessmentAnswers = assessmentAnswers;
+      await onSave(body);
     } catch (e) {
       setError(message(e));
       setPreview(false);
@@ -410,16 +415,23 @@ export default function ResumeEditor({ initial = {}, onSave }) {
                   ))}
                 </div>
               )}
-              <Field label="포트폴리오 링크">
-                <input
-                  type="url"
-                  value={values.portfolioUrl}
-                  maxLength={500}
-                  placeholder="https://"
-                  onChange={(e) => field('portfolioUrl', e.target.value)}
-                />
+              <Field label="포트폴리오 파일 첨부">
+                <input type="file" accept=".pdf,application/pdf" onChange={async (e) => {
+                  const file=e.target.files?.[0];
+                  if(!file) return;
+                  if(!file.name.toLowerCase().endsWith('.pdf') || file.size>5*1024*1024) {
+                    setError('5MB 이하 PDF 파일을 선택해 주세요.');e.target.value='';return;
+                  }
+                  try {
+                    const data=await new Promise((resolve,reject) => { const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file); });
+                    field('attachment',{fileName:file.name,data});setAttachmentChanged(true);setError('');
+                  } catch { setError('파일을 읽지 못했습니다. 다시 선택해 주세요.'); }
+                }} />
               </Field>
+              <p className="muted">PDF 1개 · 최대 5MB. 제출한 파일은 지원 당시 버전으로 보관됩니다.</p>
+              {values.attachment && <div className="actions"><span>{values.attachment.fileName}</span>{values.attachment.fileId && <a href={'/api/resumes/'+initial.resumeId+'/attachment'}>저장된 파일 다운로드</a>}<button type="button" className="secondary" onClick={() => { field('attachment',null);setAttachmentChanged(true); }}>첨부 제거</button></div>}
             </section>
+            <AssessmentQuiz result={initial.assessment} answers={assessmentAnswers} onChange={setAssessmentAnswers} />
             <section className="resume-sheet" id="resume-summary">
               <div className="resume-section-heading">
                 <div>

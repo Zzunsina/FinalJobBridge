@@ -2,7 +2,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
-import client from '../api/client';
+import ApplyForm from '../components/common/ApplyForm';
+import ApplyButton from '../components/common/ApplyButton';
 import RegionPicker from '../components/common/RegionPicker';
 import CompanyImage from '../components/common/CompanyImage';
 import BookmarkButton from '../components/common/BookmarkButton';
@@ -10,7 +11,6 @@ import {
   Action,
   Badge,
   Empty,
-  Form,
   JobCard,
   PagedResource,
   PagedRows,
@@ -142,7 +142,6 @@ function HomePromotion() {
   }, [paused, interacting, reducedMotion, slide]);
   const labels = ['잡브릿지 소개', '함께하는 기업', '이력서 작성 안내'];
   return <section className={'hero promo-carousel promo-theme-' + slide} aria-label="잡브릿지 홍보 배너" aria-roledescription="캐러셀"
-    onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
     onFocusCapture={() => setInteracting(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
     <div className="promo-slide" key={slide} role="group" aria-roledescription="슬라이드" aria-label={(slide + 1) + ' / 3 · ' + labels[slide]}>
       {slide === 0 ? <>
@@ -211,12 +210,17 @@ function HomePromotion() {
 function Search({ initial = '' }) {
   const [q, setQ] = useState(initial);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  useEffect(() => setQ(initial), [initial]);
   return (
     <form
       className="search"
       onSubmit={(e) => {
         e.preventDefault();
-        navigate(`/jobs?q=${encodeURIComponent(q)}`);
+        const next = new URLSearchParams(params);
+        next.set('q', q.trim());
+        next.set('page', '0');
+        navigate(`/jobs?${next.toString()}`);
       }}
     >
       <span aria-hidden="true">⌕</span>
@@ -262,10 +266,16 @@ export function Jobs() {
           <select
             key={key}
             aria-label={label}
+            aria-invalid={key === 'type' && !!params.get(key) && !options.includes(params.get(key))}
             value={params.get(key) || ''}
             onChange={(e) => filter(key, e.target.value)}
           >
             <option value="">{label} 전체</option>
+            {key === 'type' && params.get(key) && !options.includes(params.get(key)) && (
+              <option value={params.get(key)} disabled>
+                잘못된 고용형태 · 다시 선택해 주세요
+              </option>
+            )}
             {options.map((x) => (
               <option key={x}>{x}</option>
             ))}
@@ -316,7 +326,21 @@ export function JobDetail() {
   const [done, setDone] = useState(false);
   return (
     <Resource resource={resource}>
-      {(job) => (
+      {(job) => applying && !done ? (
+        <>
+          <button className="plain back" onClick={() => setApplying(false)}>
+            ← 공고 상세로 돌아가기
+          </button>
+          <ApplyForm
+            id={id}
+            onDone={() => {
+              setDone(true);
+              setApplying(false);
+              window.scrollTo(0, 0);
+            }}
+          />
+        </>
+      ) : (
         <>
           <Link className="back" to="/jobs">
             ← 채용공고 목록
@@ -375,9 +399,7 @@ export function JobDetail() {
                 </p>
               ) : user?.role === 'JOB_SEEKER' ? (
                 <>
-                  <button disabled={!job.accepting} onClick={() => setApplying(!applying)}>
-                    입사 지원하기 →
-                  </button>
+                  <ApplyButton id={id} accepting={job.accepting} onApply={() => setApplying(!applying)} />
                 </>
               ) : (
                 <Link className="button" to="/login">
@@ -387,59 +409,12 @@ export function JobDetail() {
               {user?.role === 'JOB_SEEKER' && <BookmarkButton jobId={id} />}
             </aside>
           </div>
-          {applying && !done && (
-            <ApplyForm
-              id={id}
-              onDone={() => {
-                setDone(true);
-                setApplying(false);
-              }}
-            />
-          )}
         </>
       )}
     </Resource>
   );
 }
 
-function ApplyForm({ id, onDone }) {
-  const resource = useResource('/resumes');
-  return (
-    <section className="panel narrow">
-      <h2>입사 지원</h2>
-      <p className="muted">제출 시점의 이력서와 연락처가 기업에 전달됩니다.</p>
-      <Resource resource={resource}>
-        {(rows) =>
-          rows.length ? (
-            <Form
-              fields={[
-                {
-                  name: 'resumeId',
-                  label: '제출 이력서',
-                  required: true,
-                  options: rows.map((r) => ({
-                    value: r.resumeId,
-                    label: r.title,
-                  })),
-                },
-                { name: 'coverLetter', label: '자기소개서', type: 'textarea' },
-              ]}
-              onSubmit={async (body) => {
-                await client.post(`/jobs/${id}/applications`, body);
-                onDone();
-              }}
-              submit="지원서 제출"
-            />
-          ) : (
-            <Empty to="/resumes/new" action="이력서 작성">
-              먼저 이력서를 작성해 주세요.
-            </Empty>
-          )
-        }
-      </Resource>
-    </section>
-  );
-}
 
 export function Companies() {
   const resource = useResource('/companies');

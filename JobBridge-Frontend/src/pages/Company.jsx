@@ -13,6 +13,7 @@ import {
 import { Interviews, Snapshot } from './Seeker';
 import WithdrawAccount from '../components/common/WithdrawAccount';
 import CompanyImageUpload from '../components/common/CompanyImageUpload';
+import AssessmentRanking from '../components/common/AssessmentRanking';
 
 export function CompanyDashboard() {
   const resource = useResource('/company/dashboard');
@@ -184,6 +185,7 @@ const jobFields = [
 
 { name: 'requirements', label: '자격요건', type: 'textarea' },
   { name: 'preferredQualifications', label: '우대사항', type: 'textarea' },
+  { name: 'assessmentMinScore', label: '예시 검사 검토 기준 점수 (기업 전용·선택)', type: 'number', min: 0, max: 100 },
 ];
 export function JobForm() {
   const { id } = useParams();
@@ -208,6 +210,7 @@ export function JobForm() {
               }}
               submit="초안 저장"
             />
+            <p className="muted">예시 검사 기준 점수는 구직자에게 공개되지 않습니다. 기준 미달자는 최초 열람 48시간 후 담당자 검토 대상으로 알립니다. 자동 불합격 처리하지 않습니다.</p>
             <CompanyImageUpload />
           </div>
         )}
@@ -222,6 +225,8 @@ export function Applicants() {
   return (
     <>
       <Title>지원자 관리</Title>
+      <Resource resource={resource}>{(rows) => <AssessmentRanking rows={rows} />}</Resource>
+      <h2>전체 지원자</h2>
       <PagedResource resource={resource}>
         {(rows) =>
           rows.length ? (
@@ -266,6 +271,8 @@ export function ApplicantDetail() {
           <div className="panel">
             <Badge value={a.status} />
             <Snapshot data={a.snapshot} />
+            {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
+            {a.assessment && <div className="callout"><strong>예시 검사 {a.assessment.score}점 / 기업 검토 기준 {a.assessment.minScore ?? '미설정'}</strong><p>최초 열람: {a.assessment.firstViewedAt && new Date(a.assessment.firstViewedAt).toLocaleString('ko-KR')}</p>{a.assessment.belowThreshold && <p>{a.assessment.reviewRequired ? '담당자 검토 필요 · 48시간 경과' : '48시간 후 담당자 검토 예정'} · {new Date(a.assessment.reviewDueAt).toLocaleString('ko-KR')}</p>}<p>예시 점수는 실제 인적성 진단이 아니며 최종 결정은 담당자가 검토해야 합니다.</p></div>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
             <div className="actions">
@@ -364,6 +371,7 @@ export function CompanyProfile() {
       <Resource resource={resource}>
         {(data) => (
           <div className="panel narrow">
+            <p className="muted">예시 검사 기준 점수는 구직자에게 공개되지 않습니다. 기준 미달자는 최초 열람 48시간 후 담당자 검토 대상으로 알립니다. 자동 불합격 처리하지 않습니다.</p>
             <CompanyImageUpload />
             <Badge value={data.approvalStatus} />
             <p className="callout">

@@ -75,7 +75,7 @@ export function Resource({ resource, children }) {
   return children(resource.data);
 }
 export function Pagination({ page, totalPages, total, onChange }) {
-  if (total < 10) return null;
+  if (total <= 12 || totalPages <= 1) return null;
   const start = Math.max(0, Math.min(page - 2, totalPages - 5));
   return (
     <nav className="pagination" aria-label="페이지 이동">
@@ -115,12 +115,12 @@ export function Pagination({ page, totalPages, total, onChange }) {
 export function PagedRows({ rows, children, focusId, idKey }) {
   const focusIndex =
     focusId && idKey ? rows.findIndex((r) => String(r[idKey]) === String(focusId)) : -1;
-  const [page, setPage] = useState(focusIndex >= 0 ? Math.floor(focusIndex / 10) : 0);
-  const lastPage = Math.max(0, Math.ceil(rows.length / 10) - 1);
+  const [page, setPage] = useState(focusIndex >= 0 ? Math.floor(focusIndex / 12) : 0);
+  const lastPage = Math.max(0, Math.ceil(rows.length / 12) - 1);
   const current = Math.min(page, lastPage);
   return (
     <>
-      {children(rows.slice(current * 10, current * 10 + 10))}
+      {children(rows.slice(current * 12, current * 12 + 12))}
       <Pagination page={current} totalPages={lastPage + 1} total={rows.length} onChange={setPage} />
     </>
   );

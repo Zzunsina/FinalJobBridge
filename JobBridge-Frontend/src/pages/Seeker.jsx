@@ -92,6 +92,7 @@ export function ApplicationDetail() {
             <Badge value={a.status} />
             <h2>지원 당시 제출 내용</h2>
             <Snapshot data={a.snapshot} />
+            {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>제출한 첨부파일 다운로드</a>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '작성한 자기소개서가 없습니다.'}</p>
             <h2>면접 일정</h2>
@@ -100,7 +101,7 @@ export function ApplicationDetail() {
               <Action
                 url={`/applications/${id}/cancel`}
                 onDone={resource.reload}
-                confirm="지원을 취소할까요? 취소 후 재지원할 수 없습니다."
+                confirm="지원을 취소할까요? 취소한 지원은 복구할 수 없습니다."
               >
                 지원 취소
               </Action>
@@ -415,14 +416,14 @@ export function Inquiries() {
                       <p className="prose">{r.answer}</p>
                     </div>
                   )}
-                  <Action
+                  {r.status === 'ANSWERED' || r.answer ? <p className="muted">답변을 받은 문의는 삭제할 수 없습니다.</p> : <Action
                     method="delete"
                     url={`/inquiries/${r.inquiryId}`}
                     onDone={resource.reload}
                     confirm="작성한 문의를 삭제할까요?"
                   >
                     삭제
-                  </Action>
+                  </Action>}
                 </article>
               ))}
             </div>
