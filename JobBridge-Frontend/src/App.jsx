@@ -89,19 +89,122 @@ export default function App() {
             </span>
             잡브릿지<span className="logo-en">JOBBRIDGE</span>
           </Link>
-          <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label="주 메뉴">
-            {[
-              ['/jobs', '채용정보'],
-              ['/companies', '기업정보'],
-              ['/employment', '취업연계'],
-              ['/notices', '공지사항'],
-              ['/inquiries', '고객센터'],
-            ].map(([to, label]) => (
-              <NavLink key={to} to={to} onClick={() => setMenu(false)}>
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+          
+
+          
+<nav className={menu ? 'main-nav open' : 'main-nav'} aria-label="주 메뉴">
+  <div className="nav-mega">
+    <NavLink
+      className="nav-mega-trigger"
+      to="/jobs"
+      onClick={() => setMenu(false)}
+      aria-haspopup="true"
+    >
+      채용정보
+      <span className="nav-chevron" aria-hidden="true">⌄</span>
+    </NavLink>
+
+    <div className="mega-panel">
+      <div className="mega-heading">
+        <div>
+          <span className="mega-eyebrow">FIND YOUR NEXT CHAPTER</span>
+          <h2>어떤 일로 성장하고 싶으세요?</h2>
+          <p>관심 있는 직무를 선택하고 새로운 기회를 만나보세요.</p>
+        </div>
+        <Link
+          className="mega-all"
+          to="/jobs"
+          onClick={() => setMenu(false)}
+        >
+          전체 채용공고 보기 <span>↗</span>
+        </Link>
+      </div>
+
+      <div className="mega-content">
+        <div className="mega-categories">
+          {[
+            {
+              icon: '01',
+              title: '개발 · 데이터',
+              jobs: ['백엔드 개발자', '프론트엔드 개발자', 'AI · 머신러닝', '데이터 분석', '정보보안'],
+            },
+            {
+              icon: '02',
+              title: '디자인 · 기획',
+              jobs: ['UI · UX 디자이너', '프로덕트 디자이너', '서비스 기획', 'PM · PO', '콘텐츠 기획'],
+            },
+            {
+              icon: '03',
+              title: '마케팅 · 광고',
+              jobs: ['콘텐츠 마케팅', '퍼포먼스 마케팅', '브랜드 마케팅', '광고 · 홍보', 'SNS 운영'],
+            },
+            {
+              icon: '04',
+              title: '경영 · 전문직',
+              jobs: ['인사 · HR', '회계 · 재무', '영업 · 영업관리', '법무 · 노무', '고객상담 · CS'],
+            },
+            {
+              icon: '05',
+              title: '생산 · 물류',
+              jobs: ['생산관리', '품질관리', '물류 · 유통', '구매 · 자재', '기술 · 설비'],
+            },
+            {
+              icon: '06',
+              title: '교육 · 서비스',
+              jobs: ['교육 · 강사', '의료 · 보건', '서비스 · 판매', '공공 · 복지', '고객지원'],
+            },
+          ].map((category) => (
+            <section className="mega-category" key={category.icon}>
+              <div className="mega-category-title">
+                <span>{category.icon}</span>
+                <h3>{category.title}</h3>
+              </div>
+
+              <div className="mega-job-list">
+                {category.jobs.map((job) => (
+                  <Link
+                    key={job}
+                    to={`/jobs?q=${encodeURIComponent(job)}`}
+                    onClick={() => setMenu(false)}
+                  >
+                    {job}
+                    <span className="mega-job-arrow">↗</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <aside className="mega-feature">
+          <span className="mega-feature-label">JOBBRIDGE GUIDE</span>
+          <div className="mega-feature-icon">✳</div>
+          <h3>나에게 맞는<br />커리어를 찾아보세요.</h3>
+          <p>
+            첫 취업부터 새로운 도전까지,
+            나의 가능성을 넓혀줄 채용 기회를 탐색하세요.
+          </p>
+          <Link to="/jobs" onClick={() => setMenu(false)}>
+            채용공고 탐색하기 <span>→</span>
+          </Link>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  {[
+    ['/companies', '기업정보'],
+    ['/employment', '취업연계'],
+    ['/notices', '공지사항'],
+    ['/inquiries', '고객센터'],
+  ].map(([to, label]) => (
+    <NavLink key={to} to={to} onClick={() => setMenu(false)}>
+      {label}
+    </NavLink>
+  ))}
+</nav>
+    
+
           <div className="account">
             {user ? (
               <>
