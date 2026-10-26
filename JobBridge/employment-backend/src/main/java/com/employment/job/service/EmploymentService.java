@@ -15,14 +15,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmploymentService {
 
     private final Database db;
+    private final ResumeFiles files;
+    private final Assessments assessments;
     private final ObjectMapper json;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private static final String PUBLIC_JOB =
         " FROM job_postings j JOIN companies c ON c.company_id=j.company_id JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ";
     private static final String JOB_COLUMNS = "j.*,c.company_name";
 
-    public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc) {
+    public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc, ResumeFiles files, Assessments assessments) {
         this.db = db;
+        this.files = files;
+        this.assessments = assessments;
         this.json = json;
         this.jdbc = jdbc;
     }
@@ -55,8 +59,10 @@ public class EmploymentService {
             )
         );
         where += WorkRegionFilter.condition(region, args);
-        where += " AND j.job_type LIKE ? AND j.career_type LIKE ?";
-        args.add("%" + type + "%");
+        Input.jobType(type, true);
+        where += " AND (?='' OR j.job_type=?) AND j.career_type LIKE ?";
+        args.add(type);
+        args.add(type);
         args.add("%" + career + "%");
         long total = number(
             db.one("SELECT COUNT(*) AS total" + where, args.toArray()),
@@ -192,6 +198,8 @@ public class EmploymentService {
     }
 
     private void addResumeDetails(Map<String, Object> row) {
+        row.put("attachment", files.current(number(row, "resumeId")));
+        row.put("assessment", assessments.result(number(row, "resumeId")));
         Object details = row.remove("detailsJson");
         try {
             row.put(
@@ -276,6 +284,8 @@ public class EmploymentService {
             "UPDATE resumes SET is_default=FALSE WHERE resume_id=?",
             id
         );
+        if (body.containsKey("attachment")) files.save(id, body.get("attachment"));
+        if (body.containsKey("assessmentAnswers")) assessments.grade(id, body.get("assessmentAnswers"));
         return resume(user, id);
     }
 
@@ -366,6 +376,8 @@ public class EmploymentService {
         ) {
             throw new Problem(409, "현재 지원할 수 없는 공고입니다.");
         }
+        if (!db.list("SELECT application_id FROM applications WHERE job_id=? AND job_seeker_id=? AND status IN ('APPLIED','UNDER_REVIEW','DOCUMENT_PASSED','INTERVIEW')", jobId, seeker).isEmpty())
+            throw new Problem(409, "전형 결과가 나오기 전까지 같은 공고에 중복 지원할 수 없습니다.");
         long resumeId = Input.id(body, "resumeId");
         var resume = resume(user, resumeId);
         long id = db.insert(
@@ -381,6 +393,7 @@ public class EmploymentService {
                 Input.text(body, "coverLetter", 10000, false)
             )
         );
+        assessments.snapshot(id, jobId, resumeId);
         var contact = db.one(
             "SELECT name,email,phone FROM users WHERE user_id=?",
             user
@@ -510,11 +523,13 @@ public class EmploymentService {
     }
 
     public Map<String, Object> ownJob(long user, long id, boolean approved) {
-        return db.one(
+        var row = db.one(
             "SELECT * FROM job_postings WHERE job_id=? AND company_id=? FOR UPDATE",
             id,
             number(company(user, approved), "companyId")
         );
+        row.put("assessmentMinScore", assessments.minimum(id));
+        return row;
     }
 
     public void deleteJob(long user, long id) {
@@ -582,15 +597,14 @@ public class EmploymentService {
             texts[i][1],
             Input.text(body, texts[i][0], Integer.parseInt(texts[i][2]), i < 5)
         );
+        Input.jobType((String) values.get("job_type"), false);
         long headcount = Input.id(body, "headcount");
         if (headcount > 10000) throw new Problem(
             400,
             "모집 인원을 확인해 주세요."
         );
-        LocalDate start = LocalDate.parse(
-            Input.text(body, "startDate", 10, true)
-        );
-        LocalDate end = LocalDate.parse(Input.text(body, "endDate", 10, true));
+        LocalDate start = Input.date(body, "startDate");
+        LocalDate end = Input.date(body, "endDate");
         if (start.isAfter(end)) throw new Problem(
             400,
             "접수 시작일은 마감일보다 늦을 수 없습니다."
@@ -620,6 +634,7 @@ public class EmploymentService {
                 args.toArray()
             );
         }
+        if (body.containsKey("assessmentMinScore")) assessments.configure(id, body.get("assessmentMinScore"));
         return ownJob(user, id, false);
     }
 
@@ -627,6 +642,7 @@ public class EmploymentService {
         var job = ownJob(user, id, !action.equals("close"));
         String status = job.get("status").toString();
         if (action.equals("review-request") && status.equals("DRAFT")) {
+            Input.jobType((String) job.get("jobType"), false);
             db.update(
                 "UPDATE job_postings SET status='PENDING',review_reason=NULL WHERE job_id=?",
                 id
@@ -642,7 +658,7 @@ public class EmploymentService {
     public List<Map<String, Object>> applicants(long user, long jobId) {
         ownJob(user, jobId, true);
         return db.list(
-            "SELECT a.application_id,a.status,a.applied_at,u.name FROM applications a JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id WHERE a.job_id=? ORDER BY a.application_id DESC",
+            "SELECT a.application_id,a.status,a.applied_at,u.name,e.score FROM applications a JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id LEFT JOIN application_assessments e ON e.application_id=a.application_id WHERE a.job_id=? ORDER BY a.application_id DESC",
             jobId
         );
     }
@@ -654,6 +670,7 @@ public class EmploymentService {
             id,
             company
         );
+        app.put("assessment", assessments.companyResult(id, true));
         addDetails(app, true);
         return app;
     }
@@ -731,9 +748,7 @@ public class EmploymentService {
             409,
             "서류 합격 또는 면접 단계에서만 등록할 수 있습니다."
         );
-        Instant at = OffsetDateTime.parse(
-            Input.text(body, "interviewAt", 50, true)
-        ).toInstant();
+        Instant at = Input.instant(body, "interviewAt");
         if (!at.isAfter(Instant.now())) throw new Problem(
             400,
             "미래 면접 일시를 입력해 주세요."
@@ -836,9 +851,7 @@ public class EmploymentService {
                 409,
                 "종료된 지원의 면접은 변경할 수 없습니다."
             );
-            Instant at = OffsetDateTime.parse(
-                Input.text(body, "interviewAt", 50, true)
-            ).toInstant();
+            Instant at = Input.instant(body, "interviewAt");
             if (!at.isAfter(Instant.now())) throw new Problem(
                 400,
                 "미래 면접 일시를 입력해 주세요."
