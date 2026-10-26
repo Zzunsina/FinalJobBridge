@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../stores/auth';
 import { Form } from '../components/common/UI';
@@ -96,6 +96,7 @@ export function Login({ adminOnly = false }) {
           <Link to="/login">일반 회원 로그인으로 이동</Link>
         ) : (
           <>
+            <Link to="/find-id">아이디 찾기</Link>
             <Link to="/find-password">비밀번호 찾기</Link>
             <Link to="/signup">회원가입 →</Link>
           </>
@@ -227,14 +228,133 @@ export function Signup() {
   );
 }
 
-export function FindPassword() {
+export function FindId() {
+  const [foundId, setFoundId] = useState(null);
+  const fields = [
+    { name: 'name', label: '이름', required: true, maxLength: 100 },
+    { name: 'email', label: '이메일', type: 'email-select', required: true, maxLength: 255 },
+  ];
+
   return (
     <div className="auth-shell">
+      <p className="eyebrow">FIND ID</p>
+      <h1>아이디 찾기</h1>
+      {foundId ? (
+        <div className="signup-complete" role="status" style={{ marginBottom: '1.5rem' }}>
+          <div>
+            <strong>회원님의 아이디는 {foundId} 입니다.</strong>
+            <p>가입된 아이디로 로그인해 주세요.</p>
+          </div>
+        </div>
+      ) : (
+        <Form
+          fields={fields}
+          onSubmit={async (body) => {
+            const { data } = await client.post('/auth/find-id', body);
+            setFoundId(data.loginId);
+          }}
+          submit="아이디 찾기"
+        />
+      )}
+      <div className="auth-links" style={{ marginTop: '1rem' }}>
+        <Link to="/login">로그인으로 돌아가기</Link>
+      </div>
+    </div>
+  );
+}
+
+export function FindPassword() {
+  const [submitted, setSubmitted] = useState(false);
+  const fields = [
+    { name: 'loginId', label: '아이디', required: true, maxLength: 30 },
+    { name: 'email', label: '이메일', type: 'email-select', required: true, maxLength: 255 },
+  ];
+
+  return (
+    <div className="auth-shell">
+      <p className="eyebrow">FORGOT PASSWORD</p>
       <h1>비밀번호 재설정</h1>
-      <p className="callout">
-        메일 서비스가 아직 설정되지 않았습니다. 운영자에게 비밀번호 재설정을 문의해 주세요.
-      </p>
-      <Link to="/login">로그인으로 돌아가기</Link>
+      {submitted ? (
+        <div className="signup-complete" role="status" style={{ marginBottom: '1.5rem' }}>
+          <div>
+            <strong>비밀번호 재설정 메일이 발송되었습니다.</strong>
+            <p>입력하신 이메일함을 확인해 주세요.</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="muted" style={{ marginBottom: '1.5rem' }}>
+            가입하신 아이디와 이메일을 입력하시면 비밀번호를 재설정할 수 있는 링크를 보내드립니다.
+          </p>
+          <Form
+            fields={fields}
+            onSubmit={async (body) => {
+              await client.post('/auth/forgot-password', body);
+              setSubmitted(true);
+            }}
+            submit="재설정 메일 받기"
+          />
+        </>
+      )}
+      <div className="auth-links" style={{ marginTop: '1rem' }}>
+        <Link to="/login">로그인으로 돌아가기</Link>
+      </div>
+    </div>
+  );
+}
+
+export function ResetPassword() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
+  const [success, setSuccess] = useState(false);
+
+  const fields = [
+    {
+      name: 'newPassword',
+      label: '새 비밀번호 (공백 없이 8~20자)',
+      type: 'password',
+      required: true,
+      minLength: 8,
+      maxLength: 20,
+      pattern: '\\S{8,20}',
+    },
+    {
+      name: 'newPasswordConfirm',
+      label: '새 비밀번호 확인',
+      type: 'password',
+      required: true,
+      maxLength: 20,
+      validate: (value, values) => (value === values.newPassword ? '' : '비밀번호가 일치하지 않습니다.'),
+    },
+  ];
+
+  return (
+    <div className="auth-shell">
+      <p className="eyebrow">RESET PASSWORD</p>
+      <h1>새 비밀번호 설정</h1>
+      {success ? (
+        <div className="signup-complete" role="status" style={{ marginBottom: '1.5rem' }}>
+          <div>
+            <strong>비밀번호가 성공적으로 변경되었습니다.</strong>
+            <p>새로운 비밀번호로 로그인해 주세요.</p>
+          </div>
+        </div>
+      ) : (
+        <Form
+          fields={fields}
+          onSubmit={async (body) => {
+            await client.post('/auth/reset-password', {
+              token,
+              newPassword: body.newPassword,
+            });
+            setSuccess(true);
+          }}
+          submit="비밀번호 변경하기"
+        />
+      )}
+      <div className="auth-links" style={{ marginTop: '1rem' }}>
+        <Link to="/login">로그인으로 돌아가기</Link>
+      </div>
     </div>
   );
 }

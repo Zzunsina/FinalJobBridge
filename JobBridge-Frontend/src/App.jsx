@@ -3,7 +3,8 @@ import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from
 import { useAuth } from './stores/auth';
 import { Empty, Guard } from './components/common/UI';
 import { Home, Jobs, JobDetail, Companies, CompanyDetail, Notices } from './pages/Public';
-import { Login, Signup, FindPassword } from './pages/Auth';
+// 💡 FindId와 ResetPassword를 추가로 임포트합니다.
+import { Login, Signup, FindId, FindPassword, ResetPassword } from './pages/Auth';
 import {
   Resumes,
   ResumeForm,
@@ -180,7 +181,12 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/admin/login" element={<Login key="admin-login" adminOnly />} />
             <Route path="/signup" element={<Signup />} />
+            
+            {/* 💡 아이디 찾기, 비밀번호 찾기 및 재설정 라우트 추가 */}
+            <Route path="/find-id" element={<FindId />} />
             <Route path="/find-password" element={<FindPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+
             <Route path="/resumes" element={protectedPage('JOB_SEEKER', <Resumes />)} />
             <Route path="/resumes/new" element={protectedPage('JOB_SEEKER', <ResumeForm />)} />
             <Route path="/resumes/:id/edit" element={protectedPage('JOB_SEEKER', <ResumeForm />)} />
