@@ -100,4 +100,19 @@ public class AuthController {
             "비밀번호 재설정 메일 서비스가 아직 설정되지 않았습니다. 운영자에게 문의해 주세요."
         );
     }
+    /* 👇 아래의 아이디 찾기 및 비밀번호 재설정 관련 엔드포인트만 추가 */
+    @PostMapping("/auth/find-id")
+    Map<String, Object> findId(@RequestBody Map<String, Object> body) {
+        return auth.findId(body);
+    }
+
+    @PostMapping("/auth/forgot-password")
+    void forgotPassword(@RequestBody Map<String, Object> body) {
+        auth.forgotPassword(body);
+    }
+
+    @PostMapping("/auth/reset-password")
+    void resetPassword(@RequestBody Map<String, Object> body) {
+        auth.resetPassword(body);
+    }
 }

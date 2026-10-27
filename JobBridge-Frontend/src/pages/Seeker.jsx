@@ -259,6 +259,7 @@ export function MyPage() {
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const navigate = useNavigate();
+
   return (
     <>
       <Title>내 정보</Title>
@@ -283,6 +284,8 @@ export function MyPage() {
         <h2>비밀번호 변경</h2>
         <p className="muted">현재 비밀번호와 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.</p>
         <Form
+          key="password-change-form"
+          method="patch" // 💡 PATCH 메서드로 전송되도록 명시
           fields={[
             {
               name: 'currentPassword',
@@ -300,11 +303,24 @@ export function MyPage() {
               maxLength: 20,
               pattern: '\\S{8,20}',
             },
+            {
+              name: 'passwordConfirm',
+              label: '새 비밀번호 확인 (공백 없이 8~20자)',
+              type: 'password',
+              required: true,
+              maxLength: 20,
+              validate: (value, values) =>
+                value === values.password ? '' : '새 비밀번호가 일치하지 않습니다.',
+            },
           ]}
           onSubmit={async (body) => {
-            await client.patch('/me/password', body);
-            setUser(null);
-            navigate('/login');
+            // passwordConfirm을 제외하고 currentPassword와 password만 전달
+            await client.patch('/me/password', {
+              currentPassword: body.currentPassword,
+              password: body.password,
+            });
+            window.alert('비밀번호가 성공적으로 변경되었습니다.');
+            navigate('/');
           }}
           submit="변경하기"
         />
@@ -313,6 +329,7 @@ export function MyPage() {
     </>
   );
 }
+
 
 export function Notifications() {
   const user = useAuth((s) => s.user);
