@@ -576,8 +576,10 @@ public class EmploymentService {
         Map<String, Object> body
     ) {
         long company = number(company(user, false), "companyId");
+        LocalDate originalStart = null;
         if (id != null) {
             var old = ownJob(user, id, false);
+            originalStart = LocalDate.parse(old.get("startDate").toString());
             if (
                 Set.of("CLOSED", "PENDING").contains(old.get("status"))
             ) throw new Problem(
@@ -609,10 +611,7 @@ public class EmploymentService {
         );
         LocalDate start = Input.date(body, "startDate");
         LocalDate end = Input.date(body, "endDate");
-        if (start.isAfter(end)) throw new Problem(
-            400,
-            "접수 시작일은 마감일보다 늦을 수 없습니다."
-        );
+        JobDatePolicy.validate(start, end, originalStart, today());
         values.put("headcount", headcount);
         values.put("start_date", start);
         values.put("end_date", end);
@@ -941,6 +940,14 @@ public class EmploymentService {
                 related
             )
         );
+    }
+
+    public Map<String,Object> seekerActivity(long user) {
+        long owner = seeker(user);
+        var result = db.one("SELECT COUNT(*) AS application_count,COUNT(CASE WHEN status IN ('APPLIED','UNDER_REVIEW','DOCUMENT_PASSED','INTERVIEW') THEN 1 END) AS active_applications FROM applications WHERE job_seeker_id=?", owner);
+        result.putAll(db.one("SELECT COUNT(*) AS resume_count,COUNT(a.resume_id) AS assessed_resume_count FROM resumes r LEFT JOIN resume_assessments a ON a.resume_id=r.resume_id WHERE r.job_seeker_id=?", owner));
+        result.put("upcomingInterviews", db.list("SELECT i.interview_id,i.application_id,i.interview_at,i.interview_type,c.company_name FROM interviews i JOIN applications a ON a.application_id=i.application_id JOIN job_postings j ON j.job_id=a.job_id JOIN companies c ON c.company_id=j.company_id WHERE a.job_seeker_id=? AND i.status='SCHEDULED' AND i.interview_at>=? AND a.status IN ('APPLIED','UNDER_REVIEW','DOCUMENT_PASSED','INTERVIEW') ORDER BY i.interview_at,i.interview_id LIMIT 2", owner, Timestamp.from(Instant.now())));
+        return result;
     }
 
     public static LocalDate today() {

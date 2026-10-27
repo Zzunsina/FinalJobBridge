@@ -17,7 +17,7 @@ export const useRecentJobs = create((set, get) => ({
     set((state) => ({ byOwner: { ...state.byOwner, [owner]: read(owner) } }));
   },
   remember(owner, job) {
-    const row = { jobId: Number(job.jobId), title: job.title, companyName: job.companyName, industry: job.industry || '' };
+    const row = { jobId: Number(job.jobId), title: job.title, companyName: job.companyName, industry: job.industry || '', endDate: job.endDate || '' };
     if (!Number.isSafeInteger(row.jobId) || row.jobId < 1) return;
     const previous = get().byOwner[owner] || read(owner);
     const rows = [row, ...previous.filter((item) => item.jobId !== row.jobId)].slice(0, 3);

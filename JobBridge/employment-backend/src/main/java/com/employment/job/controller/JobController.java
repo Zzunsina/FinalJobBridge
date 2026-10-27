@@ -49,6 +49,11 @@ public class JobController {
         return service.companyDetail(id);
     }
 
+    @GetMapping("/job-seekers/me/activity")
+    Object activity(HttpServletRequest req) {
+        return service.seekerActivity(auth.require(req, "JOB_SEEKER"));
+    }
+
     @GetMapping("/resumes")
     Object resumes(HttpServletRequest req) {
         return service.resumes(auth.require(req, "JOB_SEEKER"));

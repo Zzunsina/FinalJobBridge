@@ -97,7 +97,7 @@ class PlatformIntegrationTests {
             "headcount",
             1,
             "startDate",
-            LocalDate.now().minusDays(1).toString(),
+            EmploymentService.today().toString(),
             "endDate",
             LocalDate.now().plusDays(30).toString()
         );
@@ -988,7 +988,7 @@ class PlatformIntegrationTests {
                         "headcount",
                         1,
                         "startDate",
-                        LocalDate.now().minusDays(1).toString(),
+                        EmploymentService.today().toString(),
                         "endDate",
                         LocalDate.now().plusDays(10).toString()
                     )
@@ -1577,7 +1577,7 @@ class PlatformIntegrationTests {
     private Map<String, Object> regressionJobBody() {
         return fields("title", "Regression job", "jobType", "정규직", "careerType", "신입",
             "workLocation", "서울", "description", "Description", "headcount", 1,
-            "startDate", EmploymentService.today().minusDays(1).toString(),
+            "startDate", EmploymentService.today().toString(),
             "endDate", EmploymentService.today().plusDays(10).toString());
     }
 
@@ -1877,7 +1877,7 @@ class PlatformIntegrationTests {
     void defaultJobPaginationReturnsTwelveAndThirteenthOnNextPage() throws Exception {
         String title="pagination-"+UUID.randomUUID();
         for(int i=0;i<13;i++) {
-            var row=service.saveJob(companyUser,null,fields("title",title,"jobType","계약직","careerType","신입","workLocation","서울","description","테스트","headcount",1,"startDate",LocalDate.now().minusDays(1).toString(),"endDate",LocalDate.now().plusDays(10).toString()));
+            var row=service.saveJob(companyUser,null,fields("title",title,"jobType","계약직","careerType","신입","workLocation","서울","description","테스트","headcount",1,"startDate",EmploymentService.today().toString(),"endDate",LocalDate.now().plusDays(10).toString()));
             db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",row.get("jobId"));
         }
         mvc.perform(get("/api/jobs").param("q",title).param("type","계약직").param("region","서울"))
@@ -1909,5 +1909,54 @@ class PlatformIntegrationTests {
         body.put("bannerImageUrl","");
         service.saveJob(companyUser,job,body);
         assertThat(service.ownJob(companyUser,job,false).get("bannerImageUrl")).isEqualTo("");
+    }
+
+    @Test
+    void jobDatesRejectBackdatingAndPreserveOriginalStartedDate() {
+        long before=number(db.one("SELECT COUNT(*) AS total FROM job_postings WHERE company_id=?",company),"total");
+        var body=regressionJobBody();
+        body.put("startDate", EmploymentService.today().minusDays(1).toString());
+        assertThatThrownBy(()->service.saveJob(companyUser,null,body)).isInstanceOf(Problem.class);
+        assertThat(number(db.one("SELECT COUNT(*) AS total FROM job_postings WHERE company_id=?",company),"total")).isEqualTo(before);
+        body.put("startDate",EmploymentService.today().toString());
+        body.put("endDate",EmploymentService.today().minusDays(1).toString());
+        assertThatThrownBy(()->service.saveJob(companyUser,null,body)).isInstanceOf(Problem.class);
+        db.update("UPDATE job_postings SET start_date=? WHERE job_id=?",EmploymentService.today().minusDays(6),job);
+        var existing=new LinkedHashMap<String,Object>(service.ownJob(companyUser,job,false));
+        service.saveJob(companyUser,job,existing);
+        assertThat(service.ownJob(companyUser,job,false).get("startDate")).isEqualTo(EmploymentService.today().minusDays(6).toString());
+        existing.put("startDate",EmploymentService.today().minusDays(2).toString());
+        assertThatThrownBy(()->service.saveJob(companyUser,job,existing)).isInstanceOf(Problem.class);
+    }
+
+    @Test
+    void sidePanelActivityIsPrivateAndReportsOnlyUpcomingScheduledInterviews() throws Exception {
+        long application=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        var now=java.time.Instant.now();
+        long next=0;
+        for (int i=0; i<5; i++) {
+            long interview=db.insert("interviews",fields("application_id",application,"interview_at",java.sql.Timestamp.from(now.plusSeconds((i-1)*3600L)),"interview_type","ONLINE","status",i==4?"CANCELED":"SCHEDULED","request_key","side-"+i,"request_hash","side-panel-test"));
+            if (i==2) next=interview;
+        }
+        var data=service.seekerActivity(seeker);
+        assertThat(number(data,"applicationCount")).isEqualTo(1);
+        assertThat(number(data,"activeApplications")).isEqualTo(1);
+        assertThat(number(data,"resumeCount")).isEqualTo(1);
+        assertThat(number(data,"assessedResumeCount")).isEqualTo(1);
+        var interviews=(List<Map<String,Object>>)data.get("upcomingInterviews");
+        assertThat(interviews).hasSize(2);
+        assertThat(number(interviews.get(0),"interviewId")).isEqualTo(next);
+        var otherData=service.seekerActivity(other);
+        assertThat(number(otherData,"applicationCount")).isZero();
+        assertThat(number(otherData,"resumeCount")).isZero();
+        assertThat((List<?>)otherData.get("upcomingInterviews")).isEmpty();
+        mvc.perform(get("/api/job-seekers/me/activity")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/job-seekers/me/activity").cookie(login(companyUser))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/job-seekers/me/activity").cookie(login(seeker)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.applicationCount").value(1))
+            .andExpect(jsonPath("$.upcomingInterviews.length()").value(2));
+        db.update("UPDATE applications SET status='CANCELED' WHERE application_id=?",application);
+        assertThat(number(service.seekerActivity(seeker),"activeApplications")).isZero();
+        assertThat((List<?>)service.seekerActivity(seeker).get("upcomingInterviews")).isEmpty();
     }
 }

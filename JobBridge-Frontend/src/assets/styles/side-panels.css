@@ -1,4 +1,4 @@
-.page-side-panel { position:fixed; top:176px; width:184px; z-index:20; max-height:calc(100dvh - 210px); overflow-y:auto; scrollbar-width:thin; }
+.page-side-panel { position:absolute; top:256px; width:184px; z-index:20; max-height:none; overflow:visible; }
 .page-side-left { right:calc(50% + 624px); }
 .page-side-right { left:calc(50% + 624px); }
 .side-panel-card { padding:19px 15px; background:#fff; border:1px solid #e1e8f3; border-radius:16px; box-shadow:0 8px 28px #23395506; }
@@ -38,4 +38,57 @@
 .page-back-to-top span { font-size:9px; letter-spacing:1px; }
 .page-back-to-top:hover { background:#f2f6ff; color:#2563eb; }
 @media(max-width:1679px) { .page-side-panel,.page-back-to-top { display:none; } }
-@media(max-height:680px) { .page-side-panel { top:140px; max-height:calc(100dvh - 164px); } }
+@media(max-height:680px) { .page-side-panel { top:220px; } }
+
+.page-side-panel > .side-panel-card + .side-panel-card { margin-top:14px; }
+.side-mini-deadline { display:inline-block; margin-top:4px; color:#de7b38; font-style:normal; font-size:9px; font-weight:600; }
+.side-live-dot { color:#cf793b!important; font-size:9px!important; background:#fff2e7; padding:3px 6px; border-radius:5px; white-space:nowrap; }
+.side-deadline-panel { background:linear-gradient(160deg,#fffcf8,#fff 55%); }
+.side-deadline-list { display:grid; }
+.side-deadline-list > a { padding:11px 0; }
+.side-deadline-list > a:first-child { padding-top:0; }
+.side-deadline-list > a + a { border-top:1px solid #edf0f5; }
+.side-deadline-list > a > div { display:flex; align-items:center; justify-content:space-between; gap:4px; }
+.side-deadline-list small { font-size:10px; color:#8d99ad; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.side-deadline-badge { color:#df7134; font-size:10px; font-weight:700; white-space:nowrap; }
+.side-deadline-list strong { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:6px 0; color:#435570; font-size:11px; line-height:1.65; font-weight:600; }
+.side-deadline-location { display:block; color:#98a4b6; font-size:9px; line-height:1.7; }
+.side-state-message { color:#8b99ad; font-size:10px; line-height:1.9; margin:0; }
+.side-state-message a { display:block; color:#527dbd; margin-top:8px; }
+.side-section-link { display:block; padding-top:12px; margin-top:10px; border-top:1px solid #edf0f5; color:#6f8bb5; font-size:10px; text-align:center; }
+.side-in-progress { display:flex; justify-content:space-between; gap:5px; background:#fff; border:1px solid #e8eef7; border-radius:7px; padding:8px; margin:-4px 0 13px; font-size:10px; color:#8a9ab1; }
+.side-in-progress strong { color:#4c73b1; }
+.side-interview-list { display:grid; gap:12px; }
+.side-interview-list > a { border-left:2px solid #b3caf0; padding-left:9px; }
+.side-interview-list time { display:block; font-size:10px; color:#537fc3; font-weight:600; line-height:1.8; }
+.side-interview-list strong { display:block; margin:4px 0; font-size:12px; color:#3d5273; }
+.side-interview-list small { display:block; font-size:9px; line-height:1.8; color:#97a4b7; }
+.side-preparation-progress { height:5px; background:#eaf0f8; overflow:hidden; border-radius:10px; margin:-2px 0 16px; }
+.side-preparation-progress > span { display:block; height:100%; background:#7aa1d9; border-radius:10px; }
+.side-check-item { display:flex; gap:9px; align-items:center; padding:8px 0; font-size:11px; color:#667c9b; }
+.side-check-item > span:first-child { display:grid; place-items:center; width:23px; height:23px; flex-shrink:0; background:#f0f4fa; border:1px solid #e4eaf4; color:#8d9fb9; border-radius:50%; font-size:10px; }
+.side-check-item small { display:block; color:#98a5b7; font-size:9px; line-height:1.8; margin-top:3px; }
+.side-check-item.is-complete > span:first-child { background:#eaf7f1; border-color:#d5ebdf; color:#4b9979; }
+
+/* Deadline links have a complete hover/focus target without an inner scrollbar. */
+.side-deadline-list > a {
+  display:block;
+  margin:0 -7px;
+  padding:11px 7px;
+  border:1px solid transparent;
+  border-radius:8px;
+  transition:background 180ms ease, border-color 180ms ease;
+}
+.side-deadline-list > a:first-child { padding-top:11px; }
+.side-deadline-list > a + a { border-top-color:#edf0f5; }
+.side-deadline-list > a:hover,
+.side-deadline-list > a:focus-visible {
+  background:#fff0e4;
+  border-color:#f6d2b4;
+  outline:none;
+}
+.side-deadline-list > a:hover strong,
+.side-deadline-list > a:focus-visible strong { color:#a95220; }
+.side-deadline-list > a:hover .side-deadline-badge,
+.side-deadline-list > a:focus-visible .side-deadline-badge { color:#bd561c; }
+@media(prefers-reduced-motion:reduce) { .side-deadline-list > a { transition:none; } }

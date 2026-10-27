@@ -218,7 +218,7 @@ export default function App() {
 </nav>
     
 
-          <HeaderSearch onSubmitted={() => setMenu(false)} />
+          <HeaderSearch key={location.key} onSubmitted={() => setMenu(false)} />
           <div className="account">
             {user ? (
               <>
