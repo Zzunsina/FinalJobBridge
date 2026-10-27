@@ -1,3 +1,5 @@
+import CalendarPicker from '../components/common/CalendarPicker';
+import { koreanToday } from '../utils/memberInputs';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useResource } from '../hooks/useResource';
 import client from '../api/client';
@@ -202,7 +204,31 @@ export function JobForm() {
           <div className="panel narrow">
             <Form
               initial={id ? data : { headcount: 1, jobType: '정규직', careerType: '신입·경력' }}
-              fields={jobFields}
+              fields={jobFields.map((field) => {
+                if (!['startDate', 'endDate'].includes(field.name)) return field;
+                const originalStart = id ? data.startDate : '';
+                const startField = field.name === 'startDate';
+                return {
+                  ...field,
+                  validate: (value, values) => {
+                    const today = koreanToday();
+                    if (!value) return '날짜를 선택해 주세요.';
+                    if (startField && value < today && value !== originalStart) return '시작일은 오늘 이후로 선택해 주세요.';
+                    if (!startField && value < today) return '마감일은 오늘 이후로 선택해 주세요.';
+                    if (!startField && values.startDate && value < values.startDate) return '마감일은 시작일보다 빠를 수 없습니다.';
+                    return '';
+                  },
+                  render: ({ id: fieldId, values, setValues }) => {
+                    const today = koreanToday();
+                    const min = startField
+                      ? (originalStart && originalStart < today ? originalStart : today)
+                      : (values.startDate && values.startDate > today ? values.startDate : today);
+                    return <CalendarPicker id={fieldId} name={field.name} label={field.label} required value={values[field.name] || ''} min={min}
+                      isDateDisabled={startField ? (date) => date < today && date !== originalStart : undefined}
+                      onChange={(value) => setValues((old) => ({ ...old, [field.name]: value, ...(startField && old.endDate && old.endDate < value ? { endDate: '' } : {}) }))} />;
+                  },
+                };
+              })}
               onSubmit={async (body) => {
                 if (id) await client.put(`/company/jobs/${id}`, body);
                 else await client.post('/company/jobs', body);

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function HeaderSearch({ onSubmitted }) {
-  const [query, setQuery] = useState('');
+  const location = useLocation();
+  const [query, setQuery] = useState(() => location.pathname === '/jobs' ? new URLSearchParams(location.search).get('q') || '' : '');
   const navigate = useNavigate();
   return (
     <form className="header-search" role="search" aria-label="채용공고 빠른 검색" autoComplete="off" onSubmit={(event) => {

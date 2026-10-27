@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { koreanToday } from '../../utils/memberInputs';
 
 const pad = (n) => String(n).padStart(2, '0');
-export default function CalendarPicker({ id, name, value = '', onChange, required, disabled, type = 'date', min, max, label }) {
+export default function CalendarPicker({ id, name, value = '', onChange, required, disabled, type = 'date', min, max, label, isDateDisabled }) {
   const generatedId = useId();
   const fieldId = id || generatedId;
   const dialog = useRef(null);
@@ -18,7 +18,7 @@ export default function CalendarPicker({ id, name, value = '', onChange, require
   const title = label || (datetime ? '날짜·시간 선택' : monthOnly ? '연월 선택' : '날짜 선택');
   const yearMonth = year + '-' + pad(month);
   const candidate = monthOnly ? yearMonth : day + (datetime ? 'T' + hour + ':' + minute : '');
-  const canConfirm = (monthOnly || Boolean(day)) && (!min || candidate >= min) && (!max || candidate <= max);
+  const canConfirm = (monthOnly || Boolean(day)) && (!min || candidate >= min) && (!max || candidate <= max) && (!isDateDisabled || !isDateDisabled(candidate.slice(0, 10)));
   const base = new Date(Date.UTC(year, month - 1, 1));
   const offset = base.getUTCDay();
   const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -61,7 +61,7 @@ export default function CalendarPicker({ id, name, value = '', onChange, require
             {Array.from({ length: offset }, (_, i) => <span key={'blank' + i} />)}
             {Array.from({ length }, (_, i) => i + 1).map((d) => {
               const date = yearMonth + '-' + pad(d);
-              return <button key={d} type="button" className={day === date ? 'calendar-day selected' : 'calendar-day'} aria-label={year + '년 ' + month + '월 ' + d + '일'} aria-pressed={day === date} disabled={(min && date < min.slice(0, 10)) || (max && date > max.slice(0, 10))} onClick={() => setDay(date)}>{d}</button>;
+              return <button key={d} type="button" className={day === date ? 'calendar-day selected' : 'calendar-day'} aria-label={year + '년 ' + month + '월 ' + d + '일'} aria-pressed={day === date} disabled={(min && date < min.slice(0, 10)) || (max && date > max.slice(0, 10)) || Boolean(isDateDisabled?.(date))} onClick={() => setDay(date)}>{d}</button>;
             })}
           </div>
         </>}
