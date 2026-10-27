@@ -1,3 +1,5 @@
+import HeaderSearch from './components/common/HeaderSearch';
+import SidePanels from './components/common/SidePanels';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './stores/auth';
@@ -55,6 +57,7 @@ const protectedPage = (role, element) => <Guard role={role}>{element}</Guard>;
 export default function App() {
   const { user, initialized, error, initialize, logout } = useAuth();
   const [menu, setMenu] = useState(false);
+  const [megaDismissed, setMegaDismissed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
@@ -93,7 +96,18 @@ export default function App() {
 
           
 <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label="주 메뉴">
-  <div className="nav-mega">
+  <div
+    className={megaDismissed ? 'nav-mega is-dismissed' : 'nav-mega'}
+    onMouseEnter={() => setMegaDismissed(false)}
+    onMouseLeave={() => setMegaDismissed(false)}
+    onClickCapture={(event) => { if (event.target.closest('a')) setMegaDismissed(true); }}
+    onKeyDown={(event) => {
+      if (event.key === 'Escape') {
+        setMegaDismissed(true);
+        event.currentTarget.querySelector('.nav-mega-trigger')?.focus();
+      }
+    }}
+  >
     <NavLink
       className="nav-mega-trigger"
       to="/jobs"
@@ -101,7 +115,6 @@ export default function App() {
       aria-haspopup="true"
     >
       채용정보
-      <span className="nav-chevron" aria-hidden="true">⌄</span>
     </NavLink>
 
     <div className="mega-panel">
@@ -205,6 +218,7 @@ export default function App() {
 </nav>
     
 
+          <HeaderSearch onSubmitted={() => setMenu(false)} />
           <div className="account">
             {user ? (
               <>
@@ -345,6 +359,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      <SidePanels />
       <footer>
         <div className="container footer-inner">
           <div>

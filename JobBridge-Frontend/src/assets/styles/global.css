@@ -2052,15 +2052,24 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
   gap: 7px;
 }
 
-.nav-chevron {
-  display: inline-block;
-  font-size: 17px;
-  transition: transform 180ms ease;
+.main-nav .nav-mega-trigger::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0;
+  transform: translateX(-50%) scaleX(.45);
+  transition: transform 180ms ease, opacity 180ms ease;
+  pointer-events: none;
 }
-
-.nav-mega:hover .nav-chevron,
-.nav-mega:focus-within .nav-chevron {
-  transform: rotate(180deg);
+.main-nav .nav-mega:hover .nav-mega-trigger::after,
+.main-nav .nav-mega:focus-within .nav-mega-trigger::after {
+  opacity: .9;
+  transform: translateX(-50%) scaleX(1);
 }
 
 .mega-panel {
@@ -2097,8 +2106,8 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
   height: 26px;
 }
 
-.nav-mega:hover .mega-panel,
-.nav-mega:focus-within .mega-panel {
+.nav-mega:not(.is-dismissed):hover .mega-panel,
+.nav-mega:not(.is-dismissed):has(:focus-visible) .mega-panel {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -2349,14 +2358,14 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
     transform: none;
   }
 
-  .main-nav .nav-mega:hover .mega-panel,
-  .main-nav .nav-mega:focus-within .mega-panel {
+  .main-nav .nav-mega:not(.is-dismissed):hover .mega-panel,
+  .main-nav .nav-mega:not(.is-dismissed):has(:focus-visible) .mega-panel {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
   }
 
-  .main-nav .nav-mega:focus-within .mega-panel {
+  .main-nav .nav-mega:not(.is-dismissed):has(:focus-visible) .mega-panel {
     display: block;
   }
 
@@ -2397,7 +2406,7 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
 
 @media (prefers-reduced-motion: reduce) {
   .mega-panel,
-  .nav-chevron,
+  .main-nav .nav-mega-trigger::after,
   .mega-job-arrow {
     transition: none;
   }
@@ -2943,3 +2952,82 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
   }
 }
 
+
+/* Keep the login assistance links together below the submit button. */
+.auth-links.auth-login-links {
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-top: 22px;
+  line-height: 1.6;
+}
+.auth-login-links > a {
+  display: inline-flex;
+  align-items: center;
+  color: #65728a;
+  white-space: nowrap;
+  padding: 4px 0;
+}
+.auth-login-links > a + a::before {
+  content: '';
+  width: 1px;
+  height: 12px;
+  margin-right: 16px;
+  background: #dce2ec;
+}
+.auth-login-links > a:hover { color: #2563eb; }
+
+/* The primary navigation remains visible while browsing. */
+#header { position: sticky; top: 0; z-index: 100; box-shadow: 0 3px 14px #13254c12; }
+.header-inner { width: min(1200px, calc(100% - 64px)); gap: 24px; }
+.header-inner > .logo, .header-inner > .main-nav, .header-inner > .account { flex-shrink: 0; }
+.header-inner > .main-nav { gap: 24px; margin-left: 8px; }
+.header-inner > .account { margin-left: 0; gap: 16px; white-space: nowrap; }
+.header-search { display: flex; align-items: center; flex: 0 1 230px; min-width: 150px; height: 40px; margin-left: auto; border: 1px solid #ffffff45; border-radius: 24px; background: #ffffff0d; overflow: hidden; transition: background 180ms ease, border-color 180ms ease; }
+.header-search:focus-within { background: #ffffff1a; border-color: #bad3ff; outline: 2px solid #bad3ff55; outline-offset: 2px; }
+.header-search input { min-width: 0; min-height: 0; height: 38px; flex: 1; width: 0; padding: 8px 0 8px 16px; border: 0; border-radius: 0; background: transparent; color: #fff; font-size: 12px; outline: none; }
+.header-search input:focus-visible { outline: none; }
+.header-search input::placeholder { color: #d8e4ff; opacity: .85; }
+.header-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.header-search button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 42px; width: 42px; height: 38px; min-height: 0; padding: 0; border: 0; background: transparent; color: #fff; border-radius: 24px; }
+.header-search button:hover { background: #ffffff18; }
+.header-search button:focus-visible { outline: 2px solid #bad3ff; outline-offset: -4px; }
+.header-search svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+html { scroll-padding-top: 112px; }
+@media (max-width: 1100px) {
+  .header-inner { width: calc(100% - 48px); gap: 16px; }
+  .header-inner > .main-nav { gap: 16px; margin-left: 0; font-size: 13px; }
+  .header-search { flex-basis: 180px; }
+}
+@media (min-width: 769px) and (max-width: 1000px) {
+  .header-inner { flex-wrap: wrap; row-gap: 12px; }
+  .header-inner { position: relative; }
+  .header-inner .main-nav .nav-mega { position: static; }
+  .header-inner .main-nav .mega-panel { left: 0; top: calc(100% + 8px); width: 100%; max-width: 100%; }
+  .header-inner > .account { margin-left: auto; }
+  .header-search { order: 4; flex: 1 0 100%; margin-left: 0; }
+  html { scroll-padding-top: 160px; }
+}
+@media (max-width: 768px) {
+  .header-inner { width: calc(100% - 32px); gap: 10px; }
+  .header-inner > .account { margin-left: auto; gap: 10px; }
+  .header-inner > .main-nav { margin-left: 0; }
+  .header-search { order: 3; flex: 1 0 100%; margin-left: 0; height: 38px; }
+  .header-search input, .header-search button { height: 36px; }
+  html { scroll-padding-top: 150px; }
+}
+@media (prefers-reduced-motion: reduce) { .header-search { transition: none; } }
+
+/* Pointer clicks close the mega menu until it is hovered again. */
+.main-nav .nav-mega.is-dismissed .mega-panel { opacity:0; visibility:hidden; pointer-events:none; transform:translateY(10px); }
+.mega-heading h2 { font-size:27px; }
+.mega-heading p { font-size:14px; }
+.mega-category-title h3 { font-size:15px; }
+.mega-category-title > span { font-size:11px; }
+.main-nav .mega-job-list a { font-size:14px; line-height:1.65; padding:7px 8px; }
+.mega-all { font-size:14px; }
+.mega-feature p { font-size:14px; line-height:1.8; }
+.mega-feature a { font-size:14px; }
+@media (min-width:761px) { .mega-content { max-height:calc(100dvh - 275px); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; } }
+@media (max-width:760px) { .main-nav .nav-mega .mega-panel { display:none; } .mega-heading h2 { font-size:22px; } }

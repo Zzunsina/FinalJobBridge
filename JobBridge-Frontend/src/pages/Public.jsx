@@ -1,3 +1,5 @@
+import { useRecentJobs } from '../stores/recentJobs';
+import CompanyCover from '../components/common/CompanyCover';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useResource } from '../hooks/useResource';
@@ -22,7 +24,7 @@ import {
 
 
 export function Home() {
-  const jobs = useResource('/jobs?size=6');
+  const jobs = useResource('/jobs?size=10&page=0');
   const notices = useResource('/notices');
 
   return (
@@ -68,13 +70,16 @@ export function Home() {
             }
 
             return (
-              <div className="regular-job-grid">
-                {allJobs.map((job) => (
-                  <div className="regular-job-item" key={job.jobId}>
-                    <JobCard job={job} />
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="regular-job-grid">
+                  {allJobs.map((job) => (
+                    <div className="regular-job-item" key={job.jobId}>
+                      <JobCard job={job} />
+                    </div>
+                  ))}
+                </div>
+
+              </>
             );
           }}
         </Resource>
@@ -215,6 +220,7 @@ function Search({ initial = '' }) {
   return (
     <form
       className="search"
+      autoComplete="off"
       onSubmit={(e) => {
         e.preventDefault();
         const next = new URLSearchParams(params);
@@ -324,6 +330,12 @@ export function JobDetail() {
   const user = useAuth((s) => s.user);
   const [applying, setApplying] = useState(false);
   const [done, setDone] = useState(false);
+  const remember = useRecentJobs((state) => state.remember);
+  useEffect(() => {
+    if (!resource.loading && !resource.error && String(resource.data?.jobId) === String(id)) {
+      remember(user?.userId || 'guest', resource.data);
+    }
+  }, [id, resource.data, resource.loading, resource.error, user?.userId, remember]);
   return (
     <Resource resource={resource}>
       {(job) => applying && !done ? (
@@ -427,10 +439,11 @@ export function Companies() {
             <div className="job-grid">
               {rows.map((c) => (
                 <Link
-                  className="panel company-card"
+                  className="panel company-card company-card-photo"
                   key={c.companyId}
                   to={`/companies/${c.companyId}`}
                 >
+                  <CompanyCover companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-list-cover" />
                   <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
                   <div className="company-card-heading"><h2>{c.companyName}</h2>{c.description?.startsWith('[예시 기업]') && <span className="company-demo-label">예시 기업</span>}</div>
                   <p className="company-industry">{c.industry || '산업 정보 준비 중'}</p>
@@ -457,6 +470,7 @@ export function CompanyDetail() {
     <Resource resource={resource}>
       {(c) => (
         <>
+          <CompanyCover companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-detail-cover" />
           <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
           <Title description={c.industry}>{c.companyName}</Title>
           <article className="panel prose">

@@ -35,11 +35,11 @@ public class Database {
                         }
                     }
                     Object value = rs.getObject(i);
-                    // SQL TIMESTAMP/DATETIME values are exchanged in the configured UTC session.
+                    // SQL TIMESTAMP/DATETIME values are exchanged in the configured Korea session.
                     // JDBC's default Calendar uses the JVM zone, which can differ from that session.
-                    if (value instanceof Timestamp) value = rs.getTimestamp(i, utc()).toInstant().toString();
+                    if (value instanceof Timestamp) value = rs.getTimestamp(i, korea()).toInstant().toString();
                     if ("has_image".equals(raw) && value != null) value = rs.getBoolean(i);
-                    if (value instanceof java.sql.Date date) value = date.toLocalDate().toString();
+                    if (value instanceof java.sql.Date) value = rs.getObject(i, java.time.LocalDate.class).toString();
                     result.put(key.toString(), value);
                 }
                 return result;
@@ -90,13 +90,13 @@ public class Database {
             .longValue();
     }
 
-    private static Calendar utc() {
-        return Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    private static Calendar korea() {
+        return Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
     }
 
     private static void bind(PreparedStatement statement, Object[] args) throws SQLException {
         for (int i = 0; i < args.length; i++) {
-            if (args[i] instanceof Timestamp time) statement.setTimestamp(i + 1, time, utc());
+            if (args[i] instanceof Timestamp time) statement.setTimestamp(i + 1, time, korea());
             else statement.setObject(i + 1, args[i]);
         }
     }

@@ -129,7 +129,7 @@ public class EmploymentService {
 
     public List<Map<String, Object>> companies() {
         return db.list(
-            "SELECT c.company_id,c.company_name,c.industry,c.company_size,c.address,c.website,c.description FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_id DESC"
+            "SELECT c.company_id,c.company_name,c.industry,c.company_size,c.address,c.website,c.description,(SELECT j.banner_image_url FROM job_postings j WHERE j.company_id=c.company_id AND j.status='PUBLISHED' AND j.end_date>=CURRENT_DATE AND j.banner_image_url IS NOT NULL AND TRIM(j.banner_image_url)<>'' ORDER BY j.job_id DESC LIMIT 1) AS banner_image_url FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_id DESC"
         );
     }
 
@@ -217,6 +217,10 @@ public class EmploymentService {
         Map<String, Object> body
     ) {
         long seeker = seeker(user);
+        if (id != null) resume(user, id);
+        if (!body.containsKey("assessmentAnswers") && (id == null || assessments.result(id) == null)) {
+            throw new Problem(400, "인적성검사를 완료한 후 이력서를 저장해 주세요.", "assessmentAnswers");
+        }
         String title = Input.text(body, "title", 200, true);
         String education = Input.text(body, "education", 100, false);
         String career = Input.text(body, "careerDescription", 10000, false);
@@ -613,7 +617,7 @@ public class EmploymentService {
         values.put("start_date", start);
         values.put("end_date", end);
         values.put("status", "DRAFT");
-        values.put("banner_image_url", Input.text(body, "bannerImageUrl", 2000, false));
+        if (id == null || body.containsKey("bannerImageUrl")) values.put("banner_image_url", BannerImageValue.validate(body));
         if (id == null) {
             values.put("company_id", company);
             id = db.insert("job_postings", values);

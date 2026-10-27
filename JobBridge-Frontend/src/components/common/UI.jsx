@@ -1,3 +1,5 @@
+import CompanyCover, { companyTheme } from './CompanyCover';
+import '../../assets/styles/job-card-scenes.css';
 import { useId, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../stores/auth';
@@ -75,7 +77,7 @@ export function Resource({ resource, children }) {
   return children(resource.data);
 }
 export function Pagination({ page, totalPages, total, onChange }) {
-  if (total <= 12 || totalPages <= 1) return null;
+  if (total <= 0 || totalPages <= 1) return null;
   const start = Math.max(0, Math.min(page - 2, totalPages - 5));
   return (
     <nav className="pagination" aria-label="페이지 이동">
@@ -371,13 +373,15 @@ export function Form({
 
 
 export function JobCard({ job, onBookmarkChange }) {
+  const scene = companyTheme(job);
   const days = Math.ceil(
     (Date.parse(job.endDate + 'T23:59:59+09:00') - Date.now()) /
       86400000
   );
 
   return (
-    <article className="job-card">
+    <article className={`job-card job-card-illustrated scene-${scene}`}>
+      <CompanyCover companyName={job.companyName} industry={job.industry} bannerImageUrl={job.bannerImageUrl} className="job-card-scene" />
       {/* 카드 전체를 클릭하는 링크 */}
       <Link
         className="job-card-link-overlay"

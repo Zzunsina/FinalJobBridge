@@ -34,7 +34,7 @@ tasks.named('test') {
     systemProperty 'spring.datasource.driver-class-name', 'org.h2.Driver'
     systemProperty 'spring.datasource.username', 'sa'
     systemProperty 'spring.datasource.password', ''
-    systemProperty 'spring.datasource.hikari.connection-init-sql', "SET TIME ZONE 'UTC'"
+    systemProperty 'spring.datasource.hikari.connection-init-sql', "SET TIME ZONE 'Asia/Seoul'"
     systemProperty 'spring.config.import', ''
     systemProperty 'spring.profiles.active', 'test'
 }
@@ -57,7 +57,7 @@ tasks.register('mariaDbTest', Test) {
     systemProperty 'spring.datasource.driver-class-name', 'org.mariadb.jdbc.Driver'
     systemProperty 'spring.datasource.username', 'root'
     systemProperty 'spring.datasource.password', ''
-    systemProperty 'spring.datasource.hikari.connection-init-sql', "SET time_zone = '+00:00'"
+    systemProperty 'spring.datasource.hikari.connection-init-sql', "SET time_zone = '+09:00'"
     systemProperty 'spring.sql.init.mode', 'always'
     systemProperty 'spring.sql.init.schema-locations', 'classpath:db/schema.sql'
     systemProperty 'spring.sql.init.data-locations', 'classpath:db/reference-data.sql'

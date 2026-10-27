@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS job_postings (
         company_id BIGINT NOT NULL, FOREIGN KEY (company_id) REFERENCES companies(company_id), title VARCHAR(200) NOT NULL,
         job_type VARCHAR(50) NOT NULL, career_type VARCHAR(50) NOT NULL, education VARCHAR(100),
         salary VARCHAR(100), work_location VARCHAR(255) NOT NULL, description TEXT NOT NULL,
-        requirements TEXT, preferred_qualifications TEXT,
+        requirements TEXT, preferred_qualifications TEXT, banner_image_url MEDIUMTEXT,
         headcount INT NOT NULL CHECK (headcount BETWEEN 1 AND 10000), start_date DATE NOT NULL,
         end_date DATE NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'DRAFT', review_reason TEXT,
         reviewed_by BIGINT, FOREIGN KEY (reviewed_by) REFERENCES users(user_id), reviewed_at TIMESTAMP,

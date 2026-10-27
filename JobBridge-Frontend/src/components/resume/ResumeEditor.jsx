@@ -165,6 +165,16 @@ export default function ResumeEditor({ initial = {}, onSave }) {
   }
   async function save(event) {
     event.preventDefault();
+    if (!initial.assessment && assessmentAnswers === undefined) {
+      setError('인적성검사를 완료한 후 이력서를 저장해 주세요.');
+      document.getElementById('resume-assessment')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (assessmentAnswers !== undefined && (assessmentAnswers.length !== 10 || assessmentAnswers.some((answer) => !Number.isInteger(answer) || answer < 0 || answer > 3))) {
+      setError('인적성검사의 모든 문항에 답해 주세요.');
+      document.getElementById('resume-assessment')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     setBusy(true);
     setError('');
     try {

@@ -107,7 +107,7 @@ class PlatformIntegrationTests {
             service.saveResume(
                 seeker,
                 null,
-                fields("title", "원본 이력서", "skills", "Java", "isDefault", true)
+                fields("title", "원본 이력서", "skills", "Java", "isDefault", true, "assessmentAnswers", CORRECT_EXAMPLE_ANSWERS)
             ),
             "resumeId"
         );
@@ -1122,6 +1122,7 @@ class PlatformIntegrationTests {
             "isDefault",
             true
         );
+        body.put("assessmentAnswers", CORRECT_EXAMPLE_ANSWERS);
         long saved = number(service.saveResume(seeker, null, body), "resumeId");
         mvc
             .perform(get("/api/resumes/" + saved).cookie(login(seeker)))
@@ -1530,7 +1531,7 @@ class PlatformIntegrationTests {
             for (var result : pool.invokeAll(calls)) if (result.get()) successes++;
             assertThat(successes).isEqualTo(1);
             long second = number(
-                service.saveResume(seeker, null, fields("title", "두번째")),
+                service.saveResume(seeker, null, fields("title", "두번째", "assessmentAnswers", CORRECT_EXAMPLE_ANSWERS)),
                 "resumeId"
             );
             var defaults = IntStream.range(0, 4)
@@ -1744,6 +1745,25 @@ class PlatformIntegrationTests {
     private static final List<Integer> CORRECT_EXAMPLE_ANSWERS = List.of(2,1,1,2,2,1,2,0,2,2);
 
     @Test
+    void resumeRequiresCompletedAssessmentAndKeepsExistingResult() {
+        int before = service.resumes(seeker).size();
+        assertThatThrownBy(() -> service.saveResume(seeker, null, fields("title", "검사 미완료")))
+            .isInstanceOf(Problem.class).hasMessageContaining("인적성검사");
+        assertThat(service.resumes(seeker)).hasSize(before);
+        db.update("DELETE FROM resume_assessments WHERE resume_id=?", resume);
+        assertThatThrownBy(() -> service.saveResume(seeker, resume, fields("title", "검사 없이 수정")))
+            .isInstanceOf(Problem.class).hasMessageContaining("인적성검사");
+        assertThat(service.resume(seeker, resume).get("title")).isEqualTo("원본 이력서");
+        assertThatThrownBy(() -> service.saveResume(seeker, null, fields("title", "일부 응답", "assessmentAnswers", List.of(0))))
+            .isInstanceOf(Problem.class);
+        assertThat(service.resumes(seeker)).hasSize(before);
+        var saved = service.saveResume(seeker, resume, fields("title", "검사 완료", "assessmentAnswers", CORRECT_EXAMPLE_ANSWERS));
+        assertThat(((Map<?, ?>) saved.get("assessment")).get("score")).isEqualTo(100);
+        var updated = service.saveResume(seeker, resume, fields("title", "완료 후 수정"));
+        assertThat(((Map<?, ?>) updated.get("assessment")).get("score")).isEqualTo(100);
+    }
+
+    @Test
     void exampleQuestionsHideAnswersAndServerComputesScoreAndValidatesCompleteness() throws Exception {
         var body=mvc.perform(get("/api/assessments/questions")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(json.readTree(body).path("questions").size()).isEqualTo(10);
@@ -1761,6 +1781,7 @@ class PlatformIntegrationTests {
     @Test
     void assessmentThresholdIsPrivateAndSubmissionScoreIsImmutable() throws Exception {
         assessments.configure(job,70);
+        db.update("DELETE FROM resume_assessments WHERE resume_id=?", resume);
         assertThatThrownBy(() -> service.apply(seeker,job,fields("resumeId",resume))).isInstanceOf(Problem.class);
         assertThat(service.applications(seeker)).isEmpty();
         service.saveResume(seeker,resume,fields("title","검사","assessmentAnswers",CORRECT_EXAMPLE_ANSWERS));
@@ -1864,4 +1885,29 @@ class PlatformIntegrationTests {
         mvc.perform(get("/api/jobs").param("q",title).param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1));
     }
 
+
+    @Test
+    void uploadedBannerPersistsAndPublicCompanyUsesPublishedBanner() throws Exception {
+        var image = new java.awt.image.BufferedImage(64, 64, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var random = new Random(42);
+        for (int y=0; y<64; y++) for (int x=0; x<64; x++) image.setRGB(x,y,random.nextInt());
+        var output = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image,"png",output);
+        String banner="data:image/png;base64,"+Base64.getEncoder().encodeToString(output.toByteArray());
+        assertThat(banner.length()).isGreaterThan(2000);
+        var body = new LinkedHashMap<String,Object>(service.ownJob(companyUser,job,false));
+        body.put("bannerImageUrl",banner);
+        service.saveJob(companyUser,job,body);
+        assertThat(service.ownJob(companyUser,job,false).get("bannerImageUrl")).isEqualTo(banner);
+        assertThat(service.companyDetail(company).get("bannerImageUrl")).isNull();
+        db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",job);
+        assertThat(service.publicJob(job).get("bannerImageUrl")).isEqualTo(banner);
+        assertThat(service.companyDetail(company).get("bannerImageUrl")).isEqualTo(banner);
+        body.remove("bannerImageUrl");
+        service.saveJob(companyUser,job,body);
+        assertThat(service.ownJob(companyUser,job,false).get("bannerImageUrl")).isEqualTo(banner);
+        body.put("bannerImageUrl","");
+        service.saveJob(companyUser,job,body);
+        assertThat(service.ownJob(companyUser,job,false).get("bannerImageUrl")).isEqualTo("");
+    }
 }
