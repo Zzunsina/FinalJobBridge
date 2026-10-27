@@ -99,6 +99,13 @@ export default function AdminDashboard() {
           새로고침
         </button>
       </div>
+      <nav className="admin-quick-access" aria-label="관리 기능 바로가기">
+        {[
+          ['/admin/members', '회원 관리'], ['/admin/companies', '기업 심사'],
+          ['/admin/jobs', '공고 심사'], ['/admin/employment', '취업연계 관리'],
+          ['/admin/notices', '공지 관리'], ['/admin/inquiries', '문의 관리'],
+        ].map(([to, title]) => <Link key={to} to={to}>{title}<span aria-hidden="true">↗</span></Link>)}
+      </nav>
       <Resource resource={resource}>{(data) => <DashboardContent data={data} />}</Resource>
     </div>
   );
@@ -283,24 +290,6 @@ function DashboardContent({ data }) {
           </div>
         </section>
       </div>
-      <section className="admin-shortcuts">
-        <div>
-          <p className="eyebrow">QUICK ACCESS</p>
-          <h2>자주 사용하는 관리 메뉴</h2>
-        </div>
-        {[
-          ['/admin/members', '회원 관리', 'people'],
-          ['/admin/companies', '기업 승인', 'jobs'],
-          ['/admin/notices', '공지 작성', 'send'],
-          ['/admin/employment', '취업연계', 'check'],
-        ].map(([to, title, icon]) => (
-          <Link key={to} to={to}>
-            <Icon name={icon} />
-            <span>{title}</span>
-            <span>↗</span>
-          </Link>
-        ))}
-      </section>
       <p className="admin-data-note">
         지표는 조회 시점의 실제 데이터입니다. 오늘·최근 7일은 한국 시간을 기준으로 집계합니다.
       </p>
