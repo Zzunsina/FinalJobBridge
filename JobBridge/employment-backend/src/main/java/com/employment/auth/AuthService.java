@@ -4,6 +4,7 @@ import static com.employment.global.common.Database.*;
 
 import com.employment.global.common.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.http.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -14,6 +15,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,13 +31,15 @@ public class AuthService {
     private final boolean secure;
     private final SmsService smsService;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final JavaMailSender mailSender;
 
     public AuthService(
         Database db,
         ObjectMapper json,
         @Value("${app.jwt-secret}") String secret,
         @Value("${app.secure-cookie}") boolean secure,
-        SmsService smsService
+        SmsService smsService,
+        JavaMailSender mailSender
     ) {
         if (secret.length() < 32) throw new IllegalArgumentException(
             "JWT_SECRET must be at least 32 characters"
@@ -43,6 +49,7 @@ public class AuthService {
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
         this.secure = secure;
         this.smsService = smsService;
+        this.mailSender = mailSender;
     }
 
     public Map<String, Object> publicUser(long id) {
@@ -458,14 +465,122 @@ public class AuthService {
                 throw new Problem(400, "현재 비밀번호 또는 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.");
             }
         }
-        // Record when the old password stopped being used, including long-lived passwords.
+        // 과거 비밀번호 이력 추가
         db.update("INSERT INTO user_password_history(user_id,password_hash,used_until) VALUES(?,?,?)", userId, currentHash, Timestamp.from(Instant.now()));
+
+        // 새 비밀번호로 업데이트
         db.update(
             "UPDATE users SET password=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
             encoder.encode(nextPassword),
             userId
         );
         db.update("DELETE FROM user_password_history WHERE user_id=? AND used_until<?", userId, cutoff);
+
+        // 💡 로그인 상태 유지를 위해 기존의 세션 무효화 구문(UPDATE auth_sessions SET revoked=TRUE...)을 삭제/주석 처리하였습니다.
+    }
+
+    /* 👇 아래의 메서드들만 클래스 내부에 추가 */
+    public Map<String, Object> findId(Map<String, Object> body) {
+        String name = Input.text(body, "name", 100, true);
+        String email = Input.email(body, "email");
+
+        var user = db.one(
+            "SELECT login_id FROM users WHERE name=? AND email=? AND status='ACTIVE'",
+            name, email
+        );
+
+        if (user == null) {
+            throw new Problem(404, "일치하는 회원 정보를 찾을 수 없습니다.");
+        }
+
+        Object loginId = user.get("loginId") != null ? user.get("loginId") : user.get("login_id");
+        return Map.of("loginId", loginId);
+    }
+
+    @Transactional
+    public void forgotPassword(Map<String, Object> body) {
+        String loginId = Input.text(body, "loginId", 30, true);
+        String email = Input.email(body, "email");
+
+        var user = db.one(
+            "SELECT user_id FROM users WHERE login_id=? AND email=? AND status='ACTIVE'",
+            loginId, email
+        );
+
+        if (user == null) {
+            throw new Problem(404, "일치하는 회원 정보를 찾을 수 없습니다.");
+        }
+
+        long userId = number(user, "userId");
+        String resetToken = UUID.randomUUID().toString();
+        // 테이블의 token_hash 컬럼에 맞게 SHA-256 해시값 생성
+        String tokenHash = hash(resetToken);
+        Timestamp expiresAt = Timestamp.from(Instant.now().plusSeconds(1800)); // 30분 유효
+
+        // 기존에 발급된 토큰 삭제 후 새로 저장
+        db.update("DELETE FROM password_reset_tokens WHERE user_id=?", userId);
+        db.update(
+            "INSERT INTO password_reset_tokens(user_id, token_hash, expires_at) VALUES(?,?,?)",
+            userId, tokenHash, expiresAt
+        );
+
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
+
+            helper.setTo(email);
+            helper.setSubject("[잡브릿지] 비밀번호 재설정 안내");
+
+            // 이메일에는 원본 토큰 링크 전송
+            String resetUrl = "http://localhost/reset-password?token=" + resetToken;
+            String htmlContent =
+                "<div style=\"font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px;\">" +
+                    "  <h2 style=\"color: #333;\">비밀번호 재설정 안내</h2>" +
+                    "  <p style=\"font-size: 16px; color: #555;\">안녕하세요, <strong>잡브릿지</strong>입니다.</p>" +
+                    "  <p style=\"font-size: 16px; color: #555;\">아래 버튼을 클릭하여 비밀번호 재설정 페이지로 이동해 주세요.</p>" +
+                    "  <div style=\"text-align: center; margin: 30px 0;\">" +
+                    "    <a href=\"" + resetUrl + "\" target=\"_blank\" style=\"background-color: #007bff; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;\">비밀번호 재설정하기</a>" +
+                    "  </div>" +
+                    "  <p style=\"font-size: 14px; color: #888;\">본인이 요청하지 않은 경우 이 메일을 무시해 주세요.</p>" +
+                    "</div>";
+
+            helper.setText(htmlContent, true);
+            mailSender.send(mimeMessage);
+
+        } catch (Exception e) {
+            throw new Problem(500, "이메일 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+    }
+
+    @Transactional
+    public void resetPassword(Map<String, Object> body) {
+        String token = Input.text(body, "token", 255, true);
+        String newPassword = Input.password(body, "newPassword");
+
+        // 전달받은 토큰을 해시하여 DB의 token_hash와 비교
+        String tokenHash = hash(token);
+
+        var tokenRow = db.one(
+            "SELECT * FROM password_reset_tokens WHERE token_hash=? AND expires_at > CURRENT_TIMESTAMP AND used_at IS NULL",
+            tokenHash
+        );
+
+        if (tokenRow == null) {
+            throw new Problem(400, "유효하지 않거나 만료된 비밀번호 재설정 링크입니다.");
+        }
+
+        long userId = number(tokenRow, "userId");
+
+        // 새 비밀번호로 업데이트
+        db.update(
+            "UPDATE users SET password=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
+            encoder.encode(newPassword),
+            userId
+        );
+
+        // 토큰 사용 완료 처리 (used_at 기록) 및 세션 만료
+        db.update("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=?", tokenHash);
         db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
     }
+
 }
