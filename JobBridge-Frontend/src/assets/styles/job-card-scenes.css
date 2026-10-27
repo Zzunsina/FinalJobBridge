@@ -1,0 +1,99 @@
+/* Fictional company artwork; these are decorative illustrations, not office photos. */
+article.job-card.job-card-illustrated {
+  --scene-accent: #4569c6;
+  padding: 0 24px 22px;
+  overflow: hidden;
+  isolation: isolate;
+  border-color: #e1e7f0;
+  background: #fff;
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+.job-card-illustrated.scene-forest { --scene-accent: #527e36; }
+.job-card-illustrated.scene-mobility { --scene-accent: #cd7445; }
+.job-card-illustrated.scene-data { --scene-accent: #167ca2; }
+.job-card-illustrated.scene-commerce { --scene-accent: #19846c; }
+.job-card-illustrated.scene-design { --scene-accent: #8460cd; }
+.job-card-illustrated .job-card-scene {
+  flex: 0 0 auto;
+  height: 126px;
+  margin: 0 -24px 0;
+  overflow: hidden;
+  position: relative;
+  background: #f0f5fc;
+  pointer-events: none;
+}
+.job-card-scene img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 58%;
+  transition: transform 500ms cubic-bezier(.2,.7,.2,1);
+}
+article.job-card.job-card-illustrated .card-top {
+  margin: -23px 0 12px;
+  align-items: flex-end;
+}
+.job-card-illustrated .company-symbol {
+  position: relative;
+  border: 3px solid #fff;
+  box-sizing: content-box;
+  box-shadow: 0 4px 12px #25395a16;
+}
+.job-card-illustrated .card-top-actions { padding-bottom: 2px; }
+article.job-card.job-card-illustrated .company-name { margin: 0 0 7px; }
+article.job-card.job-card-illustrated h3 { margin: 0 0 16px; min-height: 62px; }
+article.job-card.job-card-illustrated .tags { margin-bottom: 22px; }
+article.job-card.job-card-illustrated .card-bottom { margin-top: auto; padding-top: 16px; gap: 8px; }
+.job-card-illustrated .card-bottom > span:first-child { white-space: nowrap; }
+.job-card-illustrated .job-card-more {
+  display: inline-block;
+  white-space: nowrap;
+  color: var(--scene-accent);
+  transition: transform 250ms ease;
+}
+@media (hover: hover) {
+  article.job-card.job-card-illustrated:hover {
+    transform: translateY(-6px);
+    border-color: var(--scene-accent);
+    box-shadow: 0 16px 34px #25395a18;
+  }
+  .job-card-illustrated:hover .job-card-scene img { transform: scale(1.065); }
+  .job-card-illustrated:hover .job-card-more { transform: translateX(3px); }
+}
+article.job-card.job-card-illustrated:focus-within {
+  border-color: var(--scene-accent);
+  box-shadow: 0 0 0 3px #b7cff659;
+}
+@media (max-width: 600px) {
+  article.job-card.job-card-illustrated { padding: 0 18px 20px; }
+  .job-card-illustrated .job-card-scene { margin-inline: -18px; height: 118px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  article.job-card.job-card-illustrated, .job-card-scene img, .job-card-illustrated .job-card-more { transition: none; }
+  article.job-card.job-card-illustrated:hover, .job-card-illustrated:hover .job-card-scene img,
+  .job-card-illustrated:hover .job-card-more { transform: none; }
+}
+
+/* Photo banners shared by every company and recruitment surface. */
+.company-cover { overflow: hidden; background: #edf2f8; }
+.company-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transition: transform 500ms cubic-bezier(.2,.7,.2,1); }
+.job-card-illustrated .job-card-scene { height: 150px; }
+.job-card-illustrated .job-card-scene img { object-position: center 45%; }
+.panel.company-card.company-card-photo { padding: 24px; overflow: hidden; transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease; }
+.company-card-photo .company-list-cover { height: 170px; margin: -24px -24px 0; }
+.company-card-photo > .company-symbol { position: relative; margin-top: -28px; margin-bottom: 12px; border: 4px solid #fff; box-sizing: content-box; box-shadow: 0 5px 15px #2438531a; }
+.company-detail-cover { height: clamp(210px,28vw,350px); border-radius: 18px; margin-bottom: 24px; }
+.company-detail-cover img { object-position: center 45%; }
+.company-card-photo .text-link { display: inline-block; transition: transform 250ms ease; }
+@media (hover:hover) {
+  .panel.company-card.company-card-photo:hover { transform: translateY(-6px); border-color: #a7bee8; box-shadow: 0 16px 34px #25395a18; }
+  .company-card-photo:hover .company-cover img { transform: scale(1.06); }
+  .company-card-photo:hover .text-link { transform: translateX(3px); }
+}
+.company-card-photo:focus-visible { outline: 3px solid #98b6ee; outline-offset: 3px; }
+@media (max-width:600px) { .job-card-illustrated .job-card-scene { height:140px; } .company-card-photo .company-list-cover { height:160px; } }
+@media (prefers-reduced-motion:reduce) {
+  .company-cover img, .panel.company-card.company-card-photo, .company-card-photo .text-link { transition:none; }
+  .panel.company-card.company-card-photo:hover, .company-card-photo:hover .company-cover img, .company-card-photo:hover .text-link { transform:none; }
+}

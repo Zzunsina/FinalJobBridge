@@ -91,7 +91,7 @@ export function Login({ adminOnly = false }) {
           adminOnly ? '관리자 로그인' : memberType === 'COMPANY' ? '기업 로그인' : '개인 로그인'
         }
       />
-      <div className="auth-links">
+      <div className="auth-links auth-login-links">
         {adminOnly ? (
           <Link to="/login">일반 회원 로그인으로 이동</Link>
         ) : (
