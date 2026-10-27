@@ -242,7 +242,7 @@ export default function App() {
         </div>
       </header>
       {user && (
-        <div className="member-nav">
+        <div className={user.role === 'ADMIN' ? 'member-nav admin-member-nav' : 'member-nav'}>
           <nav aria-label="회원 메뉴">
             {links.map(([to, label]) => (
               <NavLink key={to} to={to} end={to === '/company' || to === '/admin'}>
@@ -253,7 +253,7 @@ export default function App() {
           </nav>
         </div>
       )}
-      <div className={workspace && user ? 'workspace container' : 'container'}>
+      <div className={workspace && user ? `workspace container ${user.role === 'ADMIN' ? 'admin-workspace' : ''}` : 'container'}>
         {workspace && user && (
           <aside className="sidebar">
             <p className="eyebrow">{user.role === 'ADMIN' ? 'ADMIN CENTER' : 'COMPANY CENTER'}</p>
