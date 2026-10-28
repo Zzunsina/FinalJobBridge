@@ -950,6 +950,42 @@ public class EmploymentService {
         return result;
     }
 
+    public Map<String,Object> companyOverview(long user) {
+        var profile = companyProfile(user);
+        var result = fields("profile",profile,"jobs",0,"applications",0,"publishedJobs",0,"pendingJobs",0,"closingJobs",0,"newApplicants",0,"unreviewedApplicants",0,"interviewCount",0,"profileCompletion",0,"activeJobs",List.of(),"upcomingInterviews",List.of());
+        if (Boolean.TRUE.equals(profile.get("profileMissing"))) return result;
+        long owner = number(profile,"companyId");
+        result.putAll(db.one("SELECT COUNT(*) AS jobs,COUNT(CASE WHEN status='PUBLISHED' AND end_date>=? THEN 1 END) AS published_jobs,COUNT(CASE WHEN status='PENDING' THEN 1 END) AS pending_jobs,COUNT(CASE WHEN status='PUBLISHED' AND end_date>=? AND end_date<=? THEN 1 END) AS closing_jobs FROM job_postings WHERE company_id=?",today(),today(),today().plusDays(7),owner));
+        result.putAll(db.one("SELECT COUNT(*) AS applications,COUNT(CASE WHEN a.applied_at>=? AND a.status<>'CANCELED' THEN 1 END) AS new_applicants,COUNT(CASE WHEN a.status='APPLIED' THEN 1 END) AS unreviewed_applicants FROM applications a JOIN job_postings j ON j.job_id=a.job_id WHERE j.company_id=?",Timestamp.from(Instant.now().minus(Duration.ofDays(7))),owner));
+        var interviews = companyInterviews(user);
+        result.put("interviewCount",interviews.size());
+        result.put("upcomingInterviews",interviews.stream().limit(2).toList());
+        result.put("activeJobs",db.list("SELECT j.job_id,j.title,j.status,j.job_type,j.work_location,j.end_date,j.banner_image_url,(SELECT COUNT(*) FROM applications a WHERE a.job_id=j.job_id) AS application_count FROM job_postings j WHERE j.company_id=? AND j.status='PUBLISHED' AND j.end_date>=? ORDER BY j.end_date,j.job_id DESC LIMIT 3",owner,today()));
+        var profileFields = List.of("companyName","businessNumber","industry","companySize","address","description","website","ceoName");
+        long completed=profileFields.stream().filter(key->profile.get(key)!=null&&!profile.get(key).toString().isBlank()).count();
+        if (number(db.one("SELECT COUNT(*) AS n FROM company_images WHERE company_id=?",owner),"n")>0) completed++;
+        result.put("profileCompletion",Math.round(completed*100.0/(profileFields.size()+1)));
+        return result;
+    }
+
+    public List<Map<String,Object>> companyApplicants(long user,String view) {
+        if (!Set.of("","new","unreviewed").contains(view)) throw new Problem(400,"지원자 조회 조건을 확인해 주세요.");
+        var profile=companyProfile(user);
+        if (Boolean.TRUE.equals(profile.get("profileMissing"))) return List.of();
+        String sql="SELECT a.application_id,a.job_id,a.status,a.applied_at,u.name,j.title FROM applications a JOIN job_postings j ON j.job_id=a.job_id JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id WHERE j.company_id=?";
+        var args=new ArrayList<Object>();args.add(profile.get("companyId"));
+        if (view.equals("new")) { sql+=" AND a.applied_at>=? AND a.status<>'CANCELED'";args.add(Timestamp.from(Instant.now().minus(Duration.ofDays(7)))); }
+        if (view.equals("unreviewed")) sql+=" AND a.status='APPLIED'";
+        return db.list(sql+" ORDER BY a.applied_at DESC,a.application_id DESC",args.toArray());
+    }
+
+    public List<Map<String,Object>> companyInterviews(long user) {
+        var profile=companyProfile(user);
+        if (Boolean.TRUE.equals(profile.get("profileMissing"))) return List.of();
+        return db.list("SELECT i.interview_id,i.application_id,i.interview_at,i.interview_type,u.name,j.title FROM interviews i JOIN applications a ON a.application_id=i.application_id JOIN job_postings j ON j.job_id=a.job_id JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id WHERE j.company_id=? AND i.status='SCHEDULED' AND i.interview_at>=? AND a.status IN ('APPLIED','UNDER_REVIEW','DOCUMENT_PASSED','INTERVIEW') ORDER BY i.interview_at,i.interview_id",profile.get("companyId"),Timestamp.from(Instant.now()));
+    }
+
+
     public static LocalDate today() {
         return LocalDate.now(ZoneId.of("Asia/Seoul"));
     }

@@ -1,0 +1,81 @@
+.workspace.company-overview-workspace { display:block; }
+.company-overview .page-title { margin-bottom:26px; }
+.company-welcome { display:flex; align-items:center; gap:18px; background:linear-gradient(120deg,#edf5ff,#f5f9ff); border:1px solid #e0ebfc; padding:24px; border-radius:14px; margin-bottom:22px; }
+.company-welcome-icon { display:grid; place-items:center; width:54px; height:54px; flex-shrink:0; border:1px solid #d9e7fc; border-radius:14px; color:#2563eb; background:#e6f0ff; }
+.company-welcome-icon svg { width:27px; height:27px; }
+.company-welcome h2 { font-size:20px; line-height:1.5; margin:0 0 7px; color:#1e3e71; }
+.company-welcome p { margin:0; color:#8092af; font-size:13px; line-height:1.8; }
+.company-welcome > .badge { margin-left:auto; white-space:nowrap; }
+.company-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin-bottom:32px; }
+.company-summary-card { display:flex; align-items:center; gap:18px; padding:24px; background:#fff; border:1px solid #e1e8f3; border-radius:14px; transition:border-color 180ms ease,box-shadow 180ms ease; }
+.company-summary-card:hover { border-color:#b7ccef; box-shadow:0 6px 20px #254d8310; }
+.company-metric-icon { width:50px; height:50px; display:grid; place-items:center; flex-shrink:0; border-radius:14px; }
+.company-metric-icon svg { width:26px; height:26px; }
+.company-metric-icon.green { background:#eaf8f1; color:#24a480; }
+.company-metric-icon.purple { background:#f1edff; color:#8765d8; }
+.company-metric-icon.orange { background:#fff3e7; color:#df8b39; }
+.company-summary-card small { display:block; font-size:13px; color:#71839f; }
+.company-summary-card strong { display:block; margin-top:6px; font-size:32px; color:#203d68; line-height:1.2; }
+.company-card-arrow { margin-left:auto; color:#a1b1c9; font-size:17px; }
+.company-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.company-section-heading h2 { font-size:21px; margin:0; color:#253d60; }
+.company-section-heading h2 span { color:#8999b1; font-size:16px; font-weight:400; }
+.company-section-heading > a { font-size:13px; color:#4b78bd; }
+.company-overview-job-list { display:grid; gap:16px; }
+.company-overview-job { display:flex; align-items:center; gap:22px; padding:20px; border:1px solid #e1e8f3; border-radius:14px; background:#fff; }
+.company-overview-job-image { width:200px; height:122px; flex:0 0 200px; border-radius:10px; }
+.company-overview-job-copy { flex:1; min-width:0; }
+.company-overview-job-title { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.company-overview-job h3 { font-size:19px; line-height:1.6; margin:0; color:#213a61; overflow-wrap:anywhere; }
+.company-overview-job p { font-size:13px; color:#8998ae; margin:9px 0 16px; }
+.company-overview-job-meta { display:flex; gap:16px; flex-wrap:wrap; color:#7c8fae; font-size:12px; }
+.company-applicant-link { align-self:flex-end; white-space:nowrap; font-size:13px; font-weight:600; color:#3971c5; padding:8px 0; }
+.company-dashboard-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:24px; }
+.company-side-panel .side-panel-heading > svg { width:19px; height:19px; color:#6b93cd; }
+.company-side-status { margin:0 0 16px; padding:0 8px; border:1px solid #e7edf6; border-radius:9px; }
+.company-side-status > a { display:flex; align-items:center; gap:8px; padding:12px 0; color:#526986; font-size:11px; }
+.company-side-status > a + a { border-top:1px solid #edf1f7; }
+.company-side-status > a > span:first-child { display:flex; align-items:center; gap:7px; }
+.company-side-status strong { color:#3370cc; font-size:18px; margin-left:auto; font-variant-numeric:tabular-nums; }
+.company-side-status i { display:block; width:7px; height:7px; border-radius:50%; }
+.company-side-status i.green { background:#53baa0; box-shadow:0 0 0 4px #e7f6f0; }
+.company-side-status i.amber { background:#e9ad4d; box-shadow:0 0 0 4px #fff5e6; }
+.company-side-status i.blue { background:#8da5cd; box-shadow:0 0 0 4px #eff3fa; }
+.company-side-status > a:hover { color:#2563eb; }
+.company-profile-completion { display:flex; justify-content:space-between; align-items:center; gap:4px; color:#8797ad; font-size:10px; }
+.company-profile-completion strong { color:#3777d1; font-size:19px; }
+.company-profile-progress { height:7px; border-radius:10px; background:#e9eff9; overflow:hidden; }
+.company-profile-progress > span { display:block; height:100%; border-radius:10px; background:#4986e5; }
+.company-side-outline { display:block; padding:9px 5px; border:1px solid #c8d9f5; background:#f2f7ff; color:#4375bb; border-radius:8px; text-align:center; font-size:11px; margin-top:15px; }
+.company-side-outline:hover { background:#e8f1ff; border-color:#8cafe8; }
+.company-side-applicants { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:12px 8px; border:1px solid #e6edf8; border-radius:9px; margin-bottom:12px; color:#4f6c94; font-size:11px; }
+.company-side-applicants small { display:block; color:#9aa8bc; font-size:9px; line-height:1.7; margin-top:4px; }
+.company-side-applicants strong { display:flex; align-items:baseline; gap:2px; font-size:22px; color:#3879d8; }
+.company-side-applicants strong small { font-size:10px; color:inherit; }
+.company-side-applicants.pending { background:#fffafa; border-color:#f2e5e9; }
+.company-side-applicants:hover { background:#f0f6ff; border-color:#a9c3ee; }
+.company-applicant-row h2 { margin:0 0 7px; }
+.company-applicant-row p { color:#7d8fa9; margin:0 0 8px; }
+.company-applicant-row small { color:#9aa8bc; }
+.company-interview-time { display:block; color:#417abb; margin-bottom:10px; }
+@media(max-width:900px) { .company-summary-card { padding:18px 14px; gap:10px; } .company-overview-job-image { width:140px; flex-basis:140px; } }
+@media(max-width:600px) {
+  .company-welcome { align-items:flex-start; padding:18px; gap:12px; flex-wrap:wrap; }
+  .company-welcome-icon { width:40px; height:40px; }
+  .company-welcome > div { flex:1; }
+  .company-welcome h2 { font-size:17px; }
+  .company-welcome > .badge { margin-left:52px; }
+  .company-summary-grid { gap:8px; }
+  .company-summary-card { padding:14px 10px; display:block; }
+  .company-metric-icon { width:32px; height:32px; margin-bottom:10px; border-radius:9px; }
+  .company-metric-icon svg { width:19px; height:19px; }
+  .company-summary-card small { font-size:10px; }
+  .company-summary-card strong { font-size:26px; }
+  .company-card-arrow { display:none; }
+  .company-section-heading h2 { font-size:17px; }
+  .company-section-heading > a { font-size:11px; }
+  .company-overview-job { padding:16px; flex-wrap:wrap; gap:14px; }
+  .company-overview-job-image { width:100%; height:140px; flex-basis:100%; }
+  .company-overview-job h3 { font-size:17px; }
+  .company-applicant-link { margin-left:auto; }
+}

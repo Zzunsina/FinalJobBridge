@@ -1959,4 +1959,57 @@ class PlatformIntegrationTests {
         assertThat(number(service.seekerActivity(seeker),"activeApplications")).isZero();
         assertThat((List<?>)service.seekerActivity(seeker).get("upcomingInterviews")).isEmpty();
     }
+
+    @Test
+    void companyOverviewCountsAndManagementListsAreScopedToCompany() throws Exception {
+        long ownApplication=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        var body=regressionJobBody();body.put("endDate",EmploymentService.today().plusDays(3).toString());
+        long closing=number(service.saveJob(companyUser,null,body),"jobId");
+        db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",closing);
+        long pending=number(service.saveJob(companyUser,null,regressionJobBody()),"jobId");
+        db.update("UPDATE job_postings SET status='PENDING' WHERE job_id=?",pending);
+        long foreign=signup("foreign"+UUID.randomUUID().toString().substring(0,8),true);
+        long foreignJob=number(service.saveJob(foreign,null,regressionJobBody()),"jobId");
+        db.update("UPDATE companies SET approval_status='APPROVED' WHERE user_id=?",foreign);
+        db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",foreignJob);
+        long foreignApplication=number(service.apply(seeker,foreignJob,fields("resumeId",resume)),"applicationId");
+        long ownInterview=db.insert("interviews",fields("application_id",ownApplication,"interview_at",java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(7200)),"interview_type","ONLINE","request_key","company-own","request_hash","company-test"));
+        db.insert("interviews",fields("application_id",foreignApplication,"interview_at",java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(3600)),"interview_type","ONLINE","request_key","company-foreign","request_hash","company-test"));
+        var overview=service.companyOverview(companyUser);
+        assertThat(number(overview,"jobs")).isEqualTo(3);
+        assertThat(number(overview,"publishedJobs")).isEqualTo(2);
+        assertThat(number(overview,"pendingJobs")).isEqualTo(1);
+        assertThat(number(overview,"closingJobs")).isEqualTo(1);
+        assertThat(number(overview,"applications")).isEqualTo(1);
+        assertThat(number(overview,"newApplicants")).isEqualTo(1);
+        assertThat(number(overview,"unreviewedApplicants")).isEqualTo(1);
+        assertThat(number(overview,"interviewCount")).isEqualTo(1);
+        assertThat(number(overview,"profileCompletion")).isBetween(0L,100L);
+        assertThat(service.companyApplicants(companyUser,"")).hasSize(1);
+        assertThat(number(service.companyApplicants(companyUser,"").get(0),"applicationId")).isEqualTo(ownApplication);
+        assertThat(number(service.companyInterviews(companyUser).get(0),"interviewId")).isEqualTo(ownInterview);
+        db.update("UPDATE applications SET status='UNDER_REVIEW' WHERE application_id=?",ownApplication);
+        assertThat(service.companyApplicants(companyUser,"unreviewed")).isEmpty();
+        assertThat(number(service.companyOverview(companyUser),"unreviewedApplicants")).isZero();
+        assertThatThrownBy(()->service.companyApplicants(companyUser,"invalid")).isInstanceOf(Problem.class);
+        mvc.perform(get("/api/company/dashboard")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/company/applicants").cookie(login(seeker))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/company/interviews").cookie(login(seeker))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/company/dashboard").cookie(login(companyUser))).andExpect(status().isOk()).andExpect(jsonPath("$.publishedJobs").value(2)).andExpect(jsonPath("$.interviewCount").value(1));
+        mvc.perform(get("/api/company/applicants").cookie(login(companyUser))).andExpect(status().isOk()).andExpect(jsonPath("$[0].applicationId").value(ownApplication));
+        mvc.perform(get("/api/company/interviews").cookie(login(companyUser))).andExpect(status().isOk()).andExpect(jsonPath("$[0].interviewId").value(ownInterview));
+    }
+
+    @Test
+    void companyOverviewWithoutProfileIsEmptyAndSafe() {
+        long empty=signup("empty"+UUID.randomUUID().toString().substring(0,8),true);
+        db.update("DELETE FROM companies WHERE user_id=?",empty);
+        var overview=service.companyOverview(empty);
+        assertThat(((Map<?,?>)overview.get("profile")).get("profileMissing")).isEqualTo(true);
+        assertThat(number(overview,"jobs")).isZero();
+        assertThat(number(overview,"interviewCount")).isZero();
+        assertThat((List<?>)overview.get("activeJobs")).isEmpty();
+        assertThat(service.companyApplicants(empty,"")).isEmpty();
+        assertThat(service.companyInterviews(empty)).isEmpty();
+    }
 }

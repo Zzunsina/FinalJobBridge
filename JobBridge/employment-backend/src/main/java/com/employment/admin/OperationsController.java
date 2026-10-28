@@ -279,42 +279,13 @@ public class OperationsController {
     }
 
     @GetMapping("/company/dashboard")
-    Object companyDashboard(HttpServletRequest req) {
-        var companyProfile = service.companyProfile(
-            auth.require(req, "COMPANY")
-        );
-        if (Boolean.TRUE.equals(companyProfile.get("profileMissing"))) {
-            return fields(
-                "jobs",
-                0,
-                "applications",
-                0,
-                "profile",
-                companyProfile
-            );
-        }
-        long company = number(companyProfile, "companyId");
-        return fields(
-            "jobs",
-            number(
-                db.one(
-                    "SELECT COUNT(*) AS n FROM job_postings WHERE company_id=?",
-                    company
-                ),
-                "n"
-            ),
-            "applications",
-            number(
-                db.one(
-                    "SELECT COUNT(*) AS n FROM applications a JOIN job_postings j ON a.job_id=j.job_id WHERE j.company_id=?",
-                    company
-                ),
-                "n"
-            ),
-            "profile",
-            companyProfile
-        );
-    }
+    Object companyDashboard(HttpServletRequest req) { return service.companyOverview(auth.require(req,"COMPANY")); }
+
+    @GetMapping("/company/applicants")
+    Object companyApplicants(HttpServletRequest req,@RequestParam(defaultValue="") String view) { return service.companyApplicants(auth.require(req,"COMPANY"),view); }
+
+    @GetMapping("/company/interviews")
+    Object companyInterviews(HttpServletRequest req) { return service.companyInterviews(auth.require(req,"COMPANY")); }
 
     @GetMapping("/admin/dashboard")
     Object dashboard(HttpServletRequest req) {
