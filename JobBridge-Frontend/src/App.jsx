@@ -1,3 +1,4 @@
+import { CompanyApplicants, CompanyInterviewSchedule } from './pages/CompanyOverview';
 import HeaderSearch from './components/common/HeaderSearch';
 import SidePanels from './components/common/SidePanels';
 import { useEffect, useState } from 'react';
@@ -33,6 +34,8 @@ import { BookmarkNotice } from './components/common/BookmarkButton';
 const companyLinks = [
   ['/company', '대시보드'],
   ['/company/jobs', '채용공고 관리'],
+  ['/company/applicants', '지원자 관리'],
+  ['/company/interviews', '면접 일정'],
   ['/company/profile', '기업 정보'],
   ['/mypage', '내 정보'],
 ];
@@ -267,8 +270,8 @@ export default function App() {
           </nav>
         </div>
       )}
-      <div className={workspace && user ? `workspace container ${user.role === 'ADMIN' ? 'admin-workspace' : ''}` : 'container'}>
-        {workspace && user && (
+      <div className={workspace && user ? `workspace container ${user.role === 'ADMIN' ? 'admin-workspace' : ''} ${user.role === 'COMPANY' && location.pathname === '/company' ? 'company-overview-workspace' : ''}` : 'container'}>
+        {workspace && user && !(user.role === 'COMPANY' && location.pathname === '/company') && (
           <aside className="sidebar">
             <p className="eyebrow">{user.role === 'ADMIN' ? 'ADMIN CENTER' : 'COMPANY CENTER'}</p>
             {links.map(([to, label]) => (
@@ -318,6 +321,8 @@ export default function App() {
             <Route path="/notifications" element={protectedPage(null, <Notifications />)} />
             <Route path="/inquiries" element={<CustomerCenter />} />
             <Route path="/company" element={protectedPage('COMPANY', <CompanyDashboard />)} />
+            <Route path="/company/applicants" element={protectedPage('COMPANY', <CompanyApplicants />)} />
+            <Route path="/company/interviews" element={protectedPage('COMPANY', <CompanyInterviewSchedule />)} />
             <Route path="/company/jobs" element={protectedPage('COMPANY', <JobManage />)} />
             <Route path="/company/jobs/new" element={protectedPage('COMPANY', <JobForm />)} />
             <Route path="/company/jobs/:id/edit" element={protectedPage('COMPANY', <JobForm />)} />

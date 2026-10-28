@@ -1,6 +1,6 @@
 import CalendarPicker from '../components/common/CalendarPicker';
 import { koreanToday } from '../utils/memberInputs';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useResource } from '../hooks/useResource';
 import client from '../api/client';
 import {
@@ -17,58 +17,17 @@ import WithdrawAccount from '../components/common/WithdrawAccount';
 import CompanyImageUpload from '../components/common/CompanyImageUpload';
 import AssessmentRanking from '../components/common/AssessmentRanking';
 
-export function CompanyDashboard() {
-  const resource = useResource('/company/dashboard');
-  return (
-    <>
-      <Title description="좋은 동료를 만나는 채용의 시작입니다.">기업 대시보드</Title>
-      <Resource resource={resource}>
-        {(data) =>
-          data.profile.profileMissing ? (
-            <div className="callout">
-              <h2>기업 정보를 등록해 주세요</h2>
-              <p>
-                계정에 연결된 기업 정보가 없습니다. 기업명과 사업자번호를 등록하면 관리자 심사가
-                시작됩니다.
-              </p>
-              <Link className="button" to="/company/profile">
-                기업 정보 등록 →
-              </Link>
-            </div>
-          ) : (
-            <>
-              <div className="callout">
-                <Badge value={data.profile.approvalStatus} />
-                <h2>{data.profile.companyName}</h2>
-                <p>
-                  {data.profile.reviewReason ||
-                    '기업 승인 후 공고를 작성하고 심사를 요청해 주세요.'}
-                </p>
-                <Link to="/company/profile">기업 정보 관리 →</Link>
-              </div>
-              <div className="stats">
-                <div>
-                  <span>등록한 공고</span>
-                  <strong>{data.jobs}</strong>
-                </div>
-                <div>
-                  <span>전체 지원자</span>
-                  <strong>{data.applications}</strong>
-                </div>
-              </div>
-              <Link className="button" to="/company/jobs">
-                채용공고 관리 →
-              </Link>
-            </>
-          )
-        }
-      </Resource>
-    </>
-  );
-}
+export { default as CompanyDashboard } from './CompanyOverview';
 
 export function JobManage() {
-  const resource = useResource('/company/jobs');
+  const all = useResource('/company/jobs');
+  const [params] = useSearchParams();
+  const status = ['PUBLISHED','PENDING','DRAFT','CLOSED','REJECTED'].includes(params.get('status')) ? params.get('status') : '';
+  const closing = params.get('closing') === 'true';
+  const resource = { ...all, data: all.data?.filter((job) => {
+    const days = Math.round((Date.parse(job.endDate) - Date.parse(koreanToday())) / 86400000);
+    return (!status || job.status === status) && (status !== 'PUBLISHED' || days >= 0) && (!closing || (job.status === 'PUBLISHED' && days >= 0 && days <= 7));
+  }) };
   return (
     <>
       <Title
@@ -80,6 +39,7 @@ export function JobManage() {
       >
         채용공고 관리
       </Title>
+      {(status || closing) && <p className="callout">{closing ? '7일 이내 마감 예정 공고만 표시합니다.' : ({ PUBLISHED: '게시 중', PENDING: '심사 중', DRAFT: '작성 중', CLOSED: '마감', REJECTED: '반려' }[status] + ' 공고만 표시합니다.')} <Link to="/company/jobs">전체 공고 보기 →</Link></p>}
       <PagedResource resource={resource}>
         {(rows) =>
           rows.length ? (

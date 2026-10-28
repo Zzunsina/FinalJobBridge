@@ -1,3 +1,4 @@
+import { CompanyActivityPanels } from '../../pages/CompanyOverview';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../stores/auth';
@@ -15,6 +16,7 @@ const deadline = (date) => { const days = daysLeft(date); return days < 0 ? '마
 const interviewDate = (date) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(date));
 
 export default function SidePanels() {
+  const role = useAuth((state) => state.user?.role);
   const { pathname } = useLocation();
   const [wide, setWide] = useState(() => window.matchMedia(wideQuery).matches);
   useEffect(() => {
@@ -23,8 +25,11 @@ export default function SidePanels() {
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
-  const allowed = pathname === '/' || ['/jobs', '/companies', '/notices', '/bookmarks', '/applications', '/resumes', '/employment'].some((path) => pathname === path || pathname.startsWith(path + '/'));
-  return wide && allowed ? <WidePanels /> : null;
+  const allowed = pathname === '/' || ['/jobs', '/companies', '/bookmarks', '/applications', '/resumes', '/employment'].some((path) => pathname === path || pathname.startsWith(path + '/'));
+  const personalView = !role || role === 'JOB_SEEKER';
+  const companyView = role === 'COMPANY' && (pathname === '/' || pathname === '/company' || pathname === '/jobs' || pathname.startsWith('/jobs/') || pathname === '/companies' || pathname.startsWith('/companies/'));
+  if (wide && companyView) return <CompanyActivityPanels />;
+  return wide && allowed && personalView ? <WidePanels /> : null;
 }
 
 function WidePanels() {
