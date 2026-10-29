@@ -19,10 +19,12 @@ public class EmploymentService {
     private final Assessments assessments;
     private final ObjectMapper json;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    // EmploymentService.java 상단부
     private static final String PUBLIC_JOB =
         " FROM job_postings j JOIN companies c ON c.company_id=j.company_id JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ";
-    private static final String JOB_COLUMNS = "j.*,c.company_name";
 
+    // 👇 c.address, c.latitude, c.longitude 추가
+    private static final String JOB_COLUMNS = "j.*, c.company_name, c.address, c.latitude, c.longitude";
     public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc, ResumeFiles files, Assessments assessments) {
         this.db = db;
         this.files = files;
@@ -129,7 +131,9 @@ public class EmploymentService {
 
     public List<Map<String, Object>> companies() {
         return db.list(
-            "SELECT c.company_id,c.company_name,c.industry,c.company_size,c.address,c.website,c.description,(SELECT j.banner_image_url FROM job_postings j WHERE j.company_id=c.company_id AND j.status='PUBLISHED' AND j.end_date>=CURRENT_DATE AND j.banner_image_url IS NOT NULL AND TRIM(j.banner_image_url)<>'' ORDER BY j.job_id DESC LIMIT 1) AS banner_image_url FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_id DESC"
+            "SELECT c.company_id, c.company_name, c.industry, c.company_size, c.address, c.latitude, c.longitude, c.website, c.description, " +
+                "(SELECT j.banner_image_url FROM job_postings j WHERE j.company_id=c.company_id AND j.status='PUBLISHED' AND j.end_date>=CURRENT_DATE AND j.banner_image_url IS NOT NULL AND TRIM(j.banner_image_url)<>'' ORDER BY j.job_id DESC LIMIT 1) AS banner_image_url " +
+                "FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_id DESC"
         );
     }
 

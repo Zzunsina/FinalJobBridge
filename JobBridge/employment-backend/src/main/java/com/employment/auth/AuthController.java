@@ -2,6 +2,8 @@ package com.employment.auth;
 
 import com.employment.global.common.*;
 import jakarta.servlet.http.*;
+
+import java.io.IOException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -114,5 +116,11 @@ public class AuthController {
     @PostMapping("/auth/reset-password")
     void resetPassword(@RequestBody Map<String, Object> body) {
         auth.resetPassword(body);
+    }
+
+    @GetMapping("/auth/kakao/callback")
+    void kakaoCallback(@RequestParam String code, HttpServletResponse response) throws IOException {
+        auth.kakaoLogin(code, response);
+        response.sendRedirect("http://localhost/"); // 로그인 성공 후 프론트엔드 메인으로 이동
     }
 }
