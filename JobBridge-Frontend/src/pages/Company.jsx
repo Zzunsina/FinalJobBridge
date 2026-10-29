@@ -16,11 +16,13 @@ import { Interviews, Snapshot } from './Seeker';
 import WithdrawAccount from '../components/common/WithdrawAccount';
 import CompanyImageUpload from '../components/common/CompanyImageUpload';
 import AssessmentRanking from '../components/common/AssessmentRanking';
+import CompanyCover from '../components/common/CompanyCover';
 
 export { default as CompanyDashboard } from './CompanyOverview';
 
 export function JobManage() {
   const all = useResource('/company/jobs');
+  const profile = useResource('/company/profile');
   const [params] = useSearchParams();
   const status = ['PUBLISHED','PENDING','DRAFT','CLOSED','REJECTED'].includes(params.get('status')) ? params.get('status') : '';
   const closing = params.get('closing') === 'true';
@@ -45,7 +47,14 @@ export function JobManage() {
           rows.length ? (
             <div className="stack">
               {rows.map((j) => (
-                <article className="panel" key={j.jobId}>
+                <article className="panel company-managed-job" key={j.jobId}>
+                  <CompanyCover
+                    companyName={profile.data?.companyName}
+                    industry={profile.data?.industry}
+                    bannerImageUrl={j.bannerImageUrl}
+                    className="company-managed-job-cover"
+                  />
+                  <div className="company-managed-job-content">
                   <div className="row">
                     <h2>{j.title}</h2>
                     <Badge value={j.status} />
@@ -88,6 +97,7 @@ export function JobManage() {
                     >
                       삭제
                     </Action>
+                  </div>
                   </div>
                 </article>
               ))}

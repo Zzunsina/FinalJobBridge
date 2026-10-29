@@ -39,7 +39,14 @@ export function Home() {
           ['▦', '함께하는 기업', '성장할 수 있는 팀을 만나세요', '/companies'],
         ].map(([icon, title, desc, to]) => (
           <Link key={to} to={to}>
-            <span className="quick-icon">{icon}</span>
+            <span className="quick-icon" aria-hidden="true">
+              {to === '/jobs' ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <circle cx="10.5" cy="10.5" r="6.5" />
+                  <path d="m16 16 5 5" />
+                </svg>
+              ) : icon}
+            </span>
             <div>
               <strong>{title}</strong>
               <small>{desc}</small>

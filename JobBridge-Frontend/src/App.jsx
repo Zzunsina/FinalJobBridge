@@ -87,7 +87,7 @@ export default function App() {
           <span>JOBBRIDGE · YOUR NEXT CHAPTER</span>
         </div>
       </div>
-      <header id="header">
+      <header id="header" className={user?.role === 'ADMIN' ? 'admin-header' : undefined}>
         <div className="header-inner">
           <Link className="logo" to="/">
             <span className="brand-image">

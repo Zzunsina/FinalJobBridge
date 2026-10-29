@@ -2586,11 +2586,12 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
 
 .regular-job-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 12px;
 }
 
 .regular-job-item {
+  display: flex;
   min-width: 0;
   padding: 2px;
   overflow: hidden;
@@ -2629,14 +2630,18 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
   }
 
   .regular-job-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 }
 
 /* 모바일 */
 @media (max-width: 520px) {
-  .premium-job-grid,
+  .premium-job-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
   .regular-job-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -3031,3 +3036,191 @@ html { scroll-padding-top: 112px; }
 .mega-feature a { font-size:14px; }
 @media (min-width:761px) { .mega-content { max-height:calc(100dvh - 275px); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; } }
 @media (max-width:760px) { .main-nav .nav-mega .mega-panel { display:none; } .mega-heading h2 { font-size:22px; } }
+
+/* Recruitment thumbnails in the company's management list. */
+.company-managed-job {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding: 24px;
+}
+
+.company-managed-job-cover {
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+}
+
+.company-managed-job-content {
+  min-width: 0;
+}
+
+.company-managed-job-content .row {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.company-managed-job-content h2 {
+  overflow-wrap: anywhere;
+}
+
+.company-managed-job-content .badge {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1000px) {
+  .company-managed-job {
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .company-managed-job {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .company-managed-job-cover {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* Keep administrator header labels on one line. */
+.admin-header .logo,
+.admin-header .main-nav a,
+.admin-header .account,
+.admin-member-nav a {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (min-width: 769px) {
+  .admin-header .header-inner {
+    flex-wrap: nowrap;
+    gap: 16px;
+  }
+
+  .admin-header .header-search {
+    order: initial;
+    flex: 1 1 180px;
+    min-width: 100px;
+  }
+
+  .admin-header .main-nav {
+    gap: 16px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .admin-header .header-search {
+    display: none;
+  }
+
+  .admin-header .header-inner {
+    gap: 12px;
+  }
+
+  .admin-header .account {
+    margin-left: auto;
+    gap: 10px;
+  }
+}
+
+/* Keep home cards aligned while allowing long recruitment text to wrap. */
+.home-page .regular-job-item > article.job-card {
+  width: 100%;
+  height: 100%;
+  padding-top: 0;
+  padding-bottom: 22px;
+}
+
+.home-page .regular-job-item .company-name,
+.home-page .regular-job-item h3,
+.home-page .regular-job-item .muted,
+.home-page .regular-job-item .tags > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.home-page .regular-job-item .card-top {
+  gap: 8px;
+}
+
+.home-page .regular-job-item .company-symbol {
+  flex-shrink: 0;
+}
+
+.home-page .regular-job-item .card-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.home-page .regular-job-item .card-bottom {
+  margin-top: auto;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.home-page .regular-job-item .job-card-more {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .home-page .regular-job-item > article.job-card {
+    padding-inline: 12px;
+    padding-bottom: 16px;
+  }
+
+  .home-page .regular-job-item .job-card-scene {
+    margin-inline: -12px;
+    height: 110px;
+  }
+
+  .home-page .regular-job-item h3 {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .home-page .regular-job-item .company-name,
+  .home-page .regular-job-item .muted {
+    font-size: 12px;
+  }
+
+  .home-page .regular-job-item .card-bottom > span:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-inner > .main-nav.open {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .header-inner .main-nav > .nav-mega {
+    display: flex;
+    width: auto;
+    min-width: 0;
+  }
+
+  .header-inner .main-nav > a,
+  .header-inner .main-nav .nav-mega-trigger {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .header-inner .main-nav .nav-mega-trigger::after,
+  .header-inner .main-nav .mega-panel {
+    display: none;
+  }
+}
