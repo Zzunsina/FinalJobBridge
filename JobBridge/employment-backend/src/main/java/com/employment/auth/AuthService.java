@@ -14,13 +14,21 @@ import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseCookie;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.http.*;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+// 👇 카카오 로그인을 위해 추가한 import 명시
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 
 @Service
 public class AuthService {
@@ -196,8 +204,8 @@ public class AuthService {
         String password = Input.text(body, "password", 64, true);
         if (
             rows.isEmpty() ||
-            !encoder.matches(password, rows.get(0).get("password").toString()) ||
-            !"ACTIVE".equals(rows.get(0).get("status"))
+                !encoder.matches(password, rows.get(0).get("password").toString()) ||
+                !"ACTIVE".equals(rows.get(0).get("status"))
         ) {
             throw new Problem(401, "아이디 또는 비밀번호를 확인해 주세요.");
         }
@@ -253,14 +261,14 @@ public class AuthService {
             String[] pieces = token.split("\\.");
             if (
                 pieces.length != 3 ||
-                !MessageDigest.isEqual(sign(pieces[0] + "." + pieces[1]), decode(pieces[2]))
+                    !MessageDigest.isEqual(sign(pieces[0] + "." + pieces[1]), decode(pieces[2]))
             ) {
                 throw new IllegalArgumentException();
             }
             var claims = json.readTree(decode(pieces[1]));
             if (
                 !type.equals(claims.path("type").asText()) ||
-                claims.path("exp").asLong() <= Instant.now().getEpochSecond()
+                    claims.path("exp").asLong() <= Instant.now().getEpochSecond()
             ) {
                 throw new IllegalArgumentException();
             }
@@ -270,9 +278,9 @@ public class AuthService {
             );
             if (
                 Boolean.TRUE.equals(session.get("revoked")) ||
-                !hash(token).equals(session.get(type + "Hash")) ||
-                !"ACTIVE".equals(publicUser(number(session, "userId")).get("status")) ||
-                !Long.toString(number(session, "userId")).equals(claims.path("sub").asText())
+                    !hash(token).equals(session.get(type + "Hash")) ||
+                    !"ACTIVE".equals(publicUser(number(session, "userId")).get("status")) ||
+                    !Long.toString(number(session, "userId")).equals(claims.path("sub").asText())
             ) {
                 throw new IllegalArgumentException();
             }
@@ -309,14 +317,9 @@ public class AuthService {
             Timestamp.from(accessEnd),
             sid
         );
-        setCookie(response, "accessToken", access, "/api", 1800);
-        setCookie(
-            response,
-            "refreshToken",
-            refresh,
-            "/api/auth",
-            Math.max(0, Duration.between(Instant.now(), end).getSeconds())
-        );
+
+        setCookie(response, "accessToken", access, "/api", -1);
+        setCookie(response, "refreshToken", refresh, "/api/auth", -1);
     }
 
     private String token(long id, String sid, String type, Instant end) {
@@ -431,7 +434,6 @@ public class AuthService {
             db.update("UPDATE employment_links SET status='CLOSED' WHERE job_seeker_id IN (SELECT job_seeker_id FROM job_seekers WHERE user_id=?) AND status NOT IN ('EMPLOYED','CLOSED')", userId);
         }
         db.update("UPDATE interviews SET status='CANCELED' WHERE status='SCHEDULED' AND application_id IN (" + applications + ")", userId);
-        // Use the ownership predicate directly to remain compatible with MySQL's update rules.
         String ownership = "COMPANY".equals(user.get("role"))
             ? "job_id IN (SELECT job_id FROM job_postings WHERE company_id IN (SELECT company_id FROM companies WHERE user_id=?))"
             : "job_seeker_id IN (SELECT job_seeker_id FROM job_seekers WHERE user_id=?)";
@@ -465,21 +467,16 @@ public class AuthService {
                 throw new Problem(400, "현재 비밀번호 또는 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.");
             }
         }
-        // 과거 비밀번호 이력 추가
         db.update("INSERT INTO user_password_history(user_id,password_hash,used_until) VALUES(?,?,?)", userId, currentHash, Timestamp.from(Instant.now()));
 
-        // 새 비밀번호로 업데이트
         db.update(
             "UPDATE users SET password=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
             encoder.encode(nextPassword),
             userId
         );
         db.update("DELETE FROM user_password_history WHERE user_id=? AND used_until<?", userId, cutoff);
-
-        // 💡 로그인 상태 유지를 위해 기존의 세션 무효화 구문(UPDATE auth_sessions SET revoked=TRUE...)을 삭제/주석 처리하였습니다.
     }
 
-    /* 👇 아래의 메서드들만 클래스 내부에 추가 */
     public Map<String, Object> findId(Map<String, Object> body) {
         String name = Input.text(body, "name", 100, true);
         String email = Input.email(body, "email");
@@ -513,11 +510,9 @@ public class AuthService {
 
         long userId = number(user, "userId");
         String resetToken = UUID.randomUUID().toString();
-        // 테이블의 token_hash 컬럼에 맞게 SHA-256 해시값 생성
         String tokenHash = hash(resetToken);
-        Timestamp expiresAt = Timestamp.from(Instant.now().plusSeconds(1800)); // 30분 유효
+        Timestamp expiresAt = Timestamp.from(Instant.now().plusSeconds(1800));
 
-        // 기존에 발급된 토큰 삭제 후 새로 저장
         db.update("DELETE FROM password_reset_tokens WHERE user_id=?", userId);
         db.update(
             "INSERT INTO password_reset_tokens(user_id, token_hash, expires_at) VALUES(?,?,?)",
@@ -531,7 +526,6 @@ public class AuthService {
             helper.setTo(email);
             helper.setSubject("[잡브릿지] 비밀번호 재설정 안내");
 
-            // 이메일에는 원본 토큰 링크 전송
             String resetUrl = "http://localhost/reset-password?token=" + resetToken;
             String htmlContent =
                 "<div style=\"font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px;\">" +
@@ -557,7 +551,6 @@ public class AuthService {
         String token = Input.text(body, "token", 255, true);
         String newPassword = Input.password(body, "newPassword");
 
-        // 전달받은 토큰을 해시하여 DB의 token_hash와 비교
         String tokenHash = hash(token);
 
         var tokenRow = db.one(
@@ -571,16 +564,92 @@ public class AuthService {
 
         long userId = number(tokenRow, "userId");
 
-        // 새 비밀번호로 업데이트
         db.update(
             "UPDATE users SET password=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
             encoder.encode(newPassword),
             userId
         );
 
-        // 토큰 사용 완료 처리 (used_at 기록) 및 세션 만료
         db.update("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=?", tokenHash);
         db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
     }
 
+    @Transactional
+    public void kakaoLogin(String code, HttpServletResponse response) {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+            params.add("grant_type", "authorization_code");
+            params.add("client_id", "카카오_REST_API_키"); // 본인의 REST API 키 입력
+            params.add("redirect_uri", "http://localhost:8080/api/auth/kakao/callback");
+            params.add("code", code);
+
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+
+            ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(
+                "https://kauth.kakao.com/oauth/token", request, Map.class
+            );
+
+            String accessToken = (String) tokenResponse.getBody().get("access_token");
+
+            HttpHeaders profileHeaders = new HttpHeaders();
+            profileHeaders.set("Authorization", "Bearer " + accessToken);
+            HttpEntity<Void> profileRequest = new HttpEntity<>(profileHeaders);
+
+            ResponseEntity<Map> profileResponse = restTemplate.exchange(
+                "https://kapi.kakao.com/v2/user/me",
+                HttpMethod.GET,
+                profileRequest,
+                Map.class
+            );
+
+            Map<String, Object> kakaoAccount = (Map<String, Object>) profileResponse.getBody().get("kakao_account");
+            Map<String, Object> properties = (Map<String, Object>) profileResponse.getBody().get("properties");
+
+            String email = kakaoAccount != null ? (String) kakaoAccount.get("email") : null;
+            String nickname = properties != null ? (String) properties.get("nickname") : "카카오사용자";
+            String kakaoIdStr = String.valueOf(profileResponse.getBody().get("id"));
+
+            if (email == null) {
+                email = kakaoIdStr + "@kakao.social";
+            }
+
+            var user = db.one("SELECT * FROM users WHERE email=? AND status='ACTIVE'", email);
+
+            long userId;
+            if (user == null) {
+                String loginId = "k_" + kakaoIdStr;
+                userId = db.insert(
+                    "users",
+                    fields(
+                        "login_id", loginId,
+                        "email", email,
+                        "password", encoder.encode(UUID.randomUUID().toString()),
+                        "name", nickname,
+                        "phone", "01000000000",
+                        "role", "JOB_SEEKER",
+                        "status", "ACTIVE"
+                    )
+                );
+                db.insert("job_seekers", fields("user_id", userId));
+            } else {
+                userId = number(user, "userId");
+            }
+
+            issue(
+                userId,
+                UUID.randomUUID().toString(),
+                Instant.now().plusSeconds(604800),
+                response,
+                true
+            );
+
+        } catch (Exception e) {
+            throw new Problem(500, "카카오 로그인 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
 }

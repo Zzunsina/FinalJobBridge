@@ -91,6 +91,47 @@ export function Login({ adminOnly = false }) {
           adminOnly ? '관리자 로그인' : memberType === 'COMPANY' ? '기업 로그인' : '개인 로그인'
         }
       />
+
+      {!adminOnly && (
+  <div style={{ marginTop: '0.75rem' }}>
+    <a
+      href="https://kauth.kakao.com/oauth/authorize?client_id=8d54ebd7e8b7ef115cfb78d6425ab645&redirect_uri=http://localhost:8080/api/auth/kakao/callback&response_type=code"
+      style={{
+        display: 'flex',
+        alignItems: 'center', // 💡 alignItem -> alignItems (오타 수정)
+        justifyContent: 'center',
+        gap: '8px',
+        width: '100%',
+        backgroundColor: '#fee500',
+        color: '#191919',
+        padding: '0.85rem 1rem',
+        borderRadius: 'var(--radius, 6px)',
+        textDecoration: 'none',
+        fontWeight: '600',
+        fontSize: '1rem',
+        boxSizing: 'border-box',
+        textAlign: 'center',
+        boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05))',
+        lineHeight: 1, // 💡 텍스트 높이 맞춤
+      }}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        style={{
+          display: 'block', // 💡 inline-block 오프셋 방지
+          flexShrink: 0,
+        }}
+      >
+        <path d="M12 3c-4.97 0-9 3.13-9 7 0 2.48 1.58 4.67 3.97 5.91l-.92 3.38c-.1.38.32.68.65.48l3.97-2.45c.44.06.89.1 1.33.1 4.97 0 9-3.13 9-7s-4.03-7-9-7z" />
+      </svg>
+      <span>카카오로 시작하기</span>
+    </a>
+  </div>
+)}
+
       <div className="auth-links auth-login-links">
         {adminOnly ? (
           <Link to="/login">일반 회원 로그인으로 이동</Link>

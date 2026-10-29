@@ -1,7 +1,7 @@
 import { useRecentJobs } from '../stores/recentJobs';
 import CompanyCover from '../components/common/CompanyCover';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
 import ApplyForm from '../components/common/ApplyForm';
@@ -331,11 +331,13 @@ export function JobDetail() {
   const [applying, setApplying] = useState(false);
   const [done, setDone] = useState(false);
   const remember = useRecentJobs((state) => state.remember);
+
   useEffect(() => {
     if (!resource.loading && !resource.error && String(resource.data?.jobId) === String(id)) {
       remember(user?.userId || 'guest', resource.data);
     }
   }, [id, resource.data, resource.loading, resource.error, user?.userId, remember]);
+
   return (
     <Resource resource={resource}>
       {(job) => applying && !done ? (
@@ -392,6 +394,7 @@ export function JobDetail() {
                 </section>
               ))}
             </article>
+
             <aside className="panel apply-panel">
               <CompanyImage companyId={job.companyId} companyName={job.companyName} className="company-symbol large" />
               <h3>{job.companyName}</h3>
@@ -400,6 +403,14 @@ export function JobDetail() {
                 <br />
                 동료를 기다립니다.
               </p>
+
+              {/* 🗺️ 채용 공고 상세 우측에 지도 추가 */}
+              <CompanyMap 
+                address={job.address || job.workLocation} 
+                latitude={job.latitude} 
+                longitude={job.longitude} 
+              />
+
               <Link to={`/companies/${job.companyId}`}>기업 자세히 보기 ↗</Link>
               <hr />
               <p>
@@ -427,6 +438,68 @@ export function JobDetail() {
   );
 }
 
+
+// 지도 렌더링 컴포넌트
+function CompanyMap({ address, latitude, longitude }) {
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    const lat = latitude ? Number(latitude) : 35.1587;
+    const lng = longitude ? Number(longitude) : 129.1604;
+
+    // 카카오 맵 스크립트가 이미 로드되어 있는 경우
+    if (window.kakao && window.kakao.maps && window.kakao.maps.Map) {
+      renderMap(lat, lng);
+      return;
+    }
+
+    // 스크립트가 아직 로드되지 않았거나 준비 중인 경우 동적으로 대기
+    const checkInterval = setInterval(() => {
+      if (window.kakao && window.kakao.maps && window.kakao.maps.Map) {
+        clearInterval(checkInterval);
+        renderMap(lat, lng);
+      }
+    }, 100);
+
+    return () => clearInterval(checkInterval);
+  }, [latitude, longitude]);
+
+  const renderMap = (lat, lng) => {
+    if (!mapRef.current) return;
+
+    window.kakao.maps.load(() => {
+      if (!mapRef.current) return;
+
+      const options = {
+        center: new window.kakao.maps.LatLng(lat, lng),
+        level: 3
+      };
+
+      const map = new window.kakao.maps.Map(mapRef.current, options);
+      const markerPosition = new window.kakao.maps.LatLng(lat, lng);
+      const marker = new window.kakao.maps.Marker({ position: markerPosition });
+      marker.setMap(map);
+    });
+  };
+
+  return (
+    <div className="company-map-wrapper" style={{ margin: '20px 0' }}>
+      <div 
+        ref={mapRef} 
+        style={{ 
+          width: '100%', 
+          height: '250px', 
+          borderRadius: '8px', 
+          backgroundColor: '#f0f0f0',
+          border: '1px solid #ddd'
+        }} 
+      />
+      <p className="muted" style={{ fontSize: '13px', marginTop: '8px', color: '#666' }}>
+        📍 {address || '주소 정보가 없습니다.'}
+      </p>
+    </div>
+  );
+}
 
 export function Companies() {
   const resource = useResource('/companies');
@@ -466,6 +539,7 @@ export function Companies() {
 export function CompanyDetail() {
   const { id } = useParams();
   const resource = useResource(`/companies/${id}`);
+  
   return (
     <Resource resource={resource}>
       {(c) => (
@@ -478,6 +552,14 @@ export function CompanyDetail() {
             <p>{c.description || '기업 소개를 준비하고 있습니다.'}</p>
             <p>규모: {c.companySize || '별도 안내'}</p>
             <p>주소: {c.address || '별도 안내'}</p>
+            
+            {/* 🗺️ 기업 위치 지도 컴포넌트 삽입 */}
+            <CompanyMap 
+              address={c.address} 
+              latitude={c.latitude} 
+              longitude={c.longitude} 
+            />
+
             {c.website && (
               <a href={c.website} target="_blank" rel="noreferrer">
                 기업 홈페이지 ↗
