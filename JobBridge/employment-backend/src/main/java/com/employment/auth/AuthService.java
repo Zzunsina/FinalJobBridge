@@ -574,8 +574,17 @@ public class AuthService {
         db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
     }
 
+    // 261029_전진영 카카오 키(차후에 환경변수로 처리 예정)
+    @Value("${kakao.client-id}")
+    private String KAKAO_CLIENT_ID;
+    @Value("${kakao.client-secret}")
+    private String KAKAO_SECRET_KEY;
+    @Value("${kakao.redirect-uri}")
+    private String KAKAO_REDIRECT_URI;
+
     @Transactional
     public void kakaoLogin(String code, HttpServletResponse response) {
+        System.out.println("kakaoLogin 시작");
         try {
             RestTemplate restTemplate = new RestTemplate();
 
@@ -584,21 +593,26 @@ public class AuthService {
 
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("grant_type", "authorization_code");
-            params.add("client_id", "카카오_REST_API_키"); // 본인의 REST API 키 입력
-            params.add("redirect_uri", "http://localhost:8080/api/auth/kakao/callback");
+            params.add("client_id", KAKAO_CLIENT_ID); // 본인의 REST API 키 입력
+            params.add("client_secret", KAKAO_SECRET_KEY);
+            params.add("redirect_uri", KAKAO_REDIRECT_URI);
             params.add("code", code);
 
+            System.out.println("요청데이터 담아서 요청객체에 담기");
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
 
+            System.out.println("카카오톡 토큰데이터 요청하기");
             ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(
                 "https://kauth.kakao.com/oauth/token", request, Map.class
             );
-
+            System.out.println("tokenResponse값: " + tokenResponse);
             String accessToken = (String) tokenResponse.getBody().get("access_token");
+            System.out.println("accessToken값: " + accessToken);
 
             HttpHeaders profileHeaders = new HttpHeaders();
             profileHeaders.set("Authorization", "Bearer " + accessToken);
             HttpEntity<Void> profileRequest = new HttpEntity<>(profileHeaders);
+
 
             ResponseEntity<Map> profileResponse = restTemplate.exchange(
                 "https://kapi.kakao.com/v2/user/me",
@@ -608,17 +622,26 @@ public class AuthService {
             );
 
             Map<String, Object> kakaoAccount = (Map<String, Object>) profileResponse.getBody().get("kakao_account");
-            Map<String, Object> properties = (Map<String, Object>) profileResponse.getBody().get("properties");
+            System.out.println("kakaoAccount: "+ kakaoAccount);
+            if(kakaoAccount == null){ throw new Exception("회원 정보를 불러오지 못했습니다.");}
 
+
+            String phone_number = (String) kakaoAccount.get("phone_number");
             String email = kakaoAccount != null ? (String) kakaoAccount.get("email") : null;
-            String nickname = properties != null ? (String) properties.get("nickname") : "카카오사용자";
+            String nickname = kakaoAccount != null ? (String) kakaoAccount.get("name") : "카카오사용자";
+            String phone = kakaoAccount == null ?  "01000000000" : phone_number == null || phone_number.equals("") ? "01000000000" : "0"+phone_number.replace("+82","").replace("-","").replaceAll("[\\s]","");
             String kakaoIdStr = String.valueOf(profileResponse.getBody().get("id"));
+            String birthyear = (String)kakaoAccount.get("birthyear");
+            String birthday = (String)kakaoAccount.get("birthday");
+            String birth_date = birthyear + birthday;
 
             if (email == null) {
                 email = kakaoIdStr + "@kakao.social";
             }
 
-            var user = db.one("SELECT * FROM users WHERE email=? AND status='ACTIVE'", email);
+            System.out.println("DB select전");
+            Map<String, Object> user = db.one("SELECT * FROM users WHERE login_id=? AND status='ACTIVE'", "k_"+kakaoIdStr);
+            System.out.println("DB select후 user: " +user);
 
             long userId;
             if (user == null) {
@@ -628,10 +651,12 @@ public class AuthService {
                     fields(
                         "login_id", loginId,
                         "email", email,
-                        "password", encoder.encode(UUID.randomUUID().toString()),
+                        "password", encoder.encode("kakaopass"),
                         "name", nickname,
-                        "phone", "01000000000",
+                        "phone", phone,
                         "role", "JOB_SEEKER",
+                        "birth_date" , birth_date,
+                        "gender" , ((String) kakaoAccount.get("gender")).toUpperCase(),
                         "status", "ACTIVE"
                     )
                 );
@@ -647,8 +672,8 @@ public class AuthService {
                 response,
                 true
             );
-
         } catch (Exception e) {
+            e.printStackTrace();
             throw new Problem(500, "카카오 로그인 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
