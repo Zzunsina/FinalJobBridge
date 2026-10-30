@@ -545,14 +545,16 @@ export function Companies() {
 
 export function CompanyDetail() {
   const { id } = useParams();
-  const resource = useResource(`/companies/${id}`);
+  const user = useAuth((s) => s.user);
+  const admin = user?.role === 'ADMIN';
+  const resource = useResource(`${admin ? '/admin' : ''}/companies/${id}`);
   
   return (
     <Resource resource={resource}>
       {(c) => (
         <>
           <CompanyCover companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-detail-cover" />
-          <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
+          <CompanyImage companyId={c.companyId} companyName={c.companyName} admin={admin} className="company-symbol large" />
           <Title description={c.industry}>{c.companyName}</Title>
           <article className="panel prose">
             <h2>기업 소개</h2>

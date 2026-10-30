@@ -6,6 +6,8 @@ import EmploymentLinkForm from '../components/common/EmploymentLinkForm';
 import CompanyImage from '../components/common/CompanyImage';
 import { Action, Badge, Form, PagedResource, Title, labels } from '../components/common/UI';
 import { filterAdminRows, recordStatus, searchHints } from '../utils/adminManagement';
+import { employmentReviewLabels } from '../utils/employmentReview';
+import { Resource } from '../components/common/UI';
 
 export { default as AdminDashboard } from './AdminDashboard';
 
@@ -145,12 +147,14 @@ function AdminManageContent({ resourceName }) {
                   <summary>
                     <span className="admin-record-heading">
                       <strong>
-                        {resourceName === 'jobs'
+                        {resourceName === 'employment-links'
+                          ? `취업연계(${r.jobSeekerName || '이름 미등록'})`
+                          : resourceName === 'jobs'
                           ? r.title
                           : r.name || r.companyName || r.title || `취업연계 #${r.employmentLinkId}`}
                       </strong>
                       <small>
-                        {r.email ||
+                        {resourceName === 'inquiries' ? `작성자: ${r.authorName || '이름 미등록'} · ${r.createdAt?.slice(0, 10) || ''}` : r.email ||
                           (resourceName === 'jobs' ? r.companyName : r.industry) ||
                           r.createdAt?.slice(0, 10) ||
                           r.requestedAt?.slice(0, 10) ||
@@ -238,7 +242,18 @@ function AdminRow({ name, row: r, reload }) {
             />
             <div>
               <p className="muted">기업 대표 이미지</p>
-              <h2>{company ? r.companyName : r.title}</h2>
+              <h2>
+                {company ? (
+                  <Link className="text-link" to={`/companies/${r.companyId}`}>
+                    {r.companyName}
+                  </Link>
+                ) : r.title}
+              </h2>
+              {!company && (
+                <Link className="text-link" to={`/companies/${r.companyId}`}>
+                  {r.companyName}
+                </Link>
+              )}
             </div>
           </div>
           <Badge value={status} />
@@ -300,6 +315,7 @@ function AdminRow({ name, row: r, reload }) {
           <h2>{r.title}</h2>
           <Badge value={r.status} />
         </div>
+        <p className="muted">작성자: {r.authorName || '이름 미등록'} · 작성일: {r.createdAt?.slice(0, 10)}</p>
         <p className="prose">{r.content}</p>
         {r.answer && !editing ? (
           <>
@@ -365,17 +381,23 @@ function AdminRow({ name, row: r, reload }) {
   return (
     <>
       <div className="row">
-        <h2>취업연계 #{r.employmentLinkId}</h2>
+        <h2>취업연계({r.jobSeekerName || '이름 미등록'})</h2>
         <Badge value={r.status} />
       </div>
       <p>
-        구직자 #{r.jobSeekerId} · 신청 {r.requestedAt?.slice(0, 10)}
+        구직자: {r.jobSeekerName || '이름 미등록'} · 신청 {r.requestedAt?.slice(0, 10)}
       </p>
       {!['EMPLOYED', 'CLOSED'].includes(r.status) && (
         <EmploymentLinkForm record={r} onDone={reload} />
       )}
+      <CompanyReview id={r.employmentLinkId} />
     </>
   );
+}
+
+function CompanyReview({ id }) {
+  const resource = useResource(`/admin/employment-links/${id}/company-review`, { refreshInterval: 30000 });
+  return <section className="callout"><h3>기업 검토 의견</h3><Resource resource={resource}>{(rows) => rows.length ? rows.map((row) => <div key={row.companyName}><strong>{row.companyName} · {employmentReviewLabels[row.reviewStatus] || row.reviewStatus}</strong><p className="prose">{row.opinion || '별도 의견 없음'}</p><small>{new Date(row.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</small></div>) : <p>아직 등록된 기업 검토 의견이 없습니다.</p>}</Resource></section>;
 }
 
 function NoticeForm({ initial, onDone }) {

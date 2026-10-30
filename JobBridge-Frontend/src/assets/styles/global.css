@@ -1860,6 +1860,11 @@ img.company-image { object-fit: contain; background: white; border: 1px solid #e
 .admin-review-company > div { min-width: 0; overflow-wrap: anywhere; }
 .admin-review-company p { font-size: 13px; margin: 0 0 5px; }
 .admin-review-company h2 { margin: 0; }
+.notification-content { display:block; flex:1; min-width:0; color:inherit; overflow-wrap:anywhere; border-radius:6px; }
+.notification-content:hover h3, .notification-open { color:#3370cc; }
+.notification-content:focus-visible { outline:2px solid #3370cc; outline-offset:6px; }
+.notification-open { display:block; margin-top:10px; font-size:13px; font-weight:600; }
+.admin-review-company h2 .text-link { font-size: 24px; font-weight: 700; line-height: 1.4; }
 .company-symbol.admin-review-image { width: 88px; height: 88px; flex-shrink: 0; }
 
 .notice-board { max-width: 1040px; margin: 0 auto 56px; }

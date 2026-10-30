@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCompanyOverview } from '../hooks/companyOverview';
 import { useResource } from '../hooks/useResource';
 import CompanyCover from '../components/common/CompanyCover';
-import { Badge, Empty, PagedResource, Resource, Title } from '../components/common/UI';
+import { Badge, Empty, PagedResource, PagedRows, Resource, Title, labels } from '../components/common/UI';
 import '../assets/styles/company-overview.css';
 
 const number = (value) => Number(value || 0).toLocaleString('ko-KR');
@@ -57,8 +58,33 @@ export function CompanyApplicants() {
   const [params] = useSearchParams();
   const view = ['new','unreviewed'].includes(params.get('view')) ? params.get('view') : '';
   const resource = useResource(`/company/applicants?view=${view}`, { refreshInterval: 30000 });
-  return <><Title description={view === 'new' ? '최근 7일 이내 접수한 지원서입니다.' : view === 'unreviewed' ? '지원 완료 상태로 서류 검토를 시작하지 않은 지원서입니다.' : '우리 기업의 모든 채용공고에 접수한 지원서를 확인하세요.'} action={view ? <Link to="/company/applicants">전체 지원자 보기 →</Link> : null}>{view === 'new' ? '신규 지원자' : view === 'unreviewed' ? '미검토 지원자' : '지원자 관리'}</Title><PagedResource key={view} resource={resource}>{(rows) => rows.length ? <div className="stack">{rows.map((row) => <Link className="panel row company-applicant-row" to={`/company/applications/${row.applicationId}`} key={row.applicationId}><div><h2>{row.name}</h2><p>{row.title}</p><small>{date(row.appliedAt)} 지원</small></div><Badge value={row.status} /></Link>)}</div> : <Empty>해당하는 지원자가 없습니다.</Empty>}</PagedResource></>;
+  return <><Title description="공고별 지원자를 확인하고 이름과 심사 상태로 찾아보세요." action={view ? <Link to="/company/applicants">전체 지원자 보기 →</Link> : null}>{view === 'new' ? '신규 지원자' : view === 'unreviewed' ? '미검토 지원자' : '지원자 관리'}</Title>
+    <Resource resource={resource}>{(rows) => <ApplicantList key={view} rows={rows} />}</Resource>
+  </>;
 }
+
+function ApplicantList({ rows }) {
+  const [jobId, setJobId] = useState('');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('');
+  const jobs = Array.from(new Map(rows.map((row) => [String(row.jobId), { id: String(row.jobId), title: row.title }])).values());
+  const filtered = rows.filter((row) => (!jobId || String(row.jobId) === jobId) && (!status || row.status === status) && (row.name || '').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const groups = jobs.map((job) => ({ ...job, rows: filtered.filter((row) => String(row.jobId) === job.id) })).filter((job) => job.rows.length);
+  return <>
+    <div className="panel applicant-filters">
+      <label>채용공고<select value={jobId} onChange={(e) => setJobId(e.target.value)}><option value="">전체 공고 ({jobs.length}개)</option>{jobs.map((job) => <option key={job.id} value={job.id}>{job.title} · #{job.id} ({rows.filter((row) => String(row.jobId) === job.id).length}명)</option>)}</select></label>
+      <label>지원자 이름<input type="search" placeholder="이름으로 검색" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+      <label>심사 상태<select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">전체 상태</option>{['APPLIED', 'UNDER_REVIEW', 'DOCUMENT_PASSED', 'INTERVIEW', 'FINAL_PASSED', 'REJECTED', 'CANCELED'].map((value) => <option key={value} value={value}>{labels[value]}</option>)}</select></label>
+      <button className="secondary" onClick={() => { setJobId(''); setQuery(''); setStatus(''); }}>초기화</button>
+    </div>
+    <p className="applicant-result-count" role="status">지원서 <strong>{number(filtered.length)}</strong>건 · 공고 {number(groups.length)}개</p>
+    {groups.length ? <div className="stack">{groups.map((job) => <section className="panel applicant-job-group" key={job.id}>
+      <div className="applicant-job-heading"><div><small>채용공고 #{job.id}</small><h2>{job.title}</h2></div><strong>{number(job.rows.length)}명</strong></div>
+      <PagedRows key={job.id + ':' + query + ':' + status} rows={job.rows}>{(pageRows) => <div className="applicant-table-wrap"><table className="applicant-table"><thead><tr><th scope="col">지원자</th><th scope="col">지원일</th><th scope="col">심사 상태</th><th scope="col">지원서</th></tr></thead><tbody>{pageRows.map((row) => <tr key={row.applicationId}><td><Link to={'/company/applications/' + row.applicationId}>{row.name}</Link></td><td>{date(row.appliedAt)}</td><td><Badge value={row.status} /></td><td><Link to={'/company/applications/' + row.applicationId}>상세 보기 →</Link></td></tr>)}</tbody></table></div>}</PagedRows>
+    </section>)}</div> : <div className="empty">{rows.length ? '검색 조건에 맞는 지원자가 없습니다.' : '접수된 지원서가 없습니다.'}</div>}
+  </>;
+}
+
 
 export function CompanyInterviewSchedule() {
   const resource = useResource('/company/interviews', { refreshInterval: 30000 });

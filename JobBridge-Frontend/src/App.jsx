@@ -29,12 +29,16 @@ import {
 import { AdminDashboard, AdminManage } from './pages/Admin';
 import NotificationLink from './components/common/NotificationLink';
 import CustomerCenter from './pages/CustomerCenter';
+import EmploymentDetail from './pages/EmploymentDetail';
+import CompanyEmployment from './pages/CompanyEmployment';
+import CompanyEmploymentDetail from './pages/CompanyEmploymentDetail';
 import { BookmarkNotice } from './components/common/BookmarkButton';
 
 const companyLinks = [
   ['/company', '대시보드'],
   ['/company/jobs', '채용공고 관리'],
   ['/company/applicants', '지원자 관리'],
+  ['/company/employment', '취업연계'],
   ['/company/interviews', '면접 일정'],
   ['/company/profile', '기업 정보'],
   ['/mypage', '내 정보'],
@@ -317,11 +321,14 @@ export default function App() {
             />
             <Route path="/bookmarks" element={protectedPage('JOB_SEEKER', <Bookmarks />)} />
             <Route path="/employment" element={user?.role === 'ADMIN' ? protectedPage('ADMIN', <Navigate to="/admin/employment" replace />) : protectedPage('JOB_SEEKER', <Employment />)} />
+            <Route path="/employment/:id" element={protectedPage('JOB_SEEKER', <EmploymentDetail />)} />
             <Route path="/mypage" element={protectedPage(null, <MyPage />)} />
             <Route path="/notifications" element={protectedPage(null, <Notifications />)} />
             <Route path="/inquiries" element={<CustomerCenter />} />
             <Route path="/company" element={protectedPage('COMPANY', <CompanyDashboard />)} />
             <Route path="/company/applicants" element={protectedPage('COMPANY', <CompanyApplicants />)} />
+            <Route path="/company/employment" element={protectedPage('COMPANY', <CompanyEmployment />)} />
+            <Route path="/company/employment/:id" element={protectedPage('COMPANY', <CompanyEmploymentDetail />)} />
             <Route path="/company/interviews" element={protectedPage('COMPANY', <CompanyInterviewSchedule />)} />
             <Route path="/company/jobs" element={protectedPage('COMPANY', <JobManage />)} />
             <Route path="/company/jobs/new" element={protectedPage('COMPANY', <JobForm />)} />

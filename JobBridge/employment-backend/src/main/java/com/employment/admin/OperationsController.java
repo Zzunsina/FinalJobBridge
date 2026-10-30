@@ -339,6 +339,8 @@ public class OperationsController {
         if (table == null) throw new Problem(404, "정보를 찾을 수 없습니다.");
         String columns = resource.equals("users")
             ? "user_id,email,name,phone,role,status,created_at"
+            : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
+            : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
             : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
         return db.list(
             "SELECT " +
@@ -362,6 +364,8 @@ public class OperationsController {
         if (table == null) throw new Problem(404, "정보를 찾을 수 없습니다.");
         String columns = resource.equals("users")
             ? "user_id,email,name,phone,role,status,created_at"
+            : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
+            : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
             : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
         return db.one(
             "SELECT " +
@@ -580,6 +584,12 @@ public class OperationsController {
         );
     }
 
+    @GetMapping("/admin/employment-links/{id}/company-review")
+    Object companyReview(@PathVariable long id, HttpServletRequest req) {
+        admin(req);
+        return db.list("SELECT r.review_status,r.opinion,r.updated_at,c.company_name FROM employment_company_reviews r JOIN companies c ON c.company_id=r.company_id JOIN employment_links e ON e.employment_link_id=r.employment_link_id AND e.company_id=r.company_id WHERE e.employment_link_id=?", id);
+    }
+
     @PatchMapping("/admin/employment-links/{id}")
     void link(
         @PathVariable long id,
@@ -660,6 +670,11 @@ public class OperationsController {
             "EMPLOYMENT",
             id
         );
+        if (company != null && (!Objects.equals(company, link.get("companyId")) || !current.equals(next) || !Objects.equals(job, link.get("jobId")))) {
+            long companyUser = number(db.one("SELECT user_id FROM companies WHERE company_id=?", company), "userId");
+            service.notify(companyUser, "취업연계 정보가 등록·변경되었습니다.",
+                "취업연계 메뉴에서 연결된 신청자와 채용공고를 확인해 주세요.", "EMPLOYMENT", id);
+        }
     }
 
     private Long nullableId(Map<String, Object> body, String key) {

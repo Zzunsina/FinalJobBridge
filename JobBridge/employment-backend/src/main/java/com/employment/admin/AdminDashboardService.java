@@ -125,7 +125,7 @@ public class AdminDashboardService {
             ),
             "recentLinks",
             db.list(
-                "SELECT employment_link_id,status,requested_at FROM employment_links WHERE status NOT IN ('CLOSED','EMPLOYED') ORDER BY employment_link_id DESC LIMIT 4"
+                "SELECT e.employment_link_id,e.status,e.requested_at,u.name AS job_seeker_name FROM employment_links e JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id WHERE e.status NOT IN ('CLOSED','EMPLOYED') ORDER BY e.employment_link_id DESC LIMIT 4"
             )
         );
     }

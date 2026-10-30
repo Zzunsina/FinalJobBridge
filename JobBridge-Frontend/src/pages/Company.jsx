@@ -127,7 +127,12 @@ const jobFields = [
     required: true,
     options: ['신입', '경력', '신입·경력'],
   },
-  { name: 'education', label: '학력', maxLength: 100 },
+  {
+    name: 'education',
+    label: '학력',
+    required: true,
+    options: ['학력무관', '고졸 이상', '전문대졸(2·3년) 이상', '대졸(4년) 이상', '석사 이상', '박사'],
+  },
   { name: 'salary', label: '급여', maxLength: 100 },
   {
     name: 'workLocation',
@@ -173,8 +178,11 @@ export function JobForm() {
         {(data) => (
           <div className="panel narrow">
             <Form
-              initial={id ? data : { headcount: 1, jobType: '정규직', careerType: '신입·경력' }}
+              initial={id ? { ...data, education: data.education || '학력무관' } : { headcount: 1, jobType: '정규직', careerType: '신입·경력', education: '학력무관' }}
               fields={jobFields.map((field) => {
+                if (field.name === 'education' && id && data.education && !field.options.includes(data.education)) {
+                  return { ...field, options: [...field.options, { value: data.education, label: `${data.education} (기존 입력값)` }] };
+                }
                 if (!['startDate', 'endDate'].includes(field.name)) return field;
                 const originalStart = id ? data.startDate : '';
                 const startField = field.name === 'startDate';
@@ -294,7 +302,7 @@ export function ApplicantDetail() {
               ))}
             </div>
             <h2>면접 일정</h2>
-            <Interviews rows={a.interviews} />
+            <Interviews rows={a.interviews} onDelete={resource.reload} />
             {a.status === 'INTERVIEW' && (
               <>
                 <h3>면접 등록</h3>
@@ -349,6 +357,8 @@ export function ApplicantDetail() {
                     await resource.reload();
                   }}
                   submit="면접 일정 등록"
+                  resetOnSuccess
+                  successMessage="면접 일정이 등록되었습니다."
                 />
               </>
             )}

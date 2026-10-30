@@ -1,0 +1,19 @@
+.employment-detail > .text-link { display:inline-block; margin-bottom:20px; }
+.employment-detail > .panel, .employment-detail-grid { margin-bottom:20px; }
+.employment-detail h2 { font-size:20px; margin:0 0 18px; }
+.employment-stages { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; padding:0; margin:0 0 24px; list-style:none; }
+.employment-stages li { display:flex; flex-direction:column; align-items:center; gap:9px; padding:16px 8px; border:1px solid #e0e8f3; border-radius:12px; background:#fff; color:#71839f; text-align:center; font-size:14px; }
+.employment-stages li > span { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:#edf2f8; font-weight:700; }
+.employment-stages .current { background:#eff6ff; border-color:#90b8ef; color:#2563eb; font-weight:700; }
+.employment-stages .current > span { background:#2563eb; color:#fff; }
+.employment-stages small { font-size:11px; }
+.employment-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.employment-facts { display:grid; grid-template-columns:90px minmax(0,1fr); gap:16px; font-size:14px; }
+.employment-facts dt { color:#71839f; }
+.employment-facts dd { margin:0; overflow-wrap:anywhere; }
+@media(max-width:650px) {
+  .employment-detail-grid { grid-template-columns:1fr; }
+  .employment-stages { grid-template-columns:1fr; gap:6px; }
+  .employment-stages li { flex-direction:row; padding:10px 14px; text-align:left; }
+  .employment-stages small { margin-left:auto; }
+}
