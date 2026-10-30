@@ -4,10 +4,15 @@ import com.employment.global.common.*;
 import jakarta.servlet.http.*;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
+
+import static org.springframework.web.util.UriUtils.encode;
 
 @RestController
 @RequestMapping("/api")
@@ -15,6 +20,9 @@ public class AuthController {
     private final AuthService auth;
 
     private final SmsService smsService;
+
+    @Value("${kakao.client-id}")
+    private String KAKAO_CLIENT_ID;
 
     public AuthController(AuthService auth, SmsService smsService) {
         this.auth = auth;
@@ -120,7 +128,23 @@ public class AuthController {
 
     @GetMapping("/auth/kakao/callback")
     void kakaoCallback(@RequestParam String code, HttpServletResponse response) throws IOException {
+        System.out.println("code:" + code);
         auth.kakaoLogin(code, response);
-        response.sendRedirect("http://localhost/"); // 로그인 성공 후 프론트엔드 메인으로 이동
+        // 💡 리다이렉트 주소 뒤에 ?login=kakao 파라미터 추가
+        response.sendRedirect("http://localhost/?login=kakao");
+    }
+
+
+
+    @GetMapping("/auth/kakao/logout")
+    public void kakaoLogout(HttpServletResponse response) throws IOException {
+        String logoutRedirectUri = "http://localhost:8080/";
+
+        // 카카오 로그아웃 URL 생성
+        String kakaoLogoutUrl = "https://kauth.kakao.com/oauth/logout?client_id=" + KAKAO_CLIENT_ID
+            + "&logout_redirect_uri=" + encode(logoutRedirectUri, StandardCharsets.UTF_8);
+
+        // 브라우저를 카카오 로그아웃 주소로 리다이렉트
+        response.sendRedirect(kakaoLogoutUrl);
     }
 }

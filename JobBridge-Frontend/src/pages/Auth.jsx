@@ -95,7 +95,7 @@ export function Login({ adminOnly = false }) {
       {!adminOnly && (
   <div style={{ marginTop: '0.75rem' }}>
     <a
-      href="https://kauth.kakao.com/oauth/authorize?client_id=8d54ebd7e8b7ef115cfb78d6425ab645&redirect_uri=http://localhost:8080/api/auth/kakao/callback&response_type=code"
+      href="https://kauth.kakao.com/oauth/authorize?client_id=171a61f464994259fe724e97a85672fd&redirect_uri=http://localhost:8080/api/auth/kakao/callback&response_type=code&prompt=login"
       style={{
         display: 'flex',
         alignItems: 'center', // 💡 alignItem -> alignItems (오타 수정)

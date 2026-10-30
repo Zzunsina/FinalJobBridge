@@ -18,6 +18,7 @@ public class Database {
     }
 
     public List<Map<String, Object>> list(String sql, Object... args) {
+        System.out.println("list 실행");
         return jdbc.query(
             sql,
             ps -> bind(ps, args),
@@ -47,10 +48,12 @@ public class Database {
         );
     }
 
+    //db.one("SELECT * FROM users WHERE login_id=? AND status='ACTIVE'", "k_5159672488");
     public Map<String, Object> one(String sql, Object... args) {
-        var rows = list(sql, args);
-        if (rows.isEmpty()) throw new Problem(404, "정보를 찾을 수 없습니다.");
-        return rows.get(0);
+        System.out.println("one 실행");
+        List<Map<String, Object>>  rows = list(sql, args);
+        if (rows.isEmpty()) return null;
+        else return rows.get(0);
     }
 
     public int update(String sql, Object... args) {
