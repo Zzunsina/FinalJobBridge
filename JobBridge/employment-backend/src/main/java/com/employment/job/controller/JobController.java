@@ -132,6 +132,22 @@ public class JobController {
         service.cancel(auth.require(req, "JOB_SEEKER"), id);
     }
 
+    @GetMapping("/company/employment-links")
+    Object companyEmploymentLinks(HttpServletRequest req) {
+        return service.companyEmploymentLinks(auth.require(req, "COMPANY"));
+    }
+
+    @GetMapping("/company/employment-links/{id}")
+    Object companyEmploymentDetail(@PathVariable long id, HttpServletRequest req) {
+        return service.companyEmploymentDetail(auth.require(req, "COMPANY"), id);
+    }
+
+    @PatchMapping("/company/employment-links/{id}/review")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void companyEmploymentReview(@PathVariable long id, @RequestBody Map<String, Object> body, HttpServletRequest req) {
+        service.companyEmploymentReview(auth.require(req, "COMPANY"), id, body);
+    }
+
     @GetMapping("/employment-links")
     Object links(HttpServletRequest req) {
         return service.links(auth.require(req, "JOB_SEEKER"));
@@ -145,12 +161,7 @@ public class JobController {
 
     @GetMapping("/employment-links/{id}")
     Object linkDetail(@PathVariable long id, HttpServletRequest req) {
-        return service
-            .links(auth.require(req, "JOB_SEEKER"))
-            .stream()
-            .filter(row -> Database.number(row, "employmentLinkId") == id)
-            .findFirst()
-            .orElseThrow(() -> new Problem(404, "내역을 찾을 수 없습니다."));
+        return service.linkDetail(auth.require(req, "JOB_SEEKER"), id);
     }
 
     @PutMapping("/company/interviews/{id}")
@@ -235,6 +246,12 @@ public class JobController {
             id,
             Input.text(body, "status", 30, true)
         );
+    }
+
+    @DeleteMapping("/company/interviews/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteInterview(@PathVariable long id, HttpServletRequest req) {
+        service.deleteInterview(auth.require(req, "COMPANY"), id);
     }
 
     @PostMapping("/company/applications/{id}/interviews")

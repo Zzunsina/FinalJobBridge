@@ -39,7 +39,14 @@ export function Home() {
           ['▦', '함께하는 기업', '성장할 수 있는 팀을 만나세요', '/companies'],
         ].map(([icon, title, desc, to]) => (
           <Link key={to} to={to}>
-            <span className="quick-icon">{icon}</span>
+            <span className="quick-icon" aria-hidden="true">
+              {to === '/jobs' ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <circle cx="10.5" cy="10.5" r="6.5" />
+                  <path d="m16 16 5 5" />
+                </svg>
+              ) : icon}
+            </span>
             <div>
               <strong>{title}</strong>
               <small>{desc}</small>
@@ -693,14 +700,16 @@ export function Companies() {
 
 export function CompanyDetail() {
   const { id } = useParams();
-  const resource = useResource(`/companies/${id}`);
+  const user = useAuth((s) => s.user);
+  const admin = user?.role === 'ADMIN';
+  const resource = useResource(`${admin ? '/admin' : ''}/companies/${id}`);
   
   return (
     <Resource resource={resource}>
       {(c) => (
         <>
           <CompanyCover companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-detail-cover" />
-          <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
+          <CompanyImage companyId={c.companyId} companyName={c.companyName} admin={admin} className="company-symbol large" />
           <Title description={c.industry}>{c.companyName}</Title>
           <article className="panel prose">
             <h2>기업 소개</h2>

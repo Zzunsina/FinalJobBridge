@@ -58,6 +58,20 @@
 .company-applicant-row p { color:#7d8fa9; margin:0 0 8px; }
 .company-applicant-row small { color:#9aa8bc; }
 .company-interview-time { display:block; color:#417abb; margin-bottom:10px; }
+.applicant-filters { display:flex; align-items:flex-end; flex-wrap:wrap; gap:16px; }
+.applicant-filters label { display:grid; gap:8px; flex:1 1 180px; font-size:13px; font-weight:600; min-width:0; }
+.applicant-filters select, .applicant-filters input { width:100%; min-width:0; margin:0; }
+.applicant-result-count { color:#71839f; font-size:14px; }
+.applicant-job-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.applicant-job-heading small { color:#71839f; }
+.applicant-job-heading h2 { margin:6px 0 0; font-size:20px; overflow-wrap:anywhere; }
+.applicant-job-heading > strong { color:#3370cc; white-space:nowrap; }
+.applicant-table-wrap { overflow-x:auto; }
+.applicant-table { width:100%; min-width:500px; border-collapse:collapse; font-size:14px; }
+.applicant-table th, .applicant-table td { padding:14px 12px; text-align:left; border-bottom:1px solid #e7edf6; }
+.applicant-table th { background:#f5f8fc; color:#71839f; font-size:12px; }
+.applicant-table td:first-child a { font-size:16px; font-weight:700; color:#213a61; }
+.applicant-table td:last-child a { color:#3370cc; white-space:nowrap; }
 @media(max-width:900px) { .company-summary-card { padding:18px 14px; gap:10px; } .company-overview-job-image { width:140px; flex-basis:140px; } }
 @media(max-width:600px) {
   .company-welcome { align-items:flex-start; padding:18px; gap:12px; flex-wrap:wrap; }

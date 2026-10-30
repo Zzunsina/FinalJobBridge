@@ -273,7 +273,7 @@ function DashboardContent({ data }) {
                   to={focusLink('/admin/employment', r.employmentLinkId)}
                 >
                   <div>
-                    <strong>취업연계 #{r.employmentLinkId}</strong>
+                    <strong>취업연계({r.jobSeekerName || '이름 미등록'})</strong>
                     <small>{dateLabel(r.requestedAt)} 신청</small>
                   </div>
                   <Badge value={r.status} />

@@ -1,6 +1,6 @@
 import CompanyCover, { companyTheme } from './CompanyCover';
 import '../../assets/styles/job-card-scenes.css';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../stores/auth';
 import client, { message } from '../../api/client';
@@ -207,6 +207,7 @@ export function Form({
   successMessage = '저장되었습니다.',
 }) {
   const formId = useId();
+  const submitting = useRef(false);
   const [values, setValues] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -214,13 +215,15 @@ export function Form({
   const [fieldErrors, setFieldErrors] = useState({});
   async function save(event) {
     event.preventDefault();
+    if (submitting.current || submitDisabled) return;
+    submitting.current = true;
     setBusy(true);
     setError('');
     setSuccess('');
     setFieldErrors({});
     const invalid = fields.filter((field) => field.validate && (!field.visibleWhen || field.visibleWhen(values)))
       .map((field) => [field.name, field.validate(values[field.name], values)]).filter(([, problem]) => problem);
-    if (invalid.length) { setFieldErrors(Object.fromEntries(invalid)); setBusy(false); return; }
+    if (invalid.length) { setFieldErrors(Object.fromEntries(invalid)); setBusy(false); submitting.current = false; return; }
     try {
       await onSubmit(values);
       if (resetOnSuccess) setValues({});
@@ -231,6 +234,7 @@ export function Form({
         setFieldErrors(Object.fromEntries(details.map((item) => [item.field, item.message])));
       } else setError(message(error));
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }

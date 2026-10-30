@@ -1211,12 +1211,50 @@
   margin: 10px 0 20px;
 }
 .admin-management .admin-notice-compose {
-  padding: 18px 20px;
-  border-color: #e0e6ee;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   box-shadow: none;
 }
 .admin-management .admin-notice-compose > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 42px;
+  margin-left: auto;
+  padding: 10px 18px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
   font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+.admin-management .admin-notice-compose > summary::-webkit-details-marker {
+  display: none;
+}
+.admin-management .admin-notice-compose > summary:hover {
+  filter: brightness(0.95);
+}
+.admin-management .admin-notice-compose > summary:focus-visible {
+  outline: 3px solid #98b6ee;
+  outline-offset: 3px;
+}
+.admin-management .admin-notice-compose > form {
+  margin-top: 16px;
+  padding: 24px;
+  border: 1px solid #e0e6ee;
+  border-radius: 12px;
+  background: #fff;
+}
+@media (max-width: 600px) {
+  .admin-management .admin-notice-compose > form {
+    padding: 16px;
+  }
 }
 .admin-workspace .sidebar {
   gap: 4px;

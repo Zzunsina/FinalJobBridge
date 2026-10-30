@@ -1,3 +1,4 @@
+import { notificationTarget } from '../utils/notificationTarget';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
@@ -146,7 +147,7 @@ export function Snapshot({ data }) {
   );
 }
 
-export function Interviews({ rows }) {
+export function Interviews({ rows, onDelete }) {
   return rows.length ? (
     rows.map((i) => (
       <div className="callout" key={i.interviewId}>
@@ -166,6 +167,12 @@ export function Interviews({ rows }) {
           </a>
         )}
         {i.result && <p>{i.result}</p>}
+        {onDelete && (
+          <Action method="delete" url={`/company/interviews/${i.interviewId}`} onDone={onDelete}
+            confirm="이 면접 일정을 삭제할까요? 삭제한 일정은 복구할 수 없습니다.">
+            일정 삭제
+          </Action>
+        )}
       </div>
     ))
   ) : (
@@ -207,6 +214,7 @@ export function Bookmarks() {
 }
 
 export function Employment() {
+  const user = useAuth((s) => s.user);
   const resource = useResource('/employment-links');
   return (
     <>
@@ -238,11 +246,12 @@ export function Employment() {
               {rows.map((r) => (
                 <div className="panel" key={r.employmentLinkId}>
                   <div className="row">
-                    <h3>취업연계 #{r.employmentLinkId}</h3>
+                    <h3>취업연계({user?.name || '이름 미등록'})</h3>
                     <Badge value={r.status} />
                   </div>
                   <p>신청일 {r.requestedAt?.slice(0, 10)}</p>
                   <p className="prose">{r.publicMessage || '담당자의 안내를 기다려 주세요.'}</p>
+                  <Link className="button secondary" to={`/employment/${r.employmentLinkId}`}>진행 상황 자세히 보기 →</Link>
                 </div>
               ))}
             </div>
@@ -343,25 +352,16 @@ export function Notifications() {
             <div className="stack">
               {rows.map((r) => (
                 <article className="panel row" key={r.notificationId}>
-                  <div>
-                    <h3>{r.title}</h3>
-                    <p>{r.content}</p>
-                    <small>{r.createdAt?.slice(0, 10)}</small>
-                    {r.notificationType === 'INQUIRY' && <p><Link className="text-link" to="/inquiries?view=history">문의 답변 확인 →</Link></p>}
-                    {r.notificationType === 'COMPANY' && user?.role === 'COMPANY' && <p><Link className="text-link" to="/company/profile">기업 승인 결과 확인 →</Link></p>}
-                    {['INTERVIEW', 'APPLICATION'].includes(r.notificationType) &&
-                      r.relatedId &&
-                      user?.role !== 'ADMIN' && (
-                        <p>
-                          <Link
-                            className="text-link"
-                            to={`${user?.role === 'COMPANY' ? '/company' : ''}/applications/${r.relatedId}`}
-                          >
-                            지원 내역·면접 일정 확인 →
-                          </Link>
-                        </p>
-                      )}
-                  </div>
+                  <NotificationContent notification={r} role={user?.role} onRead={async () => {
+                    if (r.isRead) return;
+                    try {
+                      await client.patch('/notifications/' + r.notificationId + '/read');
+                      window.dispatchEvent(new Event('notifications-changed'));
+                      await resource.reload();
+                    } catch {
+                      // Keep navigation available when updating the read status fails.
+                    }
+                  }} />
                   {r.isRead ? (
                     <Badge value="읽음" />
                   ) : (
@@ -386,6 +386,12 @@ export function Notifications() {
       </PagedResource>
     </>
   );
+}
+
+function NotificationContent({ notification, role, onRead }) {
+  const to = notificationTarget(notification, role);
+  const content = <><h3>{notification.title}</h3><p>{notification.content}</p><small>{notification.createdAt?.slice(0, 10)}</small>{to && <span className="notification-open">관련 화면 보기 →</span>}</>;
+  return to ? <Link className="notification-content" to={to} onClick={onRead}>{content}</Link> : <div>{content}</div>;
 }
 
 export function InquiryWrite({ onSubmitted }) {

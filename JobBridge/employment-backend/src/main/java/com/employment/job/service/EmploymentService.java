@@ -776,6 +776,13 @@ public class EmploymentService {
             400,
             "온라인 면접 주소가 필요합니다."
         );
+        // companyApplication holds the application lock, serializing concurrent registrations.
+        var duplicate = db.list(
+            "SELECT interview_id FROM interviews WHERE application_id=? AND request_hash=? AND status='SCHEDULED'",
+            appId,
+            hash
+        );
+        if (!duplicate.isEmpty()) return fields("interviewId", duplicate.get(0).get("interviewId"));
         long id = db.insert(
             "interviews",
             fields(
@@ -820,6 +827,20 @@ public class EmploymentService {
             appId
         );
         return fields("interviewId", id);
+    }
+
+    public void deleteInterview(long user, long id) {
+        var existing = db.one("SELECT application_id FROM interviews WHERE interview_id=?", id);
+        var app = companyApplication(user, number(existing, "applicationId"));
+        db.one("SELECT interview_id FROM interviews WHERE interview_id=? FOR UPDATE", id);
+        db.update("DELETE FROM interviews WHERE interview_id=?", id);
+        notify(
+            number(app, "userId"),
+            "면접 일정이 삭제되었습니다.",
+            app.get("title") + " · 기업에서 면접 일정을 삭제했습니다. 지원 상세에서 확인해 주세요.",
+            "INTERVIEW",
+            number(app, "applicationId")
+        );
     }
 
     public void updateInterview(
@@ -902,6 +923,76 @@ public class EmploymentService {
         return db.list(
             "SELECT employment_link_id,status,public_message,requested_at,completed_at,company_id,job_id FROM employment_links WHERE job_seeker_id=? ORDER BY employment_link_id DESC",
             seeker(user)
+        );
+    }
+
+    public List<Map<String, Object>> companyEmploymentLinks(long user) {
+        var profile = companyProfile(user);
+        if (Boolean.TRUE.equals(profile.get("profileMissing"))) return List.of();
+        return db.list(
+            "SELECT e.employment_link_id,e.status,e.requested_at,e.completed_at,u.name AS applicant_name,m.name AS manager_name,j.title AS job_title,e.job_id " +
+            "FROM employment_links e JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id " +
+            "LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN job_postings j ON j.job_id=e.job_id AND j.company_id=e.company_id " +
+            "WHERE e.company_id=? ORDER BY e.employment_link_id DESC", profile.get("companyId")
+        );
+    }
+
+    public Map<String, Object> companyEmploymentDetail(long user, long id) {
+        long companyId = number(company(user, true), "companyId");
+        var row = db.one(
+            "SELECT e.employment_link_id,e.status,e.job_id,e.requested_at,e.completed_at,u.name AS applicant_name,m.name AS manager_name,j.title AS job_title," +
+            "r.review_status,r.opinion,r.updated_at AS review_updated_at FROM employment_links e " +
+            "JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id " +
+            "LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN job_postings j ON j.job_id=e.job_id AND j.company_id=e.company_id " +
+            "LEFT JOIN employment_company_reviews r ON r.employment_link_id=e.employment_link_id AND r.company_id=e.company_id " +
+            "WHERE e.employment_link_id=? AND e.company_id=?", id, companyId
+        );
+        var resumes = db.list(
+            "SELECT r.resume_id,r.title,r.education,r.career_description,r.skills,r.portfolio_url,r.details_json,r.updated_at " +
+            "FROM resumes r JOIN job_seekers s ON s.job_seeker_id=r.job_seeker_id JOIN employment_links e ON e.job_seeker_id=s.job_seeker_id " +
+            "WHERE e.employment_link_id=? AND e.company_id=? AND r.is_public=TRUE ORDER BY r.is_default DESC,r.updated_at DESC,r.resume_id DESC LIMIT 1",
+            id, companyId
+        );
+        if (resumes.isEmpty()) row.put("resume", null);
+        else {
+            var resume = resumes.get(0);
+            Object details = resume.remove("detailsJson");
+            try { resume.put("details", details == null ? null : json.readTree(details.toString())); }
+            catch (java.io.IOException ex) { throw new IllegalStateException(ex); }
+            row.put("resume", resume);
+        }
+        return row;
+    }
+
+    public void companyEmploymentReview(long user, long id, Map<String, Object> body) {
+        long companyId = number(company(user, true), "companyId");
+        var link = db.one("SELECT * FROM employment_links WHERE employment_link_id=? AND company_id=? FOR UPDATE", id, companyId);
+        if (Set.of("EMPLOYED", "CLOSED").contains(link.get("status")))
+            throw new Problem(409, "종료된 취업연계의 검토 의견은 변경할 수 없습니다.");
+        String status = Input.text(body, "reviewStatus", 30, true);
+        if (!Set.of("REVIEWING", "INTERVIEW_REQUESTED", "HIRE_REQUESTED", "DECLINED").contains(status))
+            throw new Problem(400, "기업 검토 상태를 확인해 주세요.");
+        String opinion = Input.text(body, "opinion", 10000, status.equals("DECLINED"));
+        var existing = db.list("SELECT review_status,opinion FROM employment_company_reviews WHERE employment_link_id=? AND company_id=?", id, companyId);
+        if (!existing.isEmpty() && status.equals(existing.get(0).get("reviewStatus")) && opinion.equals(existing.get(0).get("opinion"))) return;
+        if (existing.isEmpty()) db.insert("employment_company_reviews", fields("employment_link_id", id, "company_id", companyId, "review_status", status, "opinion", opinion));
+        else db.update("UPDATE employment_company_reviews SET review_status=?,opinion=?,updated_at=CURRENT_TIMESTAMP WHERE employment_link_id=? AND company_id=?", status, opinion, id, companyId);
+        var managers = link.get("managerUserId") == null
+            ? db.list("SELECT user_id FROM users WHERE role='ADMIN' AND status='ACTIVE'")
+            : List.of(fields("userId", link.get("managerUserId")));
+        for (var manager : managers) notify(number(manager, "userId"), "기업 취업연계 검토 의견이 등록되었습니다.", "취업연계 관리에서 기업의 검토 상태와 의견을 확인해 주세요.", "EMPLOYMENT", id);
+    }
+
+    public Map<String, Object> linkDetail(long user, long id) {
+        return db.one(
+            "SELECT e.employment_link_id,e.status,e.public_message,e.requested_at,e.completed_at,u.name AS applicant_name,m.name AS manager_name,c.company_name,j.title AS job_title," +
+            "CASE WHEN c.approval_status='APPROVED' AND cu.status='ACTIVE' THEN c.company_id ELSE NULL END AS company_id," +
+            "CASE WHEN c.approval_status='APPROVED' AND cu.status='ACTIVE' AND j.status='PUBLISHED' THEN j.job_id ELSE NULL END AS job_id " +
+            "FROM employment_links e JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id " +
+            "LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN companies c ON c.company_id=e.company_id " +
+            "LEFT JOIN users cu ON cu.user_id=c.user_id LEFT JOIN job_postings j ON j.job_id=e.job_id " +
+            "WHERE e.employment_link_id=? AND s.user_id=?",
+            id, user
         );
     }
 

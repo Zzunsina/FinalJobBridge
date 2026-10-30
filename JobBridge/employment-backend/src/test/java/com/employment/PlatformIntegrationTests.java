@@ -54,6 +54,133 @@ class PlatformIntegrationTests {
     long admin;
     final String password = "TestPassword123!";
 
+    @Test
+    void employmentLinkAdminReturnsSingleCharacterApplicantName() throws Exception {
+        db.update("UPDATE users SET name=? WHERE user_id=?", "차", seeker);
+        long linkId = number(service.requestLink(seeker), "employmentLinkId");
+        Cookie session = login(admin);
+        mvc.perform(get("/api/admin/employment-links").cookie(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.employmentLinkId == " + linkId + ")].jobSeekerName").value(org.hamcrest.Matchers.contains("차")));
+        mvc.perform(get("/api/admin/employment-links/" + linkId).cookie(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobSeekerName").value("차"));
+        mvc.perform(get("/api/admin/dashboard").cookie(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.recentLinks[?(@.employmentLinkId == " + linkId + ")].jobSeekerName").value(org.hamcrest.Matchers.contains("차")));
+    }
+
+    @Test
+    void adminInquiriesIncludeAuthorNameInListAndDetail() throws Exception {
+        db.update("UPDATE users SET name=? WHERE user_id=?", "차", seeker);
+        long inquiryId = db.insert("inquiries", fields("user_id", seeker, "title", "문의 작성자 확인", "content", "문의 내용"));
+        Cookie session = login(admin);
+        mvc.perform(get("/api/admin/inquiries").cookie(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.inquiryId == " + inquiryId + ")].authorName").value(org.hamcrest.Matchers.contains("차")));
+        mvc.perform(get("/api/admin/inquiries/" + inquiryId).cookie(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.authorName").value("차"));
+    }
+
+    @Test
+    void onlyOwningCompanyCanDeleteInterview() throws Exception {
+        long app = number(service.apply(seeker, job, fields("resumeId", resume)), "applicationId");
+        service.applicationStatus(companyUser, app, "UNDER_REVIEW");
+        service.applicationStatus(companyUser, app, "DOCUMENT_PASSED");
+        long interview = number(service.interview(companyUser, app, "delete-test", fields(
+            "interviewAt", java.time.OffsetDateTime.now().plusDays(3).toString(),
+            "interviewType", "OFFLINE", "location", "서울"
+        )), "interviewId");
+        long otherCompany = signup("deletecompany" + UUID.randomUUID().toString().substring(0, 8), true);
+        db.update("UPDATE companies SET approval_status='APPROVED' WHERE user_id=?", otherCompany);
+        mvc.perform(delete("/api/company/interviews/" + interview).cookie(login(otherCompany)).with(csrf()))
+            .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/company/interviews/" + interview).cookie(login(seeker)).with(csrf()))
+            .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/company/interviews/" + interview).cookie(login(companyUser)).with(csrf()))
+            .andExpect(status().isNoContent());
+        assertThat(db.list("SELECT interview_id FROM interviews WHERE interview_id=?", interview)).isEmpty();
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND title=? AND related_id=?", seeker, "면접 일정이 삭제되었습니다.", app)).hasSize(1);
+    }
+
+    @Test
+    void employmentDetailShowsPublicMatchAndProtectsPrivateInformation() throws Exception {
+        long link = number(service.requestLink(seeker), "employmentLinkId");
+        mvc.perform(get("/api/employment-links/" + link).cookie(login(seeker)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REQUESTED"))
+            .andExpect(jsonPath("$.managerName").isEmpty());
+        db.update("UPDATE employment_links SET status='MATCHING',manager_user_id=?,company_id=?,job_id=?,public_message=?,memo=? WHERE employment_link_id=?",
+            admin, company, job, "기업 소개를 확인해 주세요.", "비공개 상담 메모", link);
+        mvc.perform(get("/api/employment-links/" + link).cookie(login(seeker)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.managerName").value("관리자"))
+            .andExpect(jsonPath("$.companyId").value(company))
+            .andExpect(jsonPath("$.jobId").value(job))
+            .andExpect(jsonPath("$.publicMessage").value("기업 소개를 확인해 주세요."))
+            .andExpect(jsonPath("$.memo").doesNotExist())
+            .andExpect(jsonPath("$.managerUserId").doesNotExist());
+        mvc.perform(get("/api/employment-links/" + link).cookie(login(other)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("/api/employment-links/" + link).cookie(login(companyUser)))
+            .andExpect(status().isForbidden());
+        db.update("UPDATE job_postings SET status='CLOSED' WHERE job_id=?", job);
+        mvc.perform(get("/api/employment-links/" + link).cookie(login(seeker)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.jobId").isEmpty())
+            .andExpect(jsonPath("$.jobTitle").isNotEmpty());
+    }
+
+    @Test
+    void companySeesAssignedEmploymentLinksOnlyWithoutPrivateNotes() throws Exception {
+        long link = number(service.requestLink(seeker), "employmentLinkId");
+        db.update("UPDATE employment_links SET status='COUNSELING',company_id=?,job_id=?,manager_user_id=?,memo=?,public_message=? WHERE employment_link_id=?",
+            company, job, admin, "관리자 비공개 메모", "구직자 전용 안내", link);
+        long unassigned = number(service.requestLink(other), "employmentLinkId");
+        mvc.perform(get("/api/company/employment-links").cookie(login(companyUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.employmentLinkId == " + link + ")].managerName").value(org.hamcrest.Matchers.contains("관리자")))
+            .andExpect(jsonPath("$[?(@.employmentLinkId == " + unassigned + ")]").isEmpty())
+            .andExpect(jsonPath("$[0].memo").doesNotExist())
+            .andExpect(jsonPath("$[0].publicMessage").doesNotExist());
+        long otherCompany = signup("linkcompany" + UUID.randomUUID().toString().substring(0, 8), true);
+        mvc.perform(get("/api/company/employment-links").cookie(login(otherCompany)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+        mvc.perform(get("/api/company/employment-links").cookie(login(seeker)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void linkedCompanyReviewsOnlyAssignedApplicantAndPublicResume() throws Exception {
+        long link = number(service.requestLink(seeker), "employmentLinkId");
+        db.update("UPDATE employment_links SET company_id=?,job_id=?,manager_user_id=?,memo=?,public_message=? WHERE employment_link_id=?",
+            company, job, admin, "내부 메모", "구직자 안내", link);
+        db.update("UPDATE resumes SET is_public=FALSE WHERE resume_id=?", resume);
+        Cookie session = login(companyUser);
+        mvc.perform(get("/api/company/employment-links/" + link).cookie(session))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.resume").isEmpty())
+            .andExpect(jsonPath("$.memo").doesNotExist()).andExpect(jsonPath("$.publicMessage").doesNotExist());
+        db.update("UPDATE resumes SET is_public=TRUE WHERE resume_id=?", resume);
+        mvc.perform(get("/api/company/employment-links/" + link).cookie(session))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.resume.resumeId").value(resume))
+            .andExpect(jsonPath("$.resume.attachment").doesNotExist());
+        var review = fields("reviewStatus", "INTERVIEW_REQUESTED", "opinion", "면접을 희망합니다.");
+        for (int i = 0; i < 2; i++) mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(review)))
+            .andExpect(status().isNoContent());
+        assertThat(db.one("SELECT status FROM employment_links WHERE employment_link_id=?", link).get("status")).isEqualTo("REQUESTED");
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?", admin, link, "기업 취업연계 검토 의견이 등록되었습니다.")).hasSize(1);
+        mvc.perform(get("/api/admin/employment-links/" + link + "/company-review").cookie(login(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].opinion").value("면접을 희망합니다."));
+        mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(session).with(csrf()).contentType("application/json").content("{\"reviewStatus\":\"DECLINED\",\"opinion\":\"\"}"))
+            .andExpect(status().isBadRequest());
+        long otherCompany = signup("reviewcompany" + UUID.randomUUID().toString().substring(0, 8), true);
+        db.update("UPDATE companies SET approval_status='APPROVED' WHERE user_id=?", otherCompany);
+        mvc.perform(get("/api/company/employment-links/" + link).cookie(login(otherCompany))).andExpect(status().isNotFound());
+        mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(login(otherCompany)).with(csrf()).contentType("application/json").content(json.writeValueAsString(review))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/company/employment-links/" + link).cookie(login(seeker))).andExpect(status().isForbidden());
+        db.update("UPDATE employment_links SET status='CLOSED' WHERE employment_link_id=?", link);
+        mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(review))).andExpect(status().isConflict());
+    }
+
     @BeforeEach
     void setup() {
         String unique = UUID.randomUUID().toString().substring(0, 8);
@@ -717,6 +844,12 @@ class PlatformIntegrationTests {
         assertThat(
             number(service.interview(companyUser, app, "same-key", body), "interviewId")
         ).isEqualTo(interview);
+        assertThat(number(service.interview(companyUser, app, "another-click", body), "interviewId"))
+            .isEqualTo(interview);
+        assertThat(number(db.one("SELECT COUNT(*) AS n FROM interviews WHERE application_id=?", app), "n"))
+            .isEqualTo(1);
+        assertThat(number(db.one("SELECT COUNT(*) AS n FROM notifications WHERE notification_type='INTERVIEW' AND related_id=?", app), "n"))
+            .isEqualTo(1);
         var changed = new LinkedHashMap<>(body);
         changed.put("location", "부산");
         assertThatThrownBy(() ->
