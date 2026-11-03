@@ -17,7 +17,7 @@ test('review and service notifications resolve to their management screens', () 
   assert.equal(notificationTarget({ notificationType: 'INQUIRY' }, 'JOB_SEEKER'), '/inquiries?view=history');
   assert.equal(notificationTarget({ notificationType: 'EMPLOYMENT' }, 'JOB_SEEKER'), '/employment');
   assert.equal(notificationTarget({ notificationType: 'EMPLOYMENT', relatedId: 7 }, 'JOB_SEEKER'), '/employment/7');
-  assert.equal(notificationTarget({ notificationType: 'EMPLOYMENT', relatedId: 7 }, 'COMPANY'), '/company/employment/7');
+  assert.equal(notificationTarget({ notificationType: 'EMPLOYMENT', relatedId: 7 }, 'COMPANY'), '/company/employment?focus=7');
   assert.equal(notificationTarget({ notificationType: 'EMPLOYMENT', relatedId: 7 }, 'ADMIN'), '/admin/employment?focus=7');
 });
 

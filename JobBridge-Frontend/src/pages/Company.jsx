@@ -1,3 +1,4 @@
+import { formatDateTime } from "../utils/dateTime";
 import CalendarPicker from '../components/common/CalendarPicker';
 import { koreanToday } from '../utils/memberInputs';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -276,7 +277,7 @@ export function ApplicantDetail() {
             <Badge value={a.status} />
             <Snapshot data={a.snapshot} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
-            {a.assessment && <div className="callout"><strong>예시 검사 {a.assessment.score}점 / 기업 검토 기준 {a.assessment.minScore ?? '미설정'}</strong><p>최초 열람: {a.assessment.firstViewedAt && new Date(a.assessment.firstViewedAt).toLocaleString('ko-KR')}</p>{a.assessment.belowThreshold && <p>{a.assessment.reviewRequired ? '담당자 검토 필요 · 48시간 경과' : '48시간 후 담당자 검토 예정'} · {new Date(a.assessment.reviewDueAt).toLocaleString('ko-KR')}</p>}<p>예시 점수는 실제 인적성 진단이 아니며 최종 결정은 담당자가 검토해야 합니다.</p></div>}
+            {a.assessment && <div className="callout"><strong>예시 검사 {a.assessment.score}점 / 기업 검토 기준 {a.assessment.minScore ?? '미설정'}</strong><p>최초 열람: {a.assessment.firstViewedAt && formatDateTime(a.assessment.firstViewedAt)}</p>{a.assessment.belowThreshold && <p>{a.assessment.reviewRequired ? '담당자 검토 필요 · 48시간 경과' : '48시간 후 담당자 검토 예정'} · {formatDateTime(a.assessment.reviewDueAt)}</p>}<p>예시 점수는 실제 인적성 진단이 아니며 최종 결정은 담당자가 검토해야 합니다.</p></div>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
             <div className="actions">

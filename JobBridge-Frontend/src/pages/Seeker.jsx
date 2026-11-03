@@ -1,3 +1,5 @@
+import { formatDateTime } from "../utils/dateTime";
+import { employmentStage } from '../utils/employmentStage';
 import { notificationTarget } from '../utils/notificationTarget';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useResource } from '../hooks/useResource';
@@ -153,9 +155,7 @@ export function Interviews({ rows, onDelete }) {
       <div className="callout" key={i.interviewId}>
         <Badge value={i.status} />
         <p>
-          {new Date(i.interviewAt).toLocaleString('ko-KR', {
-            timeZone: 'Asia/Seoul',
-          })}{' '}
+          {formatDateTime(i.interviewAt)}{' '}
           (한국 시간)
         </p>
         <p>
@@ -216,16 +216,18 @@ export function Bookmarks() {
 export function Employment() {
   const user = useAuth((s) => s.user);
   const resource = useResource('/employment-links');
+  const eligibility = useResource('/employment-links/eligibility', { refreshInterval: 30000 });
+  const activeLink = resource.data?.find((row) => !['CLOSED', 'EMPLOYED'].includes(row.status));
   return (
     <>
       <Title
         eyebrow="YOUR CAREER PARTNER"
-        description="상담부터 기업 매칭까지, 더 나은 내일을 함께 준비합니다."
+        description="희망 업종과 직업에 맞는 기업을 함께 찾아드립니다."
       >
         취업연계 서비스
       </Title>
       <div className="process">
-        {['01 신청 접수', '02 맞춤 상담', '03 기업 매칭', '04 면접 진행', '05 취업 확인'].map(
+        {['01 희망 조건 제출', '02 기업 매칭', '03 면접 진행', '04 취업 확인'].map(
           (x) => (
             <div key={x}>{x}</div>
           ),
@@ -233,10 +235,14 @@ export function Employment() {
       </div>
       <div className="panel">
         <h2>당신의 다음 걸음을 돕습니다.</h2>
-        <p>신청 후 담당자가 상담을 진행하고, 적합한 기업과 채용 기회를 연결합니다.</p>
-        <Action url="/employment-links" onDone={resource.reload}>
-          취업연계 신청하기 →
-        </Action>
+        <p>희망 업종과 선호 직업을 제출하면 담당자가 조건에 맞는 기업과 채용 기회를 연결합니다.</p>
+        <Resource resource={eligibility}>{(data) => data.hasPublicResume ? <>
+        <p className="muted">공개 이력서를 바탕으로 기업 매칭이 진행됩니다.</p>
+        {activeLink ? <div className="callout"><p>진행 중인 취업연계 신청이 있습니다.</p><Link className="button secondary" to={`/employment/${activeLink.employmentLinkId}`}>진행 중인 신청 확인 →</Link></div> : <Form fields={[
+          { name: 'preferredIndustry', label: '희망 업종', required: true, maxLength: 100, placeholder: '예: IT·정보통신, 제조업, 서비스업' },
+          { name: 'preferredOccupation', label: '선호 직업·직무', required: true, maxLength: 100, placeholder: '예: 백엔드 개발자, 사무직, 생산직' },
+        ]} onSubmit={async (body) => { await client.post('/employment-links', body); await resource.reload(); }} submit="희망 조건 제출하고 취업연계 신청" successMessage="희망 조건과 취업연계 신청을 접수했습니다." />}
+        </> : <div className="callout"><p>취업연계 신청에는 공개된 이력서가 필요합니다. 이력서를 작성하거나 기존 이력서의 ‘공개 여부 설정’을 켜고 저장해 주세요.</p><Link className="button secondary" to="/resumes">이력서 관리로 이동 →</Link></div>}</Resource>
       </div>
       <h2 className="section">나의 진행 내역</h2>
       <PagedResource resource={resource}>
@@ -247,7 +253,7 @@ export function Employment() {
                 <div className="panel" key={r.employmentLinkId}>
                   <div className="row">
                     <h3>취업연계({user?.name || '이름 미등록'})</h3>
-                    <Badge value={r.status} />
+                    <Badge value={employmentStage(r)} />
                   </div>
                   <p>신청일 {r.requestedAt?.slice(0, 10)}</p>
                   <p className="prose">{r.publicMessage || '담당자의 안내를 기다려 주세요.'}</p>

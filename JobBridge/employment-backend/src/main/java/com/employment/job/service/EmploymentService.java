@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmploymentService {
 
     private final Database db;
+    private final EmploymentReferrals referrals;
     private final ResumeFiles files;
     private final Assessments assessments;
     private final ObjectMapper json;
@@ -25,8 +26,9 @@ public class EmploymentService {
 
     // 👇 c.address, c.latitude, c.longitude 추가
     private static final String JOB_COLUMNS = "j.*, c.company_name, c.address, c.latitude, c.longitude";
-    public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc, ResumeFiles files, Assessments assessments) {
+    public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc, ResumeFiles files, Assessments assessments, EmploymentReferrals referrals) {
         this.db = db;
+        this.referrals = referrals;
         this.files = files;
         this.assessments = assessments;
         this.json = json;
@@ -920,71 +922,30 @@ public class EmploymentService {
     }
 
     public List<Map<String, Object>> links(long user) {
-        return db.list(
+        var rows = db.list(
             "SELECT employment_link_id,status,public_message,requested_at,completed_at,company_id,job_id FROM employment_links WHERE job_seeker_id=? ORDER BY employment_link_id DESC",
             seeker(user)
         );
+        rows.forEach(referrals::decorateUser);
+        rows.forEach(this::decorateEmploymentPreferences);
+        return rows;
     }
 
     public List<Map<String, Object>> companyEmploymentLinks(long user) {
-        var profile = companyProfile(user);
-        if (Boolean.TRUE.equals(profile.get("profileMissing"))) return List.of();
-        return db.list(
-            "SELECT e.employment_link_id,e.status,e.requested_at,e.completed_at,u.name AS applicant_name,m.name AS manager_name,j.title AS job_title,e.job_id " +
-            "FROM employment_links e JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id " +
-            "LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN job_postings j ON j.job_id=e.job_id AND j.company_id=e.company_id " +
-            "WHERE e.company_id=? ORDER BY e.employment_link_id DESC", profile.get("companyId")
-        );
+        return referrals.companyList(user);
     }
-
     public Map<String, Object> companyEmploymentDetail(long user, long id) {
-        long companyId = number(company(user, true), "companyId");
-        var row = db.one(
-            "SELECT e.employment_link_id,e.status,e.job_id,e.requested_at,e.completed_at,u.name AS applicant_name,m.name AS manager_name,j.title AS job_title," +
-            "r.review_status,r.opinion,r.updated_at AS review_updated_at FROM employment_links e " +
-            "JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id " +
-            "LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN job_postings j ON j.job_id=e.job_id AND j.company_id=e.company_id " +
-            "LEFT JOIN employment_company_reviews r ON r.employment_link_id=e.employment_link_id AND r.company_id=e.company_id " +
-            "WHERE e.employment_link_id=? AND e.company_id=?", id, companyId
-        );
-        var resumes = db.list(
-            "SELECT r.resume_id,r.title,r.education,r.career_description,r.skills,r.portfolio_url,r.details_json,r.updated_at " +
-            "FROM resumes r JOIN job_seekers s ON s.job_seeker_id=r.job_seeker_id JOIN employment_links e ON e.job_seeker_id=s.job_seeker_id " +
-            "WHERE e.employment_link_id=? AND e.company_id=? AND r.is_public=TRUE ORDER BY r.is_default DESC,r.updated_at DESC,r.resume_id DESC LIMIT 1",
-            id, companyId
-        );
-        if (resumes.isEmpty()) row.put("resume", null);
-        else {
-            var resume = resumes.get(0);
-            Object details = resume.remove("detailsJson");
-            try { resume.put("details", details == null ? null : json.readTree(details.toString())); }
-            catch (java.io.IOException ex) { throw new IllegalStateException(ex); }
-            row.put("resume", resume);
-        }
-        return row;
+        var rows = db.list("SELECT r.referral_id FROM employment_referrals r JOIN companies c ON c.company_id=r.company_id WHERE r.employment_link_id=? AND c.user_id=? ORDER BY r.referral_id DESC LIMIT 1", id,user);
+        if (rows.isEmpty()) throw new Problem(404,"전달된 취업연계 추천이 없습니다.");
+        return referrals.companyDetail(user,number(rows.get(0),"referralId"));
     }
-
-    public void companyEmploymentReview(long user, long id, Map<String, Object> body) {
-        long companyId = number(company(user, true), "companyId");
-        var link = db.one("SELECT * FROM employment_links WHERE employment_link_id=? AND company_id=? FOR UPDATE", id, companyId);
-        if (Set.of("EMPLOYED", "CLOSED").contains(link.get("status")))
-            throw new Problem(409, "종료된 취업연계의 검토 의견은 변경할 수 없습니다.");
-        String status = Input.text(body, "reviewStatus", 30, true);
-        if (!Set.of("REVIEWING", "INTERVIEW_REQUESTED", "HIRE_REQUESTED", "DECLINED").contains(status))
-            throw new Problem(400, "기업 검토 상태를 확인해 주세요.");
-        String opinion = Input.text(body, "opinion", 10000, status.equals("DECLINED"));
-        var existing = db.list("SELECT review_status,opinion FROM employment_company_reviews WHERE employment_link_id=? AND company_id=?", id, companyId);
-        if (!existing.isEmpty() && status.equals(existing.get(0).get("reviewStatus")) && opinion.equals(existing.get(0).get("opinion"))) return;
-        if (existing.isEmpty()) db.insert("employment_company_reviews", fields("employment_link_id", id, "company_id", companyId, "review_status", status, "opinion", opinion));
-        else db.update("UPDATE employment_company_reviews SET review_status=?,opinion=?,updated_at=CURRENT_TIMESTAMP WHERE employment_link_id=? AND company_id=?", status, opinion, id, companyId);
-        var managers = link.get("managerUserId") == null
-            ? db.list("SELECT user_id FROM users WHERE role='ADMIN' AND status='ACTIVE'")
-            : List.of(fields("userId", link.get("managerUserId")));
-        for (var manager : managers) notify(number(manager, "userId"), "기업 취업연계 검토 의견이 등록되었습니다.", "취업연계 관리에서 기업의 검토 상태와 의견을 확인해 주세요.", "EMPLOYMENT", id);
+    public void companyEmploymentReview(long user, long id, Map<String,Object> body) {
+        // Old clients cannot safely respond without identifying the recommendation round.
+        throw new Problem(409,"취업연계 화면을 새로고침한 뒤 해당 추천에서 응답해 주세요.");
     }
 
     public Map<String, Object> linkDetail(long user, long id) {
-        return db.one(
+        var result = db.one(
             "SELECT e.employment_link_id,e.status,e.public_message,e.requested_at,e.completed_at,u.name AS applicant_name,m.name AS manager_name,c.company_name,j.title AS job_title," +
             "CASE WHEN c.approval_status='APPROVED' AND cu.status='ACTIVE' THEN c.company_id ELSE NULL END AS company_id," +
             "CASE WHEN c.approval_status='APPROVED' AND cu.status='ACTIVE' AND j.status='PUBLISHED' THEN j.job_id ELSE NULL END AS job_id " +
@@ -994,10 +955,40 @@ public class EmploymentService {
             "WHERE e.employment_link_id=? AND s.user_id=?",
             id, user
         );
+        if (result == null) throw new Problem(404, "취업연계 내역을 찾을 수 없습니다.");
+        referrals.decorateUser(result);
+        decorateEmploymentPreferences(result);
+        return result;
     }
 
-    public Map<String, Object> requestLink(long user) {
+    public Map<String, Object> employmentEligibility(long user) {
         long seeker = seeker(user);
+        boolean hasPublicResume = !db.list("SELECT resume_id FROM resumes WHERE job_seeker_id=? AND is_public=TRUE LIMIT 1", seeker).isEmpty();
+        return fields("hasPublicResume", hasPublicResume);
+    }
+
+    public void decorateEmploymentPreferences(Map<String,Object> row) {
+        var outcome = referrals.latest(number(row,"employmentLinkId"));
+        if (outcome != null) { row.put("referralStatus",outcome.get("reviewStatus")); row.put("joinedAt",outcome.get("joinedAt")); row.put("hiredAt",outcome.get("hiredAt")); }
+        try {
+            var preferences = db.list("SELECT preferred_industry,preferred_occupation FROM employment_preferences WHERE employment_link_id=?",row.get("employmentLinkId"));
+            if (!preferences.isEmpty()) row.putAll(preferences.get(0));
+        } catch (org.springframework.jdbc.BadSqlGrammarException ex) {
+            if (!missingPreferencesTable(ex)) throw ex;
+        }
+    }
+    private boolean missingPreferencesTable(org.springframework.jdbc.BadSqlGrammarException ex) {
+        var cause = ex.getSQLException();
+        return cause != null && ("42S02".equals(cause.getSQLState()) || "42P01".equals(cause.getSQLState()) || cause.getErrorCode()==42102)
+            && Objects.toString(cause.getMessage(),"").toLowerCase(Locale.ROOT).contains("employment_preferences");
+    }
+
+    public Map<String, Object> requestLink(long user, Map<String,Object> body) {
+        String industry = Input.text(body,"preferredIndustry",100,true).strip();
+        String occupation = Input.text(body,"preferredOccupation",100,true).strip();
+        long seeker = seeker(user);
+        if (db.list("SELECT resume_id FROM resumes WHERE job_seeker_id=? AND is_public=TRUE LIMIT 1", seeker).isEmpty())
+            throw new Problem(409, "공개된 이력서가 있어야 취업연계를 신청할 수 있습니다. 이력서 관리에서 이력서를 공개로 설정한 뒤 다시 신청해 주세요.");
         if (
             !db
                 .list(
@@ -1010,6 +1001,11 @@ public class EmploymentService {
             "employment_links",
             fields("job_seeker_id", seeker)
         );
+        try { db.update("INSERT INTO employment_preferences (employment_link_id,preferred_industry,preferred_occupation) VALUES (?,?,?)",id,industry,occupation); }
+        catch (org.springframework.jdbc.BadSqlGrammarException ex) {
+            if (missingPreferencesTable(ex)) throw new Problem(503,"취업연계 희망 조건 저장 기능의 DB 설치가 필요합니다. 관리자에게 문의해 주세요. (employment-preferences-upgrade.sql)");
+            throw ex;
+        }
         return fields("employmentLinkId", id, "status", "REQUESTED");
     }
 

@@ -1,3 +1,4 @@
+import { formatTime } from '../utils/dateTime';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../stores/auth';
@@ -179,11 +180,7 @@ function DashboardContent({ data }) {
             })}
           </strong>
           <small>
-            {new Date(data.asOf).toLocaleTimeString('ko-KR', {
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Asia/Seoul',
-            })}{' '}
+            {formatTime(data.asOf)}{' '}
             조회 · 한국 시간
           </small>
         </div>
@@ -285,7 +282,7 @@ function DashboardContent({ data }) {
           </div>
           <div className="admin-box-bottom">
             <Link to="/admin/employment">
-              상담·매칭 현황 확인하기 <Icon name="arrow" />
+              취업연계 매칭 현황 확인하기 <Icon name="arrow" />
             </Link>
           </div>
         </section>
