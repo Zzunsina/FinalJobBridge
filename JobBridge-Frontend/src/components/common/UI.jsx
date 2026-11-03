@@ -37,6 +37,7 @@ export const labels = {
   COUNSELING: '상담 중',
   MATCHING: '매칭 중',
   EMPLOYED: '취업 완료',
+  HIRED: '최종 합격·입사 대기',
   OPEN: '답변 대기',
   ANSWERED: '답변 완료',
   SCHEDULED: '예정',
@@ -184,7 +185,7 @@ export function Action({
   }
   return (
     <span className="action">
-      <button className={className} disabled={busy} onClick={run}>
+      <button type="button" className={className} disabled={busy} onClick={run}>
         {busy ? '처리 중…' : children}
       </button>
       {error && (

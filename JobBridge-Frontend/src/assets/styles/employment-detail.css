@@ -1,6 +1,10 @@
 .employment-detail > .text-link { display:inline-block; margin-bottom:20px; }
 .employment-detail > .panel, .employment-detail-grid { margin-bottom:20px; }
 .employment-detail h2 { font-size:20px; margin:0 0 18px; }
+.employment-outcome { border-color:#b8ddcd; background:#f4fbf7; }
+.employment-history > summary, .employment-help > summary { cursor:pointer; font-weight:700; font-size:16px; padding:8px 0; }
+.employment-history > div, .employment-help { margin-top:18px; }
+.employment-help { padding:16px; background:#f6f8fc; border-radius:10px; }
 .employment-stages { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; padding:0; margin:0 0 24px; list-style:none; }
 .employment-stages li { display:flex; flex-direction:column; align-items:center; gap:9px; padding:16px 8px; border:1px solid #e0e8f3; border-radius:12px; background:#fff; color:#71839f; text-align:center; font-size:14px; }
 .employment-stages li > span { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:#edf2f8; font-weight:700; }

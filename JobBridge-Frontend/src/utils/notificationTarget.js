@@ -15,7 +15,7 @@ export function notificationTarget(notification, role) {
     case 'INQUIRY':
       return role === 'ADMIN' ? `/admin/inquiries${id ? `?focus=${id}` : ''}` : '/inquiries?view=history';
     case 'EMPLOYMENT':
-      return role === 'ADMIN' ? `/admin/employment${id ? `?focus=${id}` : ''}` : company ? `/company/employment${id ? `/${id}` : ''}` : id ? `/employment/${id}` : '/employment';
+      return role === 'ADMIN' ? `/admin/employment${id ? `?focus=${id}` : ''}` : company ? `/company/employment${id ? `?focus=${id}` : ''}` : id ? `/employment/${id}` : '/employment';
     default:
       return null;
   }

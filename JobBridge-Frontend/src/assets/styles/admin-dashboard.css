@@ -32,6 +32,14 @@
   width: 15px;
   height: 15px;
 }
+.admin-employment-cancel { margin:20px 0; }
+.admin-employment-cancel > summary { display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border:1px solid #dc5252; border-radius:8px; background:#fff1f1; color:#b42323; font-size:14px; font-weight:700; cursor:pointer; list-style:none; }
+.admin-employment-cancel > summary::-webkit-details-marker { display:none; }
+.admin-employment-cancel > summary:hover { background:#ffe0e0; border-color:#b42323; }
+.admin-employment-cancel > summary:focus-visible { outline:2px solid #b42323; outline-offset:3px; }
+.admin-employment-cancel[open] { padding:16px; border:1px solid #f0c6c6; border-radius:10px; background:#fffafa; }
+.admin-employment-cancel[open] .admin-cancel-arrow { transform:rotate(180deg); }
+.admin-employment-cancel .form-actions > button { background:#b42323; }
 .admin-summary-banner {
   display: flex;
   align-items: center;

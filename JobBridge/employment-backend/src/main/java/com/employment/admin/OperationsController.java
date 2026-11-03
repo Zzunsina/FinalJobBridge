@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class OperationsController {
 
     private final Database db;
+    private final com.employment.job.service.EmploymentReferrals referrals;
     private final AuthService auth;
     private final EmploymentService service;
     private final AdminDashboardService dashboardService;
@@ -28,9 +29,11 @@ public class OperationsController {
         AuthService auth,
         EmploymentService service,
         AdminDashboardService dashboardService,
-        NoticeImages noticeImages
+        NoticeImages noticeImages,
+        com.employment.job.service.EmploymentReferrals referrals
     ) {
         this.db = db;
+        this.referrals = referrals;
         this.auth = auth;
         this.service = service;
         this.dashboardService = dashboardService;
@@ -342,7 +345,7 @@ public class OperationsController {
             : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
             : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
             : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
-        return db.list(
+        var rows = db.list(
             "SELECT " +
                 columns +
                 " FROM " +
@@ -351,6 +354,8 @@ public class OperationsController {
                 IDS.get(resource) +
                 " DESC"
         );
+        if (resource.equals("employment-links")) rows.forEach(service::decorateEmploymentPreferences);
+        return rows;
     }
 
     @GetMapping("/admin/{resource}/{id}")
@@ -367,7 +372,7 @@ public class OperationsController {
             : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
             : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
             : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
-        return db.one(
+        var result = db.one(
             "SELECT " +
                 columns +
                 " FROM " +
@@ -377,6 +382,8 @@ public class OperationsController {
                 "=?",
             id
         );
+        if (resource.equals("employment-links") && result != null) service.decorateEmploymentPreferences(result);
+        return result;
     }
 
     @PatchMapping("/admin/companies/{id}/approval")
@@ -587,7 +594,7 @@ public class OperationsController {
     @GetMapping("/admin/employment-links/{id}/company-review")
     Object companyReview(@PathVariable long id, HttpServletRequest req) {
         admin(req);
-        return db.list("SELECT r.review_status,r.opinion,r.updated_at,c.company_name FROM employment_company_reviews r JOIN companies c ON c.company_id=r.company_id JOIN employment_links e ON e.employment_link_id=r.employment_link_id AND e.company_id=r.company_id WHERE e.employment_link_id=?", id);
+        return referrals.history(id);
     }
 
     @PatchMapping("/admin/employment-links/{id}")
@@ -601,11 +608,12 @@ public class OperationsController {
             "SELECT * FROM employment_links WHERE employment_link_id=? FOR UPDATE",
             id
         );
+        if (link == null) throw new Problem(404, "취업연계 내역을 찾을 수 없습니다.");
         String next = Input.text(body, "status", 30, true);
         String current = link.get("status").toString();
         Map<String, Set<String>> moves = Map.of(
             "REQUESTED",
-            Set.of("COUNSELING", "CLOSED"),
+            Set.of("MATCHING", "CLOSED"),
             "COUNSELING",
             Set.of("MATCHING", "CLOSED"),
             "MATCHING",
@@ -643,6 +651,7 @@ public class OperationsController {
             Set.of("MATCHING", "INTERVIEW", "EMPLOYED").contains(next) &&
             (manager == null || company == null)
         ) throw new Problem(400, "담당자와 연계 기업을 지정해 주세요.");
+        referrals.validateAdminUpdate(link, next, company, job, body);
         db.update(
             "UPDATE employment_links SET status=?,manager_user_id=?,company_id=?,job_id=?,public_message=?,memo=?,completed_at=? WHERE employment_link_id=?",
             next,
@@ -670,7 +679,8 @@ public class OperationsController {
             "EMPLOYMENT",
             id
         );
-        if (company != null && (!Objects.equals(company, link.get("companyId")) || !current.equals(next) || !Objects.equals(job, link.get("jobId")))) {
+        var delivered = referrals.latest(id);
+        if (company != null && delivered != null && company.toString().equals(Objects.toString(delivered.get("companyId"))) && Set.of("INTERVIEW", "EMPLOYED", "CLOSED").contains(next) && !current.equals(next)) {
             long companyUser = number(db.one("SELECT user_id FROM companies WHERE company_id=?", company), "userId");
             service.notify(companyUser, "취업연계 정보가 등록·변경되었습니다.",
                 "취업연계 메뉴에서 연결된 신청자와 채용공고를 확인해 주세요.", "EMPLOYMENT", id);

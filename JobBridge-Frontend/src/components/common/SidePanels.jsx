@@ -13,7 +13,7 @@ const wideQuery = '(min-width: 1680px)';
 const emptyRows = [];
 const daysLeft = (date) => Math.round((Date.parse(date) - Date.parse(koreanToday())) / 86400000);
 const deadline = (date) => { const days = daysLeft(date); return days < 0 ? '마감' : days === 0 ? '오늘 마감' : `D-${days}`; };
-const interviewDate = (date) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(date));
+const interviewDate = (date) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(date));
 
 export default function SidePanels() {
   const role = useAuth((state) => state.user?.role);

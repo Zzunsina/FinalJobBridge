@@ -340,7 +340,7 @@ export default function App() {
             <Route path="/company" element={protectedPage('COMPANY', <CompanyDashboard />)} />
             <Route path="/company/applicants" element={protectedPage('COMPANY', <CompanyApplicants />)} />
             <Route path="/company/employment" element={protectedPage('COMPANY', <CompanyEmployment />)} />
-            <Route path="/company/employment/:id" element={protectedPage('COMPANY', <CompanyEmploymentDetail />)} />
+            <Route path="/company/employment/referrals/:id" element={protectedPage('COMPANY', <CompanyEmploymentDetail />)} />
             <Route path="/company/interviews" element={protectedPage('COMPANY', <CompanyInterviewSchedule />)} />
             <Route path="/company/jobs" element={protectedPage('COMPANY', <JobManage />)} />
             <Route path="/company/jobs/new" element={protectedPage('COMPANY', <JobForm />)} />

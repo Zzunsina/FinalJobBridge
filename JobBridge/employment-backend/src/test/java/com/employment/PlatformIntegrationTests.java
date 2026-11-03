@@ -43,6 +43,15 @@ class PlatformIntegrationTests {
     EmploymentService service;
 
     @Autowired
+    com.employment.job.service.EmploymentReferrals referrals;
+
+    @Autowired
+    com.employment.job.service.EmploymentInterviewProposals proposals;
+
+    @Autowired
+    com.employment.job.service.EmploymentOnboarding onboarding;
+
+    @Autowired
     ObjectMapper json;
 
     long seeker;
@@ -57,7 +66,7 @@ class PlatformIntegrationTests {
     @Test
     void employmentLinkAdminReturnsSingleCharacterApplicantName() throws Exception {
         db.update("UPDATE users SET name=? WHERE user_id=?", "차", seeker);
-        long linkId = number(service.requestLink(seeker), "employmentLinkId");
+        long linkId = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")), "employmentLinkId");
         Cookie session = login(admin);
         mvc.perform(get("/api/admin/employment-links").cookie(session))
             .andExpect(status().isOk())
@@ -106,12 +115,13 @@ class PlatformIntegrationTests {
 
     @Test
     void employmentDetailShowsPublicMatchAndProtectsPrivateInformation() throws Exception {
-        long link = number(service.requestLink(seeker), "employmentLinkId");
+        long link = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")), "employmentLinkId");
         mvc.perform(get("/api/employment-links/" + link).cookie(login(seeker)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REQUESTED"))
             .andExpect(jsonPath("$.managerName").isEmpty());
         db.update("UPDATE employment_links SET status='MATCHING',manager_user_id=?,company_id=?,job_id=?,public_message=?,memo=? WHERE employment_link_id=?",
             admin, company, job, "기업 소개를 확인해 주세요.", "비공개 상담 메모", link);
+        referrals.send(link);
         mvc.perform(get("/api/employment-links/" + link).cookie(login(seeker)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.managerName").value("관리자"))
@@ -132,10 +142,11 @@ class PlatformIntegrationTests {
 
     @Test
     void companySeesAssignedEmploymentLinksOnlyWithoutPrivateNotes() throws Exception {
-        long link = number(service.requestLink(seeker), "employmentLinkId");
-        db.update("UPDATE employment_links SET status='COUNSELING',company_id=?,job_id=?,manager_user_id=?,memo=?,public_message=? WHERE employment_link_id=?",
+        long link = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")), "employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=?,memo=?,public_message=? WHERE employment_link_id=?",
             company, job, admin, "관리자 비공개 메모", "구직자 전용 안내", link);
-        long unassigned = number(service.requestLink(other), "employmentLinkId");
+        long unassigned = db.insert("employment_links", fields("job_seeker_id", service.seeker(other)));
+        referrals.send(link);
         mvc.perform(get("/api/company/employment-links").cookie(login(companyUser)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.employmentLinkId == " + link + ")].managerName").value(org.hamcrest.Matchers.contains("관리자")))
@@ -151,34 +162,305 @@ class PlatformIntegrationTests {
 
     @Test
     void linkedCompanyReviewsOnlyAssignedApplicantAndPublicResume() throws Exception {
-        long link = number(service.requestLink(seeker), "employmentLinkId");
-        db.update("UPDATE employment_links SET company_id=?,job_id=?,manager_user_id=?,memo=?,public_message=? WHERE employment_link_id=?",
-            company, job, admin, "내부 메모", "구직자 안내", link);
-        db.update("UPDATE resumes SET is_public=FALSE WHERE resume_id=?", resume);
-        Cookie session = login(companyUser);
-        mvc.perform(get("/api/company/employment-links/" + link).cookie(session))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.resume").isEmpty())
-            .andExpect(jsonPath("$.memo").doesNotExist()).andExpect(jsonPath("$.publicMessage").doesNotExist());
-        db.update("UPDATE resumes SET is_public=TRUE WHERE resume_id=?", resume);
-        mvc.perform(get("/api/company/employment-links/" + link).cookie(session))
+        long link = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")), "employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        db.update("UPDATE resumes SET is_public=FALSE WHERE resume_id=?",resume);
+        assertThatThrownBy(() -> referrals.send(link)).isInstanceOf(Problem.class);
+        db.update("UPDATE resumes SET is_public=TRUE WHERE resume_id=?",resume);
+        long referral = number(referrals.send(link),"referralId");
+        mvc.perform(get("/api/company/employment-referrals/"+referral).cookie(login(companyUser)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.resume.resumeId").value(resume))
-            .andExpect(jsonPath("$.resume.attachment").doesNotExist());
-        var review = fields("reviewStatus", "INTERVIEW_REQUESTED", "opinion", "면접을 희망합니다.");
-        for (int i = 0; i < 2; i++) mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(review)))
-            .andExpect(status().isNoContent());
-        assertThat(db.one("SELECT status FROM employment_links WHERE employment_link_id=?", link).get("status")).isEqualTo("REQUESTED");
-        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?", admin, link, "기업 취업연계 검토 의견이 등록되었습니다.")).hasSize(1);
-        mvc.perform(get("/api/admin/employment-links/" + link + "/company-review").cookie(login(admin)))
-            .andExpect(status().isOk()).andExpect(jsonPath("$[0].opinion").value("면접을 희망합니다."));
-        mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(session).with(csrf()).contentType("application/json").content("{\"reviewStatus\":\"DECLINED\",\"opinion\":\"\"}"))
+            .andExpect(jsonPath("$.memo").doesNotExist()).andExpect(jsonPath("$.resume.attachment").doesNotExist());
+        mvc.perform(get("/api/company/employment-referrals/"+referral).cookie(login(seeker))).andExpect(status().isForbidden());
+        var review = fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED","opinion","면접 희망");
+        mvc.perform(patch("/api/company/employment-referrals/"+referral+"/response").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(review)))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/admin/employment-links/"+link+"/referrals").cookie(login(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].reviewStatus").value("INTERVIEW_REQUESTED"));
+    }
+
+    @Test
+    void employmentApplicationRequiresCurrentlyPublicResume() throws Exception {
+        Cookie session = login(seeker);
+        db.update("UPDATE resumes SET is_public=FALSE WHERE resume_id=?", resume);
+        mvc.perform(get("/api/employment-links/eligibility").cookie(session))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.hasPublicResume").value(false));
+        mvc.perform(post("/api/employment-links").cookie(session).with(csrf()).contentType("application/json").content("{\"preferredIndustry\":\"IT\",\"preferredOccupation\":\"개발자\"}"))
+            .andExpect(status().isConflict());
+        assertThat(service.links(seeker)).isEmpty();
+        mvc.perform(post("/api/employment-links").cookie(login(other)).with(csrf()).contentType("application/json").content("{\"preferredIndustry\":\"IT\",\"preferredOccupation\":\"개발자\"}"))
+            .andExpect(status().isConflict());
+        db.update("UPDATE resumes SET is_public=TRUE WHERE resume_id=?", resume);
+        mvc.perform(get("/api/employment-links/eligibility").cookie(session))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.hasPublicResume").value(true));
+        db.update("UPDATE resumes SET is_public=FALSE WHERE resume_id=?", resume);
+        mvc.perform(post("/api/employment-links").cookie(session).with(csrf()).contentType("application/json").content("{\"preferredIndustry\":\"IT\",\"preferredOccupation\":\"개발자\"}"))
+            .andExpect(status().isConflict());
+        db.update("UPDATE resumes SET is_public=TRUE WHERE resume_id=?", resume);
+        mvc.perform(post("/api/employment-links").cookie(session).with(csrf()).contentType("application/json").content("{\"preferredIndustry\":\"IT\",\"preferredOccupation\":\"개발자\"}"))
+            .andExpect(status().isCreated());
+        assertThat(service.links(seeker)).hasSize(1);
+    }
+
+    @Test
+    void companyReviewIsFinalAfterFirstSubmission() {
+        long link = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral = number(referrals.send(link),"referralId");
+        var response = fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED","opinion","면접 희망");
+        referrals.respond(companyUser,referral,response);
+        referrals.respond(companyUser,referral,response);
+        assertThatThrownBy(() -> referrals.respond(companyUser,referral,fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED","opinion","의견 변경"))).isInstanceOf(Problem.class);
+        assertThat(referrals.companyDetail(companyUser,referral).get("opinion")).isEqualTo("면접 희망");
+    }
+
+    @Test
+    void referralFlowRequiresSendResponseAndInterviewAndPreservesSnapshot() throws Exception {
+        long linkId = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")), "employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,linkId);
+        assertThat(referrals.companyList(companyUser)).isEmpty();
+        assertThat(service.linkDetail(seeker,linkId).get("companyName")).isNull();
+        long referral = number(referrals.send(linkId),"referralId");
+        assertThat(referrals.companyList(companyUser)).anySatisfy(row -> assertThat(number(row,"referralId")).isEqualTo(referral));
+        assertThatThrownBy(() -> referrals.send(linkId)).isInstanceOf(Problem.class);
+        db.update("UPDATE resumes SET title=?,is_public=FALSE WHERE resume_id=?","수정 후 이력서",resume);
+        var snapshot = (com.fasterxml.jackson.databind.JsonNode)referrals.companyDetail(companyUser,referral).get("resume");
+        assertThat(snapshot.get("title").asText()).isEqualTo("원본 이력서");
+        var link = db.one("SELECT * FROM employment_links WHERE employment_link_id=?",linkId);
+        var schedule = fields("interviewAt",java.time.OffsetDateTime.now().plusDays(3).toString(),"interviewLocation","서울 면접실");
+        assertThatThrownBy(() -> referrals.validateAdminUpdate(link,"INTERVIEW",company,job,schedule)).isInstanceOf(Problem.class);
+        var response = fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED","opinion","면접 희망");
+        referrals.respond(companyUser,referral,response);
+        referrals.respond(companyUser,referral,response);
+        assertThatThrownBy(() -> referrals.respond(companyUser,referral,fields("reviewStatus","HIRE_REQUESTED","opinion","채용 희망"))).isInstanceOf(Problem.class);
+        referrals.userParticipation(seeker,referral,fields("response","ACCEPTED","availableTimes","평일 오후","requests",""));
+        referrals.validateAdminUpdate(link,"INTERVIEW",company,job,schedule);
+        db.update("UPDATE employment_links SET status='INTERVIEW' WHERE employment_link_id=?",linkId);
+        assertThat(service.linkDetail(seeker,linkId).get("interviewAt")).isNotNull();
+        referrals.respond(companyUser,referral,fields("reviewStatus","HIRE_REQUESTED","opinion","채용 희망"));
+        var current = db.one("SELECT * FROM employment_links WHERE employment_link_id=?",linkId);
+        assertThatThrownBy(() -> referrals.validateAdminUpdate(current,"EMPLOYED",company,job,fields())).isInstanceOf(Problem.class);
+        referrals.validateAdminUpdate(current,"EMPLOYED",company,job,fields("employmentConfirmed",true));
+    }
+
+    @Test
+    void declinedReferralAllowsRematchKeepsHistoryAndRejectsOldResponses() {
+        long linkId = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,linkId);
+        long first = number(referrals.send(linkId),"referralId");
+        assertThatThrownBy(() -> referrals.respond(companyUser,first,fields("reviewStatus","DECLINED","opinion",""))).isInstanceOf(Problem.class);
+        referrals.respond(companyUser,first,fields("reviewStatus","DECLINED","opinion","모집 조건 불일치"));
+        assertThat(service.linkDetail(seeker,linkId).get("companyName")).isNull();
+        assertThat(db.one("SELECT status FROM employment_links WHERE employment_link_id=?",linkId).get("status")).isEqualTo("MATCHING");
+        long second = number(referrals.send(linkId),"referralId");
+        assertThat(referrals.history(linkId)).hasSize(2);
+        assertThatThrownBy(() -> referrals.respond(companyUser,first,fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED"))).isInstanceOf(Problem.class);
+        referrals.cancel(linkId);
+        assertThat(referrals.companyDetail(companyUser,second).get("reviewStatus")).isEqualTo("CANCELED");
+        assertThatThrownBy(() -> referrals.respond(companyUser,second,fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED"))).isInstanceOf(Problem.class);
+        assertThatThrownBy(() -> referrals.companyDetail(other,second)).isInstanceOf(Problem.class);
+    }
+
+    @Test
+    void administratorCannotSkipCompanyResponseOrInterviewConfirmation() throws Exception {
+        long link = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        Cookie session = login(admin);
+        mvc.perform(post("/api/admin/employment-links/"+link+"/referrals").cookie(session).with(csrf())).andExpect(status().isOk());
+        long referral = number(referrals.latest(link),"referralId");
+        var update = fields("status","INTERVIEW","companyId",company,"jobId",job,"managerUserId",admin);
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
+        referrals.respond(companyUser,referral,fields("availableTimes","평일 오후","reviewStatus","INTERVIEW_REQUESTED","opinion","면접 희망"));
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
+        referrals.userParticipation(seeker,referral,fields("response","ACCEPTED","availableTimes","평일 오후","requests",""));
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isBadRequest());
+        update.put("interviewAt",java.time.OffsetDateTime.now().plusDays(2).toString());
+        update.put("interviewLocation","온라인 https://example.com/interview");
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isOk());
+        update.put("status","EMPLOYED"); update.put("employmentConfirmed",true);
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
+        referrals.respond(companyUser,referral,fields("reviewStatus","HIRE_REQUESTED","opinion","채용 희망"));
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isOk());
+        assertThat(db.one("SELECT status FROM employment_links WHERE employment_link_id=?",link).get("status")).isEqualTo("EMPLOYED");
+    }
+
+    @Test
+    void administratorCanCancelApplicationAndRecommendationWithPublicReason() throws Exception {
+        long link = number(service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral = number(referrals.send(link),"referralId");
+        String path = "/api/admin/employment-links/"+link+"/cancel";
+        mvc.perform(post(path).cookie(login(seeker)).with(csrf()).contentType("application/json").content("{\"reason\":\"취소 요청\"}")).andExpect(status().isForbidden());
+        mvc.perform(post(path).cookie(login(admin)).with(csrf()).contentType("application/json").content("{\"reason\":\" \"}")).andExpect(status().isBadRequest());
+        for (int i=0;i<2;i++) mvc.perform(post(path).cookie(login(admin)).with(csrf()).contentType("application/json").content("{\"reason\":\"사용자와 상담 후 취소\"}")).andExpect(status().isOk());
+        var saved = db.one("SELECT * FROM employment_links WHERE employment_link_id=?",link);
+        assertThat(saved).containsEntry("status","CLOSED");
+        assertThat(saved.get("publicMessage").toString()).contains("사용자와 상담 후 취소");
+        assertThat(saved.get("completedAt")).isNotNull();
+        assertThat(referrals.companyDetail(companyUser,referral).get("reviewStatus")).isEqualTo("CANCELED");
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?",seeker,link,"취업연계 신청이 취소되었습니다.")).hasSize(1);
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?",companyUser,link,"취업연계가 관리자에 의해 취소되었습니다.")).hasSize(1);
+    }
+
+    @Test
+    void employmentPreferencesAreRequiredAndAdministratorCanMatchWithoutCounseling() throws Exception {
+        Cookie seekerSession = login(seeker);
+        mvc.perform(post("/api/employment-links").cookie(seekerSession).with(csrf()).contentType("application/json").content("{}"))
             .andExpect(status().isBadRequest());
-        long otherCompany = signup("reviewcompany" + UUID.randomUUID().toString().substring(0, 8), true);
-        db.update("UPDATE companies SET approval_status='APPROVED' WHERE user_id=?", otherCompany);
-        mvc.perform(get("/api/company/employment-links/" + link).cookie(login(otherCompany))).andExpect(status().isNotFound());
-        mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(login(otherCompany)).with(csrf()).contentType("application/json").content(json.writeValueAsString(review))).andExpect(status().isNotFound());
-        mvc.perform(get("/api/company/employment-links/" + link).cookie(login(seeker))).andExpect(status().isForbidden());
-        db.update("UPDATE employment_links SET status='CLOSED' WHERE employment_link_id=?", link);
-        mvc.perform(patch("/api/company/employment-links/" + link + "/review").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(review))).andExpect(status().isConflict());
+        assertThat(service.links(seeker)).isEmpty();
+        var preferences = fields("preferredIndustry","IT·정보통신","preferredOccupation","백엔드 개발자");
+        var response = mvc.perform(post("/api/employment-links").cookie(seekerSession).with(csrf()).contentType("application/json").content(json.writeValueAsString(preferences)))
+            .andExpect(status().isCreated()).andReturn();
+        long link = json.readTree(response.getResponse().getContentAsString()).get("employmentLinkId").asLong();
+        assertThat(service.linkDetail(seeker,link)).containsEntry("preferredIndustry","IT·정보통신").containsEntry("preferredOccupation","백엔드 개발자");
+        mvc.perform(get("/api/admin/employment-links/"+link).cookie(login(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.preferredOccupation").value("백엔드 개발자"));
+        var update = fields("status","COUNSELING","companyId",company,"jobId",job,"managerUserId",admin);
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
+        update.put("status","MATCHING");
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isOk());
+        assertThat(number(referrals.send(link),"referralId")).isPositive();
+    }
+
+    @Test
+    void userConsentWithoutAvailabilityAllowsInterviewConfirmation() throws Exception {
+        long link = number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral = number(referrals.send(link),"referralId");
+        assertThatThrownBy(() -> referrals.userParticipation(seeker,referral,fields("response","ACCEPTED","availableTimes","11월 5일 오후"))).isInstanceOf(Problem.class);
+        referrals.respond(companyUser,referral,fields("reviewStatus","INTERVIEW_REQUESTED","availableTimes","11월 5일 오후 2~5시","opinion","면접 희망"));
+        var linkRecord = db.one("SELECT * FROM employment_links WHERE employment_link_id=?",link);
+        var schedule = fields("interviewAt",java.time.OffsetDateTime.now().plusDays(3).toString(),"interviewLocation","서울");
+        assertThatThrownBy(() -> referrals.validateAdminUpdate(linkRecord,"INTERVIEW",company,job,schedule)).isInstanceOf(Problem.class).hasMessageContaining("사용자");
+        String path = "/api/employment-referrals/"+referral+"/participation";
+        var response = fields("response","ACCEPTED","requests","온라인 면접 희망");
+        mvc.perform(patch(path).cookie(login(other)).with(csrf()).contentType("application/json").content(json.writeValueAsString(response))).andExpect(status().isNotFound());
+        mvc.perform(patch(path).cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(response))).andExpect(status().isForbidden());
+        mvc.perform(patch(path).cookie(login(seeker)).with(csrf()).contentType("application/json").content("{\"response\":\"INVALID\"}")).andExpect(status().isBadRequest());
+        for(int i=0;i<2;i++) mvc.perform(patch(path).cookie(login(seeker)).with(csrf()).contentType("application/json").content(json.writeValueAsString(response))).andExpect(status().isOk());
+        assertThat(service.linkDetail(seeker,link)).containsEntry("userResponse","ACCEPTED").containsEntry("userAvailableTimes","");
+        assertThat(referrals.history(link).get(0)).containsEntry("companyAvailableTimes","11월 5일 오후 2~5시").containsEntry("userRequests","온라인 면접 희망");
+        referrals.validateAdminUpdate(linkRecord,"INTERVIEW",company,job,schedule);
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?",admin,link,"사용자의 면접 참여 응답이 도착했습니다.")).hasSize(1);
+    }
+
+    @Test
+    void userDecliningInterviewOnlyEndsRecommendationAndAllowsRematching() {
+        long link = number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral = number(referrals.send(link),"referralId");
+        referrals.respond(companyUser,referral,fields("reviewStatus","INTERVIEW_REQUESTED","availableTimes","평일 오후"));
+        assertThatThrownBy(() -> referrals.userParticipation(seeker,referral,fields("response","DECLINED"))).isInstanceOf(Problem.class);
+        var response = fields("response","DECLINED","requests","근무지가 맞지 않습니다.","availableTimes","");
+        referrals.userParticipation(seeker,referral,response);
+        referrals.userParticipation(seeker,referral,response);
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","MATCHING").containsEntry("companyName",null).containsEntry("userResponse","DECLINED");
+        assertThat(referrals.companyDetail(companyUser,referral).get("reviewStatus")).isEqualTo("CANCELED");
+        long second = number(referrals.send(link),"referralId");
+        assertThat(second).isNotEqualTo(referral);
+        assertThatThrownBy(() -> referrals.userParticipation(seeker,referral,response)).isInstanceOf(Problem.class);
+        assertThat(referrals.history(link)).hasSize(2);
+    }
+
+    @Test
+    void companyProposalIsConfirmedByUserAndAdministratorCannotChangeSchedule() throws Exception {
+        long link=number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral=number(referrals.send(link),"referralId");
+        var body=fields("interviewAt",java.time.OffsetDateTime.now().plusDays(3).toString(),"interviewType","ONLINE","meetingUrl","https://example.com/meet","applicantGuidance","포트폴리오를 준비해 주세요.");
+        var result=mvc.perform(post("/api/company/employment-referrals/"+referral+"/proposals").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andReturn();
+        long proposal=json.readTree(result.getResponse().getContentAsString()).get("proposalId").asLong();
+        assertThat(number(proposals.propose(companyUser,referral,body),"proposalId")).isEqualTo(proposal);
+        assertThat(service.linkDetail(seeker,link)).containsEntry("applicantGuidance","포트폴리오를 준비해 주세요.").containsEntry("status","MATCHING");
+        var update=fields("status","INTERVIEW","companyId",company,"jobId",job,"managerUserId",admin);
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
+        mvc.perform(patch("/api/employment-interview-proposals/"+proposal+"/response").cookie(login(other)).with(csrf()).contentType("application/json").content("{\"response\":\"ACCEPTED\"}")).andExpect(status().isNotFound());
+        for(int i=0;i<2;i++) mvc.perform(patch("/api/employment-interview-proposals/"+proposal+"/response").cookie(login(seeker)).with(csrf()).contentType("application/json").content("{\"response\":\"ACCEPTED\"}")).andExpect(status().isOk());
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","INTERVIEW").containsEntry("proposalResponse","ACCEPTED").containsEntry("interviewLocation","https://example.com/meet");
+        update.put("interviewLocation","관리자가 바꾼 장소");
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
+        referrals.respond(companyUser,referral,fields("reviewStatus","HIRE_REQUESTED","opinion","채용 희망"));
+        referrals.respond(companyUser,referral,fields("reviewStatus","HIRE_REQUESTED","opinion","채용 희망"));
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","INTERVIEW");
+        assertThat(db.one("SELECT completed_at FROM employment_links WHERE employment_link_id=?",link).get("completedAt")).isNull();
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?",companyUser,link,"사용자가 면접 제안을 수락해 일정이 확정되었습니다.")).hasSize(1);
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?",admin,link,"최종 합격 결과가 등록되었습니다. 입사 안내를 확인해 주세요.")).hasSize(1);
+    }
+
+    @Test
+    void scheduleChangeRequestRequiresNewProposalAndOldProposalCannotBeAccepted() {
+        long link=number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral=number(referrals.send(link),"referralId");
+        var body=fields("interviewAt",java.time.OffsetDateTime.now().plusDays(2).toString(),"interviewType","OFFLINE","location","서울 면접실","applicantGuidance","신분증 지참");
+        long first=number(proposals.propose(companyUser,referral,body),"proposalId");
+        assertThatThrownBy(() -> proposals.respond(seeker,first,fields("response","CHANGE_REQUESTED"))).isInstanceOf(Problem.class);
+        proposals.respond(seeker,first,fields("response","CHANGE_REQUESTED","requests","다음 주 오후로 변경 부탁드립니다."));
+        body.put("interviewAt",java.time.OffsetDateTime.now().plusDays(5).toString());
+        long second=number(proposals.propose(companyUser,referral,body),"proposalId");
+        assertThat(second).isNotEqualTo(first);
+        assertThatThrownBy(() -> proposals.respond(seeker,first,fields("response","ACCEPTED"))).isInstanceOf(Problem.class);
+        proposals.respond(seeker,second,fields("response","DECLINED","requests","참여가 어렵습니다."));
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","MATCHING").containsEntry("companyName",null);
+        assertThat(proposals.latest(referral)).containsEntry("proposalResponse","DECLINED");
+        assertThat(db.list("SELECT proposal_id FROM employment_interview_proposals WHERE referral_id=?",referral)).hasSize(2);
+    }
+
+    @Test
+    void companyCanEndRecommendationAfterUserRequestsScheduleChange() {
+        long link=number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral=number(referrals.send(link),"referralId");
+        long proposal=number(proposals.propose(companyUser,referral,fields("interviewAt",java.time.OffsetDateTime.now().plusDays(2).toString(),"interviewType","OFFLINE","location","서울")),"proposalId");
+        proposals.respond(seeker,proposal,fields("response","CHANGE_REQUESTED","requests","다른 일정을 희망합니다."));
+        referrals.respond(companyUser,referral,fields("reviewStatus","DECLINED","opinion","요청한 일정으로 진행이 어렵습니다."));
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","MATCHING").containsEntry("companyName",null);
+        assertThatThrownBy(() -> proposals.respond(seeker,proposal,fields("response","ACCEPTED"))).isInstanceOf(Problem.class);
+    }
+
+    private long hiredReferralForOnboarding() {
+        long link=number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
+        db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
+        long referral=number(referrals.send(link),"referralId");
+        long proposal=number(proposals.propose(companyUser,referral,fields("interviewAt",java.time.OffsetDateTime.now().plusDays(1).toString(),"interviewType","OFFLINE","location","서울")),"proposalId");
+        proposals.respond(seeker,proposal,fields("response","ACCEPTED"));
+        referrals.respond(companyUser,referral,fields("reviewStatus","HIRE_REQUESTED","opinion","최종 합격"));
+        return referral;
+    }
+
+    @Test
+    void hiringIntentRemainsOfferUntilUserConfirmsActualEntry() throws Exception {
+        long referral=hiredReferralForOnboarding();
+        long link=number(referrals.companyDetail(companyUser,referral),"employmentLinkId");
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","INTERVIEW").containsEntry("referralStatus","HIRE_REQUESTED").containsEntry("completedAt",null);
+        var guidance=fields("startAt",java.time.OffsetDateTime.now().plusDays(7).toString(),"firstDayLocation","서울 본사 3층","preparations","신분증","contact","hr@example.com","instructions","담당자에게 연락해 주세요.");
+        mvc.perform(put("/api/company/employment-referrals/"+referral+"/onboarding").cookie(login(seeker)).with(csrf()).contentType("application/json").content(json.writeValueAsString(guidance))).andExpect(status().isForbidden());
+        onboarding.save(companyUser,referral,guidance);
+        assertThat(service.linkDetail(seeker,link)).containsEntry("contact","hr@example.com").containsEntry("firstDayLocation","서울 본사 3층");
+        assertThatThrownBy(() -> onboarding.userAction(other,referral,fields("action","ACKNOWLEDGE"))).isInstanceOf(Problem.class);
+        onboarding.userAction(seeker,referral,fields("action","ACKNOWLEDGE"));
+        assertThatThrownBy(() -> onboarding.userAction(seeker,referral,fields("action","JOINED"))).isInstanceOf(Problem.class);
+        db.update("UPDATE employment_onboarding SET start_at=? WHERE referral_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(3600)),referral);
+        onboarding.userAction(seeker,referral,fields("action","JOINED"));
+        onboarding.userAction(seeker,referral,fields("action","JOINED"));
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","EMPLOYED");
+        assertThat(service.linkDetail(seeker,link).get("joinedAt")).isNotNull();
+        assertThat(service.linkDetail(seeker,link).get("completedAt")).isNotNull();
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND related_id=? AND title=?",admin,link,"사용자가 실제 입사를 확인했습니다.")).hasSize(1);
+    }
+
+    @Test
+    void onboardingHelpCreatesInquiryAndNotJoiningStartsRematch() {
+        long referral=hiredReferralForOnboarding();
+        long link=number(referrals.companyDetail(companyUser,referral),"employmentLinkId");
+        onboarding.userAction(seeker,referral,fields("action","HELP","message","입사 일정 확인이 필요합니다."));
+        onboarding.userAction(seeker,referral,fields("action","HELP","message","입사 일정 확인이 필요합니다."));
+        assertThat(db.list("SELECT inquiry_id FROM inquiries WHERE user_id=? AND content=?",seeker,"입사 일정 확인이 필요합니다.")).hasSize(1);
+        assertThatThrownBy(() -> onboarding.userAction(seeker,referral,fields("action","NOT_JOINED","message",""))).isInstanceOf(Problem.class);
+        onboarding.userAction(seeker,referral,fields("action","NOT_JOINED","message","개인 사정으로 입사하지 않습니다."));
+        assertThat(service.linkDetail(seeker,link)).containsEntry("status","MATCHING").containsEntry("referralStatus","CANCELED");
+        assertThat(service.linkDetail(seeker,link).get("notJoinedAt")).isNotNull();
+        assertThat(db.list("SELECT referral_id FROM employment_referrals WHERE employment_link_id=?",link)).hasSize(1);
     }
 
     @BeforeEach
@@ -234,7 +516,7 @@ class PlatformIntegrationTests {
             service.saveResume(
                 seeker,
                 null,
-                fields("title", "원본 이력서", "skills", "Java", "isDefault", true, "assessmentAnswers", CORRECT_EXAMPLE_ANSWERS)
+                fields("title", "원본 이력서", "skills", "Java", "isDefault", true, "isPublic", true, "assessmentAnswers", CORRECT_EXAMPLE_ANSWERS)
             ),
             "resumeId"
         );
@@ -304,7 +586,7 @@ class PlatformIntegrationTests {
             "inquiries",
             fields("user_id", seeker, "title", "대기 문의 검증", "content", "비공개 문의 본문")
         );
-        service.requestLink(seeker);
+        service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자"));
         var response = mvc
             .perform(get("/api/admin/dashboard").cookie(login(admin)))
             .andExpect(status().isOk())
@@ -1691,7 +1973,7 @@ class PlatformIntegrationTests {
                     i ->
                         () -> {
                             try {
-                                service.requestLink(seeker);
+                                service.requestLink(seeker, fields("preferredIndustry","IT·정보통신","preferredOccupation","개발자"));
                                 return true;
                             } catch (Problem ex) {
                                 return false;

@@ -1,3 +1,4 @@
+import { formatDateTime, formatTime } from "../utils/dateTime";
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useResource } from '../hooks/useResource';
@@ -24,7 +25,7 @@ export function AdminManage({ resourceName }) {
 }
 
 function AdminManageContent({ resourceName }) {
-  const resource = useResource(`/admin/${resourceName}`);
+  const resource = useResource(`/admin/${resourceName}`, { refreshInterval: resourceName === 'employment-links' ? 10000 : 0 });
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const allRows = resource.data || [];
@@ -199,6 +200,7 @@ function AdminManageContent({ resourceName }) {
 
 function AdminRow({ name, row: r, reload }) {
   const [editing, setEditing] = useState(false);
+  const [employmentSuccess, setEmploymentSuccess] = useState('');
   if (name === 'users')
     return (
       <>
@@ -382,14 +384,28 @@ function AdminRow({ name, row: r, reload }) {
     <>
       <div className="row">
         <h2>취업연계({r.jobSeekerName || '이름 미등록'})</h2>
-        <Badge value={r.status} />
+        <Badge value={recordStatus('employment-links', r)} />
       </div>
       <p>
         구직자: {r.jobSeekerName || '이름 미등록'} · 신청 {r.requestedAt?.slice(0, 10)}
       </p>
+      <p>희망 업종: {r.preferredIndustry || '기존 신청 · 미입력'} · 선호 직업: {r.preferredOccupation || '기존 신청 · 미입력'}</p>
+      {employmentSuccess && <div className="form-success" role="status">{employmentSuccess}</div>}
       {!['EMPLOYED', 'CLOSED'].includes(r.status) && (
-        <EmploymentLinkForm record={r} onDone={reload} />
+        <EmploymentLinkForm record={r} onDone={async (values) => {
+          const statusNames = { REQUESTED: '신청 접수', COUNSELING: '기업 매칭', MATCHING: '기업 매칭', INTERVIEW: '면접 진행', EMPLOYED: '취업 완료', CLOSED: '종료' };
+          const time = formatTime();
+          setEmploymentSuccess(values.completionMessage || (r.status === values.status
+            ? `취업연계 정보를 저장했습니다. 현재 상태: ${statusNames[values.status] || values.status} · ${time}`
+            : `진행 상태가 변경되었습니다: ${statusNames[r.status] || r.status} → ${statusNames[values.status] || values.status} · ${time}`));
+          await reload();
+        }} />
       )}
+      {!['EMPLOYED', 'CLOSED'].includes(r.status) && <details className="admin-employment-cancel"><summary><span aria-hidden="true">⊗</span> 취업연계 신청 취소 <span className="admin-cancel-arrow" aria-hidden="true">⌄</span></summary><p>전체 취업연계를 종료합니다. 입력한 사유는 사용자에게 공개되며, 진행 중인 기업 추천도 종료됩니다.</p><Form fields={[{ name: 'reason', label: '취소 사유 (사용자에게 공개)', type: 'textarea', required: true, maxLength: 1000 }]} submit="취소 확정" onSubmit={async (body) => {
+        await client.post(`/admin/employment-links/${r.employmentLinkId}/cancel`, body);
+        setEmploymentSuccess('취업연계를 취소했습니다. 사용자에게 취소 사유를 안내했습니다.');
+        await reload();
+      }} /></details>}
       <CompanyReview id={r.employmentLinkId} />
     </>
   );
@@ -397,7 +413,7 @@ function AdminRow({ name, row: r, reload }) {
 
 function CompanyReview({ id }) {
   const resource = useResource(`/admin/employment-links/${id}/company-review`, { refreshInterval: 30000 });
-  return <section className="callout"><h3>기업 검토 의견</h3><Resource resource={resource}>{(rows) => rows.length ? rows.map((row) => <div key={row.companyName}><strong>{row.companyName} · {employmentReviewLabels[row.reviewStatus] || row.reviewStatus}</strong><p className="prose">{row.opinion || '별도 의견 없음'}</p><small>{new Date(row.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</small></div>) : <p>아직 등록된 기업 검토 의견이 없습니다.</p>}</Resource></section>;
+  return <section className="callout"><h3>추천 전달 및 기업 응답 이력</h3><Resource resource={resource}>{(rows) => rows.length ? rows.map((row) => <div key={row.referralId || `legacy-${row.companyId}`}><strong>{row.companyName} · {employmentReviewLabels[row.reviewStatus] || row.reviewStatus}{!row.referralId && ' (이전 방식의 검토 의견)'}</strong><p className="prose">{row.opinion || '별도 의견 없음'}</p>{row.proposalId && <div><strong>기업 면접 제안 · {row.proposalResponse === 'ACCEPTED' ? '사용자 수락 / 면접 확정' : row.proposalResponse === 'CHANGE_REQUESTED' ? '일정 변경 요청' : row.proposalResponse === 'DECLINED' ? '참여 어려움' : '응답 대기'}</strong><p>{formatDateTime(row.proposedInterviewAt)} · {row.proposedLocation || row.proposedMeetingUrl}</p><p className="prose">기업 안내: {row.applicantGuidance || '없음'}</p><p className="prose">사용자 요청: {row.proposalRequests || '없음'}</p></div>}{row.startAt && <div><strong>기업의 입사 안내</strong><p>{formatDateTime(row.startAt)} · {row.firstDayLocation}</p><p className="prose">준비물: {row.preparations || '없음'} · 연락처: {row.contact}</p><p>{row.joinedAt ? '사용자 실제 입사 확인 완료' : '사용자 입사 확인 대기'}</p></div>}{row.userMessage && <p className="callout prose">입사 관련 사용자 요청: {row.userMessage}</p>}<p>{row.jobTitle || '공고 미지정'}{row.interviewAt && <> · 면접 {formatDateTime(row.interviewAt)} · {row.interviewLocation}</>}</p><small>{formatDateTime(row.respondedAt || row.sentAt)}</small></div>) : <p>아직 추천을 전달하지 않았습니다.</p>}</Resource></section>;
 }
 
 function NoticeForm({ initial, onDone }) {

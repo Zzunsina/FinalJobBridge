@@ -153,10 +153,15 @@ public class JobController {
         return service.links(auth.require(req, "JOB_SEEKER"));
     }
 
+    @GetMapping("/employment-links/eligibility")
+    Object employmentEligibility(HttpServletRequest req) {
+        return service.employmentEligibility(auth.require(req, "JOB_SEEKER"));
+    }
+
     @PostMapping("/employment-links")
     @ResponseStatus(HttpStatus.CREATED)
-    Object requestLink(HttpServletRequest req) {
-        return service.requestLink(auth.require(req, "JOB_SEEKER"));
+    Object requestLink(@RequestBody Map<String,Object> body, HttpServletRequest req) {
+        return service.requestLink(auth.require(req, "JOB_SEEKER"), body);
     }
 
     @GetMapping("/employment-links/{id}")
