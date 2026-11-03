@@ -11,6 +11,7 @@ import ResumeDocument from '../components/resume/ResumeDocument';
 import BookmarkButton from '../components/common/BookmarkButton';
 import ProfilePhoto from '../components/common/ProfilePhoto';
 import WithdrawAccount from '../components/common/WithdrawAccount';
+import LocationMap from '../components/common/LocationMap';
 import { ResumeCollection, ApplicationCollection } from '../components/common/CareerLists';
 import {
   Action,
@@ -60,11 +61,12 @@ export function ResumeForm() {
       <Resource resource={resource}>
         {(data) => (
           <ResumeEditor
+            key={id || 'new'}
+            onSaved={() => navigate('/resumes', { state: { resumeSaved: true } })}
             initial={id ? data : { isPublic: false }}
             onSave={async (body) => {
               if (id) await client.put(`/resumes/${id}`, body);
               else await client.post('/resumes', body);
-              navigate('/resumes', { state: { resumeSaved: true } });
             }}
           />
         )}
@@ -163,12 +165,19 @@ export function Interviews({ rows, onDelete }) {
         <p>
           {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'} · {i.location}
         </p>
+        {i.interviewType === 'OFFLINE' && i.location?.trim() && (
+          <LocationMap address={i.location} label="면접 장소 지도" />
+        )}
         {i.meetingUrl && (
           <a href={i.meetingUrl} target="_blank" rel="noreferrer">
             면접 참여 링크 ↗
           </a>
         )}
         {i.result && <p>{i.result}</p>}
+        {i.applicantGuidance && <section aria-label="면접 안내사항">
+          <h3>면접 안내사항</h3>
+          <p className="prose">{i.applicantGuidance}</p>
+        </section>}
         {onDelete && (
           <Action method="delete" url={`/company/interviews/${i.interviewId}`} onDone={onDelete}
             confirm="이 면접 일정을 삭제할까요? 삭제한 일정은 복구할 수 없습니다.">

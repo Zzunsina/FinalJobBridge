@@ -465,6 +465,7 @@ public class EmploymentService {
     }
 
     private void addDetails(Map<String, Object> row, boolean internal) {
+        if (row == null) throw new Problem(404, "지원 내역을 찾을 수 없습니다.");
         long id = number(row, "applicationId");
         var snapshots = db.list(
             "SELECT snapshot_json FROM application_snapshots WHERE application_id=?",
@@ -485,7 +486,7 @@ public class EmploymentService {
         row.put(
             "interviews",
             db.list(
-                "SELECT interview_id,interview_at,interview_type,location,meeting_url,status" +
+                "SELECT interview_id,interview_at,interview_type,location,meeting_url,status,applicant_guidance" +
                     (internal ? ",result,memo" : "") +
                     " FROM interviews WHERE application_id=? ORDER BY interview_at",
                 id
@@ -806,6 +807,8 @@ public class EmploymentService {
                 location,
                 "meeting_url",
                 url,
+                "applicant_guidance",
+                Input.text(body, "applicantGuidance", 2000, false),
                 "memo",
                 Input.text(body, "memo", 10000, false),
                 "request_key",
@@ -911,12 +914,13 @@ public class EmploymentService {
                 "온라인 면접 주소가 필요합니다."
             );
             db.update(
-                "UPDATE interviews SET interview_at=?,interview_type=?,location=?,meeting_url=?,memo=? WHERE interview_id=?",
+                "UPDATE interviews SET interview_at=?,interview_type=?,location=?,meeting_url=?,memo=?,applicant_guidance=? WHERE interview_id=?",
                 Timestamp.from(at),
                 type,
                 location,
                 url,
                 Input.text(body, "memo", 10000, false),
+                body.containsKey("applicantGuidance") ? Input.text(body, "applicantGuidance", 2000, false) : interview.get("applicantGuidance"),
                 id
             );
         }

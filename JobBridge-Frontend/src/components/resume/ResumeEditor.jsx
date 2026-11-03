@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Link, useBlocker } from 'react-router-dom';
 import { message } from '../../api/client';
 import { useAuth } from '../../stores/auth';
 import ResumeDocument from './ResumeDocument';
@@ -105,7 +105,16 @@ function Field({ label, required, wide, children }) {
   );
 }
 
-export default function ResumeEditor({ initial = {}, onSave }) {
+function readDraft(key) {
+  try {
+    const draft = JSON.parse(localStorage.getItem(key));
+    if (draft?.version !== 1 || !draft.values?.details ||
+      !['educations', 'experiences', 'projects', 'certificates'].every((name) => Array.isArray(draft.values.details[name]))) return null;
+    return draft;
+  } catch { return null; }
+}
+
+export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
   const user = useAuth((state) => state.user);
   const formId = useId();
   const [values, setValues] = useState(() => ({
@@ -128,10 +137,40 @@ export default function ResumeEditor({ initial = {}, onSave }) {
         (!initial.details ? initial.careerDescription || '' : ''),
     },
   }));
+  const draftKey = `jobbridge:resume-draft:${user.userId}:${initial.resumeId || 'new'}`;
+  const [pendingDraft, setPendingDraft] = useState(() => readDraft(draftKey));
+  const [draftStatus, setDraftStatus] = useState('');
+  const saved = useRef(false);
+  const baseline = useRef(JSON.stringify(values));
   const [preview, setPreview] = useState(false);
   const [attachmentChanged, setAttachmentChanged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const dirty = JSON.stringify(values) !== baseline.current || assessmentAnswers !== undefined;
+  const blocker = useBlocker(() => dirty && !saved.current);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event) => {
+      if (saved.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+  useEffect(() => {
+    if (!dirty || pendingDraft || saved.current) return;
+    // PDF data is excluded so large files do not exhaust browser storage.
+    const draftValues = { ...values, attachment: initial.attachment || null };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        version: 1, values: draftValues, assessmentAnswers, savedAt: Date.now(),
+      }));
+      setDraftStatus('작성 내용을 이 브라우저에 임시저장했습니다. 새로 첨부하거나 제거한 PDF는 복구 후 다시 설정해 주세요.');
+    } catch {
+      setDraftStatus('임시저장하지 못했습니다. 이력서 저장 버튼으로 저장해 주세요.');
+    }
+  }, [values, assessmentAnswers, dirty, draftKey, pendingDraft, initial.attachment]);
   const details = values.details;
   const skills = values.skills
     .split(/[,，\n]/)
@@ -186,6 +225,12 @@ export default function ResumeEditor({ initial = {}, onSave }) {
       const body = { ...values, education, careerDescription };
       if (!attachmentChanged) delete body.attachment;
       await onSave(body);
+      saved.current = true;
+      baseline.current = JSON.stringify(values);
+      setAssessmentAnswers(undefined);
+      try { localStorage.removeItem(draftKey); } catch { /* Server save succeeded. */ }
+      setDraftStatus('이력서를 저장했습니다.');
+      onSaved?.();
     } catch (e) {
       setError(message(e));
       setPreview(false);
@@ -195,6 +240,31 @@ export default function ResumeEditor({ initial = {}, onSave }) {
   }
   return (
     <div className="resume-workspace">
+      {pendingDraft && <div className="callout" role="region" aria-label="이력서 임시저장 복구">
+        <p>{new Date(pendingDraft.savedAt).toLocaleString('ko-KR')}에 임시저장한 내용이 있습니다. 복구하면 현재 작성 내용을 대체합니다.</p>
+        <div className="actions">
+          <button type="button" onClick={() => {
+            setValues({ ...values, ...pendingDraft.values, attachment: initial.attachment || null });
+            setAssessmentAnswers(pendingDraft.assessmentAnswers);
+            setAttachmentChanged(false);
+            setDraftStatus('임시저장 내용을 복구했습니다. PDF 첨부·제거는 다시 설정해 주세요.');
+            setPendingDraft(null);
+          }}>임시저장 복구</button>
+          <button type="button" className="secondary" onClick={() => {
+            try { localStorage.removeItem(draftKey); } catch { /* Storage may be unavailable. */ }
+            setPendingDraft(null);
+          }}>임시저장 삭제</button>
+        </div>
+      </div>}
+      <div inert={pendingDraft ? true : undefined}>
+      {draftStatus && <p role="status">{draftStatus}</p>}
+      {blocker.state === 'blocked' && <div className="callout" role="alert">
+        <p>서버에 저장하지 않은 내용이 있습니다. 이 페이지를 떠날까요? 새로 첨부한 PDF는 다시 선택해야 합니다.</p>
+        <div className="actions">
+          <button type="button" className="secondary" onClick={() => blocker.reset()}>계속 작성</button>
+          <button type="button" onClick={() => blocker.proceed()}>페이지 떠나기</button>
+        </div>
+      </div>}
       <div className="resume-toolbar">
         <div>
           <span className="resume-editor-label">MY CAREER STORY</span>
@@ -531,6 +601,7 @@ export default function ResumeEditor({ initial = {}, onSave }) {
           </aside>
         </div>
       )}
+      </div>
     </div>
   );
 }

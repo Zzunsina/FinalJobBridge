@@ -19,6 +19,8 @@ import WithdrawAccount from '../components/common/WithdrawAccount';
 import CompanyImageUpload from '../components/common/CompanyImageUpload';
 import AssessmentRanking from '../components/common/AssessmentRanking';
 import CompanyCover from '../components/common/CompanyCover';
+import CompanyIndustryInput from '../components/common/CompanyIndustryInput';
+import { companySizes } from '../data/companySizes';
 
 export { default as CompanyDashboard } from './CompanyOverview';
 
@@ -309,7 +311,7 @@ export function ApplicantDetail() {
             </div>
             <h2>면접 일정</h2>
             <Interviews rows={a.interviews} onDelete={resource.reload} />
-            {a.status === 'INTERVIEW' && (
+            {a.status === 'INTERVIEW' && !a.interviews.some((interview) => interview.status === 'SCHEDULED') && (
               <>
                 <h3>면접 등록</h3>
                 <Form
@@ -341,6 +343,13 @@ export function ApplicantDetail() {
                       required: true,
                       maxLength: 500,
                       visibleWhen: (v) => v.interviewType === 'ONLINE',
+                    },
+                    {
+                      name: 'applicantGuidance',
+                      label: '면접 안내사항 (지원자에게 공개)',
+                      type: 'textarea',
+                      maxLength: 2000,
+                      placeholder: '예: 면접 10분 전 도착해 주세요. 신분증을 지참하시고, 1층 안내데스크에서 방문 등록 후 3층 면접실로 와 주세요.',
                     },
                     {
                       name: 'memo',
@@ -409,8 +418,17 @@ export function CompanyProfile() {
                   maxLength: 10,
                 },
                 { name: 'ceoName', label: '대표자명', maxLength: 100 },
-                { name: 'industry', label: '업종', maxLength: 100 },
-                { name: 'companySize', label: '기업 규모', maxLength: 100 },
+                {
+                  name: 'industry', label: '업종', maxLength: 100,
+                  render: ({ id, values, setValues }) => <CompanyIndustryInput id={id} value={values.industry || ''}
+                    onChange={(industry) => setValues((old) => ({ ...old, industry }))} />,
+                },
+                {
+                  name: 'companySize', label: '기업 규모 (직원 수)',
+                  options: data.companySize && !companySizes.includes(data.companySize)
+                    ? [...companySizes, { value: data.companySize, label: `${data.companySize} (기존 입력값)` }]
+                    : companySizes,
+                },
                 {
                   name: 'address',
                   label: '주소',

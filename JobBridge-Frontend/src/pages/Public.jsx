@@ -3,7 +3,8 @@ import { useRecentJobs } from '../stores/recentJobs';
 import CompanyCover from '../components/common/CompanyCover';
 import HomePromotion from '../components/common/HomePromotion';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import CompanyMap from '../components/common/LocationMap';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
 import ApplyForm from '../components/common/ApplyForm';
@@ -337,12 +338,8 @@ export function JobDetail() {
                 동료를 기다립니다.
               </p>
 
-              {/* 🗺️ 채용 공고 상세 우측에 지도 추가 */}
-              <CompanyMap 
-                address={job.address || job.workLocation} 
-                latitude={job.latitude} 
-                longitude={job.longitude} 
-              />
+              <h3>근무지 위치</h3>
+              <CompanyMap address={job.workLocation} />
 
               <Link to={`/companies/${job.companyId}`}>기업 자세히 보기 ↗</Link>
               <hr />
@@ -370,7 +367,6 @@ export function JobDetail() {
     </Resource>
   );
 }
-
 
 // 지도 렌더링 컴포넌트
 
@@ -587,7 +583,6 @@ function CompanyMap({ address, latitude, longitude }) {
     </div>
   );
 }
-
 
 export function Companies() {
   const resource = useResource('/companies');

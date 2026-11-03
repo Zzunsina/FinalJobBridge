@@ -1,7 +1,9 @@
+
 import CareerExploration from './pages/CareerExploration';
 import CareerAssessment from './pages/CareerAssessment';
 import SiteFooter from './components/common/SiteFooter';
 import ServiceInfo from './pages/ServiceInfo';
+import { jobCategories } from './data/jobCategories';
 import { CompanyApplicants, CompanyInterviewSchedule } from './pages/CompanyOverview';
 import HeaderSearch from './components/common/HeaderSearch';
 import SidePanels from './components/common/SidePanels';
@@ -162,38 +164,7 @@ export default function App() {
 
                 <div className="mega-content">
                   <div className="mega-categories">
-                    {[
-                      {
-                        icon: '01',
-                        title: '개발 · 데이터',
-                        jobs: ['백엔드 개발자', '프론트엔드 개발자', 'AI · 머신러닝', '데이터 분석', '정보보안'],
-                      },
-                      {
-                        icon: '02',
-                        title: '디자인 · 기획',
-                        jobs: ['UI · UX 디자이너', '프로덕트 디자이너', '서비스 기획', 'PM · PO', '콘텐츠 기획'],
-                      },
-                      {
-                        icon: '03',
-                        title: '마케팅 · 광고',
-                        jobs: ['콘텐츠 마케팅', '퍼포먼스 마케팅', '브랜드 마케팅', '광고 · 홍보', 'SNS 운영'],
-                      },
-                      {
-                        icon: '04',
-                        title: '경영 · 전문직',
-                        jobs: ['인사 · HR', '회계 · 재무', '영업 · 영업관리', '법무 · 노무', '고객상담 · CS'],
-                      },
-                      {
-                        icon: '05',
-                        title: '생산 · 물류',
-                        jobs: ['생산관리', '품질관리', '물류 · 유통', '구매 · 자재', '기술 · 설비'],
-                      },
-                      {
-                        icon: '06',
-                        title: '교육 · 서비스',
-                        jobs: ['교육 · 강사', '의료 · 보건', '서비스 · 판매', '공공 · 복지', '고객지원'],
-                      },
-                    ].map((category) => (
+                    {jobCategories.map((category) => (
                       <section className="mega-category" key={category.icon}>
                         <div className="mega-category-title">
                           <span>{category.icon}</span>

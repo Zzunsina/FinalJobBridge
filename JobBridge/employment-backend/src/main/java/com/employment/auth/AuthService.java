@@ -106,6 +106,12 @@ public class AuthService {
         return Map.of("available", available, "message", available ? "사용할 수 있는 아이디입니다." : "이미 사용 중인 아이디입니다.");
     }
 
+    public Map<String, Object> emailAvailability(String value) {
+        String email = Input.email(Map.of("email", value), "email");
+        boolean available = db.list("SELECT user_id FROM users WHERE LOWER(email)=?", email).isEmpty();
+        return Map.of("available", available, "message", available ? "사용할 수 있는 이메일입니다." : "이미 사용 중인 이메일입니다.");
+    }
+
     public void requireAvailablePhone(String phone, Long currentUserId) {
         var rows = currentUserId == null
             ? db.list("SELECT user_id FROM users WHERE phone=?", phone)
@@ -123,6 +129,9 @@ public class AuthService {
             throw new Problem(409, "이미 사용 중인 아이디입니다.", "loginId");
         }
         String email = Input.email(body, "email");
+        if (!Boolean.TRUE.equals(emailAvailability(email).get("available"))) {
+            throw new Problem(409, "이미 사용 중인 이메일입니다.", "email");
+        }
         String birthText = Input.text(body, "birthDate", 8, true);
         LocalDate birth = Input.birthDate(birthText);
         String gender = Input.text(body, "gender", 10, true);
