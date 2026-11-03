@@ -289,8 +289,8 @@ export function Form({
                 <BirthDateInput id={formId + '-' + name} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
               ) : type === 'tel' && name === 'phone' ? (
                 <MobileInput id={formId + '-' + name} name={name} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
-              ) : type === 'email-select' ? (
-                <EmailInput id={formId + '-' + name} name={name} value={values[name] || ''} required={required} onChange={(value) => setValues((old) => ({ ...old, [name]: value }))} />
+              ) : type === 'email-select' || type === 'signup-email' ? (
+                <EmailInput id={formId + '-' + name} name={name} value={values[name] || ''} required={required} checkAvailability={type === 'signup-email'} serverError={fieldErrors[name]} onChange={(value) => { setValues((old) => ({ ...old, [name]: value })); setFieldErrors((old) => ({ ...old, [name]: '' })); }} />
               ) : sanitize === 'alphanumeric' ? (
                 <AlphanumericInput
                   {...rest}

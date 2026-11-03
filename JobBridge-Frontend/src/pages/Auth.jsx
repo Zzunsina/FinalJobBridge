@@ -203,7 +203,7 @@ export function Signup() {
     {
       name: 'email',
       label: '이메일',
-      type: 'email-select',
+      type: 'signup-email',
       required: true,
       maxLength: 255,
     },

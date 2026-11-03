@@ -26,6 +26,7 @@ public class SecurityConfig {
         var csrf = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrf.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/").secure(secure));
         http
+            .addFilterBefore(new PageReloadFilter(secure), CsrfFilter.class)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(f -> f.disable())
             .httpBasic(b -> b.disable())
