@@ -40,6 +40,7 @@ public class AuthService {
     private final SmsService smsService;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
     private final JavaMailSender mailSender;
+    private final AccountSuspensions suspensions;
 
     public AuthService(
         Database db,
@@ -47,7 +48,8 @@ public class AuthService {
         @Value("${app.jwt-secret}") String secret,
         @Value("${app.secure-cookie}") boolean secure,
         SmsService smsService,
-        JavaMailSender mailSender
+        JavaMailSender mailSender,
+        AccountSuspensions suspensions
     ) {
         if (secret.length() < 32) throw new IllegalArgumentException(
             "JWT_SECRET must be at least 32 characters"
@@ -58,6 +60,19 @@ public class AuthService {
         this.secure = secure;
         this.smsService = smsService;
         this.mailSender = mailSender;
+        this.suspensions = suspensions;
+    }
+
+    private void ensureActiveAccount(Map<String,Object> user) {
+        if("SUSPENDED".equals(user.get("status")))throw new Problem(403,"정지된 아이디입니다.\n정지 사유: "+suspensions.reason(number(user,"userId")));
+        if(!"ACTIVE".equals(user.get("status")))throw new Problem(401,"아이디 또는 비밀번호를 확인해 주세요.");
+    }
+
+    @Transactional
+    public void accountStatus(long id,String next,String reason,long actor) {
+        suspensions.record(id,next,reason,actor);
+        db.update("UPDATE users SET status=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",next,id);
+        db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?",id);
     }
 
     public Map<String, Object> publicUser(long id) {
@@ -213,11 +228,11 @@ public class AuthService {
         String password = Input.text(body, "password", 64, true);
         if (
             rows.isEmpty() ||
-                !encoder.matches(password, rows.get(0).get("password").toString()) ||
-                !"ACTIVE".equals(rows.get(0).get("status"))
+                !encoder.matches(password, rows.get(0).get("password").toString())
         ) {
             throw new Problem(401, "아이디 또는 비밀번호를 확인해 주세요.");
         }
+        ensureActiveAccount(rows.get(0));
         String role = rows.get(0).get("role").toString();
         if (!memberType.equals(role)) {
             if (!adminOnly && "COMPANY".equals(role)) {
@@ -646,7 +661,7 @@ public class AuthService {
             }
 
             System.out.println("DB select전");
-            Map<String, Object> user = db.one("SELECT * FROM users WHERE login_id=? AND status='ACTIVE'", "k_"+kakaoIdStr);
+            Map<String, Object> user = db.one("SELECT * FROM users WHERE login_id=?", "k_"+kakaoIdStr);
             System.out.println("DB select후 user: " +user);
 
             long userId;
@@ -668,6 +683,7 @@ public class AuthService {
                 );
                 db.insert("job_seekers", fields("user_id", userId));
             } else {
+                ensureActiveAccount(user);
                 userId = number(user, "userId");
             }
 
@@ -678,6 +694,8 @@ public class AuthService {
                 response,
                 true
             );
+        } catch (Problem e) {
+            throw e;
         } catch (Exception e) {
             e.printStackTrace();
             throw new Problem(500, "카카오 로그인 중 오류가 발생했습니다: " + e.getMessage());

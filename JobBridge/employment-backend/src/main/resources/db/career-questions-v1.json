@@ -1,0 +1,816 @@
+{
+  "version": "career-v1",
+  "durationSeconds": 1800,
+  "questions": [
+    {
+      "id": "p1",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "팀원의 의견을 끝까지 들은 후 내 의견을 말한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p2",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "맡은 업무의 마감일을 지키기 위해 진행 상황을 점검한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p3",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "일을 시작하기 전 해야 할 일을 목록으로 정리한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p4",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "낯선 도구도 작은 기능부터 직접 사용해 본다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p5",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "업무가 몰리면 우선순위를 정하며 차분하게 대응한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p6",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "협업할 때 각자의 역할을 먼저 확인한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p7",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "실수가 생기면 원인과 해결 방법을 함께 공유한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p8",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "업무의 중요도와 마감일을 함께 고려해 순서를 정한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p9",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "더 나은 방법이 있다면 익숙한 방식도 바꿔 본다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p10",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "예상 밖의 피드백도 내용을 정리한 뒤 대응한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p11",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "도움이 필요한 동료에게 먼저 손을 내민다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p12",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "어려운 일도 끝까지 마무리하려고 한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p13",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "큰 과제는 작은 단계로 나누어 진행한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p14",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "새로운 업무를 맡으면 필요한 정보를 먼저 찾아본다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p15",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "갈등 상황에서 사실과 감정을 구분하려고 한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p16",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "의견이 다를 때 공통 목표를 기준으로 조율한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p17",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "약속한 결과물을 제출하기 전 다시 확인한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p18",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "예상치 못한 상황에 대비할 여유 시간을 마련한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p19",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "계획이 달라져도 대안을 찾으려고 한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p20",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "실수한 뒤에는 다음 행동에 집중하려고 한다.",
+      "reverse": false,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p21",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "혼자 해결할 수 있으면 팀에 진행 상황을 알리지 않는다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p22",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "문제가 생겨도 누군가 알아차릴 때까지 기다린다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p23",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "급한 일이 생기면 기존 계획은 확인하지 않는다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p24",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "익숙하지 않은 방식은 시도하지 않는 편이다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p25",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "작은 일정 변경에도 당황한 상태가 오래 지속된다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p26",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "회의에서 다른 사람의 설명을 중간에 끊는 편이다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p27",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "단순한 업무는 확인 없이 넘기는 경우가 많다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p28",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "여러 일을 동시에 시작하고 마무리를 미루는 편이다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p29",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "새로운 기술을 배우는 일은 가능한 한 미룬다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p30",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "급한 요청을 받으면 내용을 확인하기 전에 반응한다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p31",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "다른 부서의 사정은 내 업무와 무관하다고 생각한다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p32",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "일이 어렵게 느껴지면 쉽게 다른 일로 바꾼다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p33",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "필요한 자료를 어디에 저장했는지 자주 잊는다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p34",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "예전 방식으로 충분하다면 개선 의견은 듣지 않는다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p35",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "한 번의 실수를 이후 업무 전체의 실패로 생각한다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p36",
+      "type": "personality",
+      "axis": "cooperation",
+      "axisLabel": "협업·소통",
+      "prompt": "피드백을 받으면 내용보다 기분에 먼저 반응한다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p37",
+      "type": "personality",
+      "axis": "responsibility",
+      "axisLabel": "책임·실행",
+      "prompt": "마감이 가까워져도 진행 상황을 공유하지 않는 편이다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p38",
+      "type": "personality",
+      "axis": "planning",
+      "axisLabel": "계획·정리",
+      "prompt": "일정이 바뀌어도 계획표는 수정하지 않는 편이다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p39",
+      "type": "personality",
+      "axis": "adaptability",
+      "axisLabel": "변화·학습",
+      "prompt": "처음 실패하면 같은 과제에 다시 도전하지 않는 편이다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "p40",
+      "type": "personality",
+      "axis": "composure",
+      "axisLabel": "상황·감정 조절",
+      "prompt": "긴장되는 상황에서는 다른 사람의 설명을 듣기 어렵다.",
+      "reverse": true,
+      "choices": [
+        "전혀 그렇지 않다",
+        "그렇지 않은 편이다",
+        "보통이다",
+        "그런 편이다",
+        "매우 그렇다"
+      ]
+    },
+    {
+      "id": "a1",
+      "type": "aptitude",
+      "axisLabel": "언어 이해",
+      "prompt": "다음 글의 핵심으로 가장 알맞은 것은?\n“팀은 일주일에 한 번 진행 상황을 공유했다. 그 결과 중복 작업을 일찍 발견하고 일정 지연을 줄일 수 있었다.”",
+      "choices": [
+        "회의 횟수가 많을수록 언제나 성과가 높다.",
+        "진행 상황 공유는 협업의 비효율을 줄일 수 있다.",
+        "일정 지연은 개인의 능력만으로 결정된다.",
+        "중복 작업은 발견해도 줄일 수 없다."
+      ],
+      "correct": 1,
+      "explanation": "진행 상황을 공유한 뒤 중복 작업과 일정 지연이 줄었다는 내용입니다."
+    },
+    {
+      "id": "a2",
+      "type": "aptitude",
+      "axisLabel": "언어 이해",
+      "prompt": "“검토가 끝난 자료만 게시할 수 있다.” 이 규칙에서 반드시 참인 것은?",
+      "choices": [
+        "검토가 끝난 모든 자료는 게시되었다.",
+        "게시된 자료는 검토가 끝났다.",
+        "게시되지 않은 자료는 모두 검토 전이다.",
+        "검토는 게시한 뒤 진행해도 된다."
+      ],
+      "correct": 1,
+      "explanation": "게시는 검토 완료를 필요로 하지만, 검토가 끝났다고 반드시 게시하는 것은 아닙니다."
+    },
+    {
+      "id": "a3",
+      "type": "aptitude",
+      "axisLabel": "언어 이해",
+      "prompt": "문장 순서가 가장 자연스러운 것은?\n가. 수정한 내용을 실제 사용자에게 확인한다.\n나. 사용자가 불편해하는 지점을 조사한다.\n다. 조사 결과를 바탕으로 화면을 수정한다.",
+      "choices": [
+        "가-나-다",
+        "다-가-나",
+        "나-다-가",
+        "나-가-다"
+      ],
+      "correct": 2,
+      "explanation": "문제를 조사하고, 수정한 뒤, 수정 결과를 확인하는 순서입니다."
+    },
+    {
+      "id": "a4",
+      "type": "aptitude",
+      "axisLabel": "언어 이해",
+      "prompt": "“신청은 금요일 오후 6시까지이며, 그 이후에는 접수하지 않습니다.” 안내에 맞는 것은?",
+      "choices": [
+        "금요일 오후 7시에도 신청할 수 있다.",
+        "토요일에는 모든 신청을 받는다.",
+        "금요일 오후 5시에는 신청할 수 있다.",
+        "마감 시간은 정해져 있지 않다."
+      ],
+      "correct": 2,
+      "explanation": "오후 5시는 금요일 오후 6시 마감 이전입니다."
+    },
+    {
+      "id": "a5",
+      "type": "aptitude",
+      "axisLabel": "언어 이해",
+      "prompt": "다음 중 사실만을 서술한 문장은?",
+      "choices": [
+        "이 제품은 누구에게나 최고의 선택이다.",
+        "지난달 문의 건수는 120건이었다.",
+        "우리 팀의 방식이 언제나 가장 훌륭하다.",
+        "다음 제품은 반드시 성공할 것이다."
+      ],
+      "correct": 1,
+      "explanation": "문의 건수 120건은 기록으로 확인할 수 있는 구체적인 사실입니다."
+    },
+    {
+      "id": "a6",
+      "type": "aptitude",
+      "axisLabel": "수리 이해",
+      "prompt": "정가 80,000원인 상품을 15% 할인했다. 판매 가격은?",
+      "choices": [
+        "64,000원",
+        "66,000원",
+        "68,000원",
+        "72,000원"
+      ],
+      "correct": 2,
+      "explanation": "80,000 × 0.85 = 68,000원입니다."
+    },
+    {
+      "id": "a7",
+      "type": "aptitude",
+      "axisLabel": "수리 이해",
+      "prompt": "이번 달 지원자 240명 중 서류 통과 비율이 25%다. 통과 인원은?",
+      "choices": [
+        "40명",
+        "50명",
+        "60명",
+        "80명"
+      ],
+      "correct": 2,
+      "explanation": "240 × 0.25 = 60명입니다."
+    },
+    {
+      "id": "a8",
+      "type": "aptitude",
+      "axisLabel": "수리 이해",
+      "prompt": "A팀 3명, B팀 5명의 1인당 처리 건수가 각각 20건, 12건이다. 두 팀의 전체 처리 건수는?",
+      "choices": [
+        "60건",
+        "96건",
+        "100건",
+        "120건"
+      ],
+      "correct": 3,
+      "explanation": "3 × 20 + 5 × 12 = 120건입니다."
+    },
+    {
+      "id": "a9",
+      "type": "aptitude",
+      "axisLabel": "수리 이해",
+      "prompt": "네 번의 점수가 70, 80, 90, 100점일 때 평균은?",
+      "choices": [
+        "80점",
+        "85점",
+        "90점",
+        "95점"
+      ],
+      "correct": 1,
+      "explanation": "점수 합계 340을 4로 나누면 85점입니다."
+    },
+    {
+      "id": "a10",
+      "type": "aptitude",
+      "axisLabel": "수리 이해",
+      "prompt": "5명이 같은 속도로 일하면 8일 걸리는 작업이 있다. 10명이 같은 속도로 일하면 며칠 걸리는가? (작업량은 인원과 시간에 비례한다.)",
+      "choices": [
+        "2일",
+        "4일",
+        "6일",
+        "8일"
+      ],
+      "correct": 1,
+      "explanation": "필요한 작업량은 40인일이므로 10명이 하면 4일입니다."
+    },
+    {
+      "id": "a11",
+      "type": "aptitude",
+      "axisLabel": "논리 추론",
+      "prompt": "수열 3, 6, 12, 24, □의 다음 수는?",
+      "choices": [
+        "30",
+        "36",
+        "48",
+        "54"
+      ],
+      "correct": 2,
+      "explanation": "앞의 수에 2를 곱하는 규칙입니다."
+    },
+    {
+      "id": "a12",
+      "type": "aptitude",
+      "axisLabel": "논리 추론",
+      "prompt": "모든 기획자는 문서를 작성한다. 민수는 기획자다. 반드시 참인 것은?",
+      "choices": [
+        "민수는 문서를 작성한다.",
+        "문서를 작성하는 사람은 모두 기획자다.",
+        "민수는 문서를 작성하지 않는다.",
+        "기획자는 민수 한 명이다."
+      ],
+      "correct": 0,
+      "explanation": "기획자 전체에 대한 조건이 기획자인 민수에게도 적용됩니다."
+    },
+    {
+      "id": "a13",
+      "type": "aptitude",
+      "axisLabel": "논리 추론",
+      "prompt": "A, B, C가 한 줄로 선다. A는 B보다 앞에 있고, C는 B보다 뒤에 있다. 가능한 순서는?",
+      "choices": [
+        "B-A-C",
+        "A-C-B",
+        "C-A-B",
+        "A-B-C"
+      ],
+      "correct": 3,
+      "explanation": "A가 B의 앞, C가 B의 뒤이므로 A-B-C입니다."
+    },
+    {
+      "id": "a14",
+      "type": "aptitude",
+      "axisLabel": "논리 추론",
+      "prompt": "“승인되면 알림이 발송된다.” 알림이 발송되지 않았다면 반드시 알 수 있는 것은?",
+      "choices": [
+        "승인되었다.",
+        "승인되지 않았다.",
+        "알림 없이도 반드시 승인된다.",
+        "아무 조건도 판단할 수 없다."
+      ],
+      "correct": 1,
+      "explanation": "승인되었다면 알림이 있어야 하므로 알림이 없으면 승인되지 않은 것입니다."
+    },
+    {
+      "id": "a15",
+      "type": "aptitude",
+      "axisLabel": "논리 추론",
+      "prompt": "네 문서 가, 나, 다, 라의 검토 순서를 정한다. 나는 가 직후, 라는 다 직후에 검토한다. 가가 첫 번째일 때 세 번째 문서는?",
+      "choices": [
+        "가",
+        "나",
+        "다",
+        "라"
+      ],
+      "correct": 2,
+      "explanation": "가는 첫 번째, 나는 두 번째이므로 남은 다-라가 세 번째와 네 번째입니다."
+    }
+  ]
+}

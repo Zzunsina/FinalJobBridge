@@ -1,0 +1,62 @@
+[
+  {
+    "key": "career",
+    "label": "잡브릿지 소개",
+    "presentation": "banner",
+    "imageUrl": "/images/home-banners-v1/career.png",
+    "imageAlt": "당신의 가능성이, 새로운 기회 나에게 맞는 일자리부터 든든한 취업 지원까지. 잡브릿지가 다음 커리어를 함께 연결합니다.",
+    "to": "/jobs",
+    "sortOrder": 1,
+    "isPublished": true
+  },
+  {
+    "key": "team",
+    "label": "함께하는 기업",
+    "presentation": "banner",
+    "imageUrl": "/images/home-banners-v1/team.png",
+    "imageAlt": "좋은 동료와 함께, 더 크게 성장하세요. 새로운 가능성을 만드는 기업들. 기업 소개와 채용 소식을 한곳에서 만나보세요.",
+    "to": "/companies",
+    "sortOrder": 2,
+    "isPublished": true
+  },
+  {
+    "key": "resume",
+    "label": "이력서 작성 안내",
+    "presentation": "banner",
+    "imageUrl": "/images/home-banners-v1/resume.png",
+    "imageAlt": "차곡차곡 쌓은 경험, 멋진 기회가 되도록. 나만의 강점을 담은 이력서를 준비해 보세요. 작성부터 지원까지, 잡브릿지가 함께합니다.",
+    "to": "/resumes",
+    "sortOrder": 3,
+    "isPublished": true
+  },
+  {
+    "key": "matching",
+    "label": "맞춤 채용 탐색",
+    "presentation": "banner",
+    "imageUrl": "/images/home-banners-v1/matching.png",
+    "imageAlt": "내가 원하는 조건, 다음 일자리의 시작. 지역부터 고용형태와 경력까지. 나에게 맞는 조건으로 채용공고를 찾아보세요.",
+    "to": "/jobs",
+    "sortOrder": 4,
+    "isPublished": true
+  },
+  {
+    "key": "support",
+    "label": "취업연계 상담",
+    "presentation": "banner",
+    "imageUrl": "/images/home-banners-v1/support.png",
+    "imageAlt": "취업 준비의 고민, 함께 길을 찾아요. 혼자 고민하던 다음 걸음을 함께 준비하세요. 취업연계 상담으로 나의 가능성을 넓혀보세요.",
+    "to": "/employment",
+    "sortOrder": 5,
+    "isPublished": true
+  },
+  {
+    "key": "interview",
+    "label": "커리어 준비",
+    "presentation": "banner",
+    "imageUrl": "/images/home-banners-v1/interview.png",
+    "imageAlt": "준비한 나의 강점, 자신 있게 보여주세요. 나의 경험과 프로젝트를 하나씩 정리하고, 다음 지원에 담을 나만의 이야기를 준비하세요.",
+    "to": "/resumes",
+    "sortOrder": 6,
+    "isPublished": true
+  }
+]

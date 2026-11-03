@@ -3,7 +3,6 @@ import { Link, useBlocker } from 'react-router-dom';
 import { message } from '../../api/client';
 import { useAuth } from '../../stores/auth';
 import ResumeDocument from './ResumeDocument';
-import AssessmentQuiz from './AssessmentQuiz';
 import CalendarPicker from '../common/CalendarPicker';
 import ProfileAvatar from '../common/ProfileAvatar';
 import '../../assets/styles/resume.css';
@@ -145,7 +144,6 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
   const baseline = useRef(JSON.stringify(values));
   const [preview, setPreview] = useState(false);
   const [attachmentChanged, setAttachmentChanged] = useState(false);
-  const [assessmentAnswers, setAssessmentAnswers] = useState(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const dirty = JSON.stringify(values) !== baseline.current || assessmentAnswers !== undefined;
@@ -204,16 +202,6 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
   }
   async function save(event) {
     event.preventDefault();
-    if (!initial.assessment && assessmentAnswers === undefined) {
-      setError('인적성검사를 완료한 후 이력서를 저장해 주세요.');
-      document.getElementById('resume-assessment')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-    if (assessmentAnswers !== undefined && (assessmentAnswers.length !== 10 || assessmentAnswers.some((answer) => !Number.isInteger(answer) || answer < 0 || answer > 3))) {
-      setError('인적성검사의 모든 문항에 답해 주세요.');
-      document.getElementById('resume-assessment')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
     setBusy(true);
     setError('');
     try {
@@ -236,7 +224,6 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
         .slice(0, 10000);
       const body = { ...values, education, careerDescription };
       if (!attachmentChanged) delete body.attachment;
-      if (assessmentAnswers !== undefined) body.assessmentAnswers = assessmentAnswers;
       await onSave(body);
       saved.current = true;
       baseline.current = JSON.stringify(values);
@@ -511,7 +498,6 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
               <p className="muted">PDF 1개 · 최대 5MB. 제출한 파일은 지원 당시 버전으로 보관됩니다.</p>
               {values.attachment && <div className="actions"><span>{values.attachment.fileName}</span>{values.attachment.fileId && <a href={'/api/resumes/'+initial.resumeId+'/attachment'}>저장된 파일 다운로드</a>}<button type="button" className="secondary" onClick={() => { field('attachment',null);setAttachmentChanged(true); }}>첨부 제거</button></div>}
             </section>
-            <AssessmentQuiz result={initial.assessment} answers={assessmentAnswers} onChange={setAssessmentAnswers} />
             <section className="resume-sheet" id="resume-summary">
               <div className="resume-section-heading">
                 <div>

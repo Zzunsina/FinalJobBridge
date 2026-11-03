@@ -65,7 +65,6 @@ public class Assessments {
     public void snapshot(long application,long job,long resume) {
         var result=result(resume);
         Integer min=minimum(job);
-        if(min!=null && result==null) throw new Problem(400,"이 공고에 지원하려면 이력서에서 예시 검사를 완료해 주세요.");
         if(result!=null) db.update("INSERT INTO application_assessments(application_id,score,min_score) VALUES(?,?,?)",application,result.get("score"),min);
     }
     public Map<String,Object> companyResult(long application,boolean viewed) {

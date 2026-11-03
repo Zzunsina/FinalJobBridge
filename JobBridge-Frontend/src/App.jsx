@@ -1,3 +1,8 @@
+
+import CareerExploration from './pages/CareerExploration';
+import CareerAssessment from './pages/CareerAssessment';
+import SiteFooter from './components/common/SiteFooter';
+import ServiceInfo from './pages/ServiceInfo';
 import { jobCategories } from './data/jobCategories';
 import { CompanyApplicants, CompanyInterviewSchedule } from './pages/CompanyOverview';
 import HeaderSearch from './components/common/HeaderSearch';
@@ -27,6 +32,7 @@ import {
   CompanyProfile,
 } from './pages/Company';
 import { AdminDashboard, AdminManage } from './pages/Admin';
+import AdminHomePromotions from './pages/AdminHomePromotions';
 import NotificationLink from './components/common/NotificationLink';
 import CustomerCenter from './pages/CustomerCenter';
 import EmploymentDetail from './pages/EmploymentDetail';
@@ -50,10 +56,13 @@ const adminLinks = [
   ['/admin/jobs', '공고 심사'],
   ['/admin/employment', '취업연계 관리'],
   ['/admin/notices', '공지 관리'],
+  ['/admin/home-promotions', '홈 홍보 관리'],
   ['/admin/inquiries', '문의 관리'],
 ];
 const seekerLinks = [
   ['/resumes', '이력서 관리'],
+  ['/career-test', '인적성검사'],
+  ['/career-exploration', '진로 탐색'],
   ['/applications', '지원 내역'],
   ['/bookmarks', '관심 공고'],
   ['/employment', '취업연계'],
@@ -257,7 +266,7 @@ export default function App() {
           </nav>
         </div>
       )}
-      <div className={workspace && user ? `workspace container ${user.role === 'ADMIN' ? 'admin-workspace' : ''} ${user.role === 'COMPANY' && location.pathname === '/company' ? 'company-overview-workspace' : ''}` : 'container'}>
+      <div className={workspace && user ? `workspace container ${user.role === 'ADMIN' ? 'admin-workspace' : ''} ${user.role === 'COMPANY' && location.pathname === '/company' ? 'company-overview-workspace' : ''}` : location.pathname === '/' ? 'container home-content-container' : 'container'}>
         {workspace && user && !(user.role === 'COMPANY' && location.pathname === '/company') && (
           <aside className="sidebar">
             <p className="eyebrow">{user.role === 'ADMIN' ? 'ADMIN CENTER' : 'COMPANY CENTER'}</p>
@@ -278,6 +287,13 @@ export default function App() {
             </div>
           )}
           <Routes>
+            <Route path="/career-exploration" element={<CareerExploration />} />
+            <Route path="/career-exploration/:id" element={<CareerExploration />} />
+            <Route path="/career-test" element={<CareerAssessment />} />
+            <Route path="/career-test/:id" element={<CareerAssessment />} />
+            <Route path="/about" element={<ServiceInfo page="about" />} />
+            <Route path="/guide/:topic" element={<ServiceInfo />} />
+            <Route path="/policies/:topic" element={<ServiceInfo />} />
             <Route path="/" element={<Home />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
@@ -325,6 +341,7 @@ export default function App() {
             />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />
+            <Route path="/admin/home-promotions" element={protectedPage('ADMIN', <AdminHomePromotions />)} />
             {[
               ['members', 'users'],
               ['companies', 'companies'],
@@ -354,30 +371,7 @@ export default function App() {
         </main>
       </div>
       <SidePanels />
-      <footer>
-        <div className="container footer-inner">
-          <div>
-            <Link className="footer-logo" to="/">
-              <span className="brand-image">
-                <img src="/images/jobbridge-logo.jpg" alt="" />
-              </span>{' '}
-              잡브릿지
-            </Link>
-            <p>
-              가능성과 기회를 잇다.
-              <br />
-              당신의 다음 시작을 함께합니다.
-            </p>
-          </div>
-          <div>
-            <Link to="/notices">공지사항</Link>
-            {user?.role !== 'ADMIN' && <Link to="/inquiries">고객센터</Link>}
-            <Link to="/admin/login">관리자 로그인</Link>
-            <span>학습·시연용 취업연계 플랫폼</span>
-          </div>
-          <p className="copyright">© 2026 JOBBRIDGE. All rights reserved.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

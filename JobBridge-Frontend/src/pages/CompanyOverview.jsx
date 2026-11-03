@@ -25,7 +25,7 @@ export default function CompanyOverview() {
       ].map(([label, value, icon, tone, to]) => <Link to={to} className="company-summary-card" key={label}><span className={`company-metric-icon ${tone}`}><Icon type={icon} /></span><span><small>{label}</small><strong>{number(value)}</strong></span><span className="company-card-arrow">↗</span></Link>)}</div>
       <div className="company-section-heading"><h2>진행 중인 채용공고 <span>({number(data.publishedJobs)})</span></h2><Link to="/company/jobs">전체 공고 보기 →</Link></div>
       {data.activeJobs.length ? <div className="company-overview-job-list">{data.activeJobs.map((job) => <article className="company-overview-job" key={job.jobId}>
-        <CompanyCover companyName={data.profile.companyName} industry={data.profile.industry} bannerImageUrl={job.bannerImageUrl} className="company-overview-job-image" />
+        <CompanyCover companyId={data.profile.companyId} profileImageUrl="/api/company/image" companyName={data.profile.companyName} industry={data.profile.industry} bannerImageUrl={job.bannerImageUrl} className="company-overview-job-image" />
         <div className="company-overview-job-copy"><div className="company-overview-job-title"><h3>{job.title}</h3><Badge value={job.status} /></div><p>{job.jobType} · {job.workLocation}</p><div className="company-overview-job-meta"><span>지원자 {number(job.applicationCount)}명</span><span>{job.endDate} 마감</span></div></div>
         <Link className="company-applicant-link" to={`/company/jobs/${job.jobId}/applicants`}>지원자 관리 →</Link>
       </article>)}</div> : <Empty to="/company/jobs/new" action="새 채용공고 작성">게시 중인 공고가 없습니다. 새로운 동료를 만날 공고를 작성해 보세요.</Empty>}

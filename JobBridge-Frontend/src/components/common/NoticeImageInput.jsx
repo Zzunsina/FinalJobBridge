@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-export default function NoticeImageInput({ id, value, previewUrl, onChange }) {
+export default function NoticeImageInput({ id, value, previewUrl, onChange, onBusyChange, helpText, previewAlt, removeLabel }) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -8,7 +8,7 @@ export default function NoticeImageInput({ id, value, previewUrl, onChange }) {
   async function select(event) {
     const file = event.target.files?.[0]; event.target.value = '';
     if (!file) return;
-    setError(''); setBusy(true);
+    setError(''); setBusy(true); onBusyChange?.(true);
     try {
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) throw new Error('10MB 이하의 JPG, PNG, WEBP 이미지를 선택해 주세요.');
       const bitmap = await createImageBitmap(file);
@@ -21,12 +21,12 @@ export default function NoticeImageInput({ id, value, previewUrl, onChange }) {
         onChange(data);
       } finally { bitmap.close(); }
     } catch (ex) { setError(ex.message || '이미지를 읽을 수 없습니다.'); }
-    finally { setBusy(false); }
+    finally { setBusy(false); onBusyChange?.(false); }
   }
   return <div className="notice-image-input">
     <input id={id} ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={select} disabled={busy} />
-    <p className="muted">안내 이미지 1장 · 최대 10MB · 비율을 유지하며 저장합니다. 공지 저장 시 함께 반영됩니다.</p>
-    {source && <><img src={source} alt="공지 안내 이미지 미리보기" /><button type="button" className="secondary" disabled={busy} onClick={() => onChange('')}>이미지 삭제</button></>}
+    <p className="muted">{helpText || '안내 이미지 1장 · 최대 10MB · 비율을 유지하며 저장합니다. 공지 저장 시 함께 반영됩니다.'}</p>
+    {source && <><img src={source} alt={previewAlt || '공지 안내 이미지 미리보기'} /><button type="button" className="secondary" disabled={busy} onClick={() => onChange('')}>{removeLabel || '이미지 삭제'}</button></>}
     {busy && <p role="status">이미지를 처리하는 중입니다…</p>}
     {error && <p className="error" role="alert">{error}</p>}
   </div>;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { companyCoverSources } from '../../utils/companyCoverSources';
 
 export function companyTheme({ companyName = '', industry = '' }) {
   const value = companyName + ' ' + industry;
@@ -11,14 +12,14 @@ export function companyTheme({ companyName = '', industry = '' }) {
   return 'business';
 }
 
-export default function CompanyCover({ companyName, industry, bannerImageUrl, className = '' }) {
+export default function CompanyCover({ companyId, companyName, industry, bannerImageUrl, profileImageUrl, className = '' }) {
   const theme = companyTheme({ companyName, industry });
-  const [failedSource, setFailedSource] = useState(null);
-  const uploaded = typeof bannerImageUrl === 'string' ? bannerImageUrl.trim() : '';
-  const source = uploaded && uploaded !== failedSource ? uploaded : `/images/company-covers-v2/${theme}.jpg`;
+  const [failedSources, setFailedSources] = useState([]);
+  const candidates = companyCoverSources({ companyId, bannerImageUrl, profileImageUrl, theme });
+  const source = candidates.find((item) => !failedSources.includes(item));
   return (
     <div className={`company-cover ${className}`} aria-hidden="true">
-      <img src={source} onError={() => { if (uploaded && source === uploaded) setFailedSource(uploaded); }} alt="" loading="lazy" width="1774" height="887" />
+      {source && <img src={source} onError={() => setFailedSources((old) => old.includes(source) ? old : [...old, source])} alt="" loading="lazy" width="1774" height="887" />}
     </div>
   );
 }

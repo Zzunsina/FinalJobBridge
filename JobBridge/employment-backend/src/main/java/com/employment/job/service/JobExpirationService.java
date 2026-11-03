@@ -7,6 +7,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class JobExpirationService {
@@ -16,18 +17,10 @@ public class JobExpirationService {
         this.db = db;
     }
 
-    // Catch up after downtime and retry each minute, including midnight in Korea.
-    @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
     public void closeExpiredJobs() {
-        closeExpiredJobs(LocalDate.now(ZoneId.of("Asia/Seoul")));
-    }
-
-    int closeExpiredJobs(LocalDate today) {
-        return db.update(
-            "UPDATE job_postings SET status='CLOSED', updated_at=CURRENT_TIMESTAMP " +
-                "WHERE status='PUBLISHED' AND end_date<?",
-            today
-        );
+        db.update("UPDATE job_postings SET status='CLOSED',updated_at=CURRENT_TIMESTAMP WHERE status='PUBLISHED' AND end_date<?", EmploymentService.today());
     }
 }

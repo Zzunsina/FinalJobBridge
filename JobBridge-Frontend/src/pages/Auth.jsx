@@ -85,7 +85,7 @@ export function Login({ adminOnly = false }) {
         ]}
         onSubmit={async (body) => {
           const user = await login(adminOnly ? body : { ...body, memberType }, adminOnly);
-          navigate(location.state?.customerCenter && user.role !== 'ADMIN' ? '/inquiries?view=' + (location.state?.customerCenterView === 'history' ? 'history' : 'inquiry') : user.role === 'ADMIN' ? '/admin' : user.role === 'COMPANY' ? '/company' : '/');
+          navigate(location.state?.careerExploration && user.role === 'JOB_SEEKER' ? '/career-exploration' : location.state?.careerAssessment && user.role === 'JOB_SEEKER' ? '/career-test' : location.state?.customerCenter && user.role !== 'ADMIN' ? '/inquiries?view=' + (location.state?.customerCenterView === 'history' ? 'history' : 'inquiry') + (['report', 'partnership'].includes(location.state?.customerCenterKind) ? '&kind=' + location.state.customerCenterKind : '') : user.role === 'ADMIN' ? '/admin' : user.role === 'COMPANY' ? '/company' : '/');
         }}
         submit={
           adminOnly ? '관리자 로그인' : memberType === 'COMPANY' ? '기업 로그인' : '개인 로그인'

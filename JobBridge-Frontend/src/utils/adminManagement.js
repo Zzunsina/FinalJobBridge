@@ -30,9 +30,10 @@ const normalize = (value) =>
     .normalize('NFKC')
     .toLocaleLowerCase('ko-KR');
 
-export function filterAdminRows(rows, name, query, status) {
+export function filterAdminRows(rows, name, query, status, role = '') {
   const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
-  return rows.filter((row) => {
+  const filtered = rows.filter((row) => {
+    if (name === 'users' && role && row.role !== role) return false;
     if (status && recordStatus(name, row) !== status) return false;
     const text = (searchFields[name] || [])
       .map((field) => {
@@ -42,4 +43,17 @@ export function filterAdminRows(rows, name, query, status) {
       .join(' ');
     return terms.every((term) => text.includes(term));
   });
+  if (name === 'inquiries') {
+    return filtered.sort((a, b) =>
+      Number(a.status !== 'OPEN') - Number(b.status !== 'OPEN') ||
+      String(b.createdAt || '').localeCompare(String(a.createdAt || '')) ||
+      Number(b.inquiryId) - Number(a.inquiryId),
+    );
+  }
+  if (name !== 'jobs') return filtered;
+  const priority = { PENDING: 0, DRAFT: 1, REJECTED: 2, PUBLISHED: 3, CLOSED: 4 };
+  return filtered.sort((a, b) =>
+    (priority[a.status] ?? 5) - (priority[b.status] ?? 5) ||
+    Number(b.jobId) - Number(a.jobId),
+  );
 }

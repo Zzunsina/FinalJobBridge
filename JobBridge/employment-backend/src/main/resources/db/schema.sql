@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS companies (
     company_id BIGINT AUTO_INCREMENT PRIMARY KEY,
         user_id BIGINT NOT NULL UNIQUE, FOREIGN KEY (user_id) REFERENCES users(user_id), company_name VARCHAR(200) NOT NULL,
         business_number VARCHAR(20) NOT NULL UNIQUE, ceo_name VARCHAR(100), industry VARCHAR(100),
-        company_size VARCHAR(100), address VARCHAR(255), website VARCHAR(500), description TEXT,
+        company_size VARCHAR(100), address VARCHAR(255), latitude DECIMAL(10,7), longitude DECIMAL(10,7), website VARCHAR(500), description TEXT,
         approval_status VARCHAR(20) NOT NULL DEFAULT 'PENDING', review_reason TEXT,
         reviewed_by BIGINT, FOREIGN KEY (reviewed_by) REFERENCES users(user_id), reviewed_at TIMESTAMP,
     CONSTRAINT chk_company_name_required CHECK (CHAR_LENGTH(TRIM(company_name)) > 0),
@@ -305,4 +305,30 @@ CREATE TABLE IF NOT EXISTS employment_onboarding (
     not_joined_at TIMESTAMP,
     user_message VARCHAR(2000),
     FOREIGN KEY (referral_id) REFERENCES employment_referrals(referral_id)
+);
+
+CREATE TABLE IF NOT EXISTS home_promotions (
+    promotion_key VARCHAR(32) PRIMARY KEY,
+    content_json MEDIUMTEXT NOT NULL,
+    sort_order INT NOT NULL,
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    version INT NOT NULL DEFAULT 0,
+    image_data MEDIUMBLOB,
+    image_type VARCHAR(30),
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS home_promotion_deletions (
+    promotion_key VARCHAR(32) PRIMARY KEY,
+    deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS account_suspensions (
+    user_id BIGINT PRIMARY KEY,
+    reason VARCHAR(1000) NOT NULL,
+    suspended_by BIGINT NOT NULL,
+    suspended_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lifted_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (suspended_by) REFERENCES users(user_id)
 );

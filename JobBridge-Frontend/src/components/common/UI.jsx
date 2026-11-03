@@ -1,6 +1,6 @@
 import CompanyCover, { companyTheme } from './CompanyCover';
 import '../../assets/styles/job-card-scenes.css';
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../stores/auth';
 import client, { message } from '../../api/client';
@@ -78,6 +78,14 @@ export function Resource({ resource, children }) {
   return children(resource.data);
 }
 export function Pagination({ page, totalPages, total, onChange }) {
+  const previousPage = useRef(page);
+  useLayoutEffect(() => {
+    if (previousPage.current !== page) {
+      // Run after the new page renders, overriding any global smooth-scroll style.
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      previousPage.current = page;
+    }
+  }, [page]);
   if (total <= 0 || totalPages <= 1) return null;
   const start = Math.max(0, Math.min(page - 2, totalPages - 5));
   return (
@@ -224,7 +232,14 @@ export function Form({
     setFieldErrors({});
     const invalid = fields.filter((field) => field.validate && (!field.visibleWhen || field.visibleWhen(values)))
       .map((field) => [field.name, field.validate(values[field.name], values)]).filter(([, problem]) => problem);
-    if (invalid.length) { setFieldErrors(Object.fromEntries(invalid)); setBusy(false); submitting.current = false; return; }
+    if (invalid.length) {
+      setFieldErrors(Object.fromEntries(invalid));
+      setError('입력 내용을 확인해 주세요. ' + invalid.map(([, problem]) => problem).join(' '));
+      document.getElementById(formId + '-' + invalid[0][0])?.focus();
+      setBusy(false);
+      submitting.current = false;
+      return;
+    }
     try {
       await onSubmit(values);
       if (resetOnSuccess) setValues({});
@@ -363,7 +378,7 @@ export function Form({
         </p>
       )}
       {error && (
-        <div className="error" role="alert">
+        <div className="error" role="alert" style={{ whiteSpace: 'pre-line' }}>
           {error}
         </div>
       )}
@@ -386,7 +401,7 @@ export function JobCard({ job, onBookmarkChange }) {
 
   return (
     <article className={`job-card job-card-illustrated scene-${scene}`}>
-      <CompanyCover companyName={job.companyName} industry={job.industry} bannerImageUrl={job.bannerImageUrl} className="job-card-scene" />
+      <CompanyCover companyId={job.companyId} companyName={job.companyName} industry={job.industry} bannerImageUrl={job.bannerImageUrl} className="job-card-scene" />
       {/* 카드 전체를 클릭하는 링크 */}
       <Link
         className="job-card-link-overlay"

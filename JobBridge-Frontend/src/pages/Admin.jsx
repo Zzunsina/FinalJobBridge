@@ -25,17 +25,21 @@ export function AdminManage({ resourceName }) {
 }
 
 function AdminManageContent({ resourceName }) {
-  const resource = useResource(`/admin/${resourceName}`, { refreshInterval: resourceName === 'employment-links' ? 10000 : 0 });
+  const resource = useResource(`/admin/${resourceName}`, { refreshInterval: 10000 });
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
+  const [memberRole, setMemberRole] = useState(null);
   const allRows = resource.data || [];
-  const filteredRows = filterAdminRows(allRows, resourceName, query, status);
-  const statuses = [...new Set(allRows.map((row) => recordStatus(resourceName, row)))].filter(
+  const [params] = useSearchParams();
+  const focus = params.get('focus');
+  const focusedRole = allRows.find((row) => String(row.userId) === focus)?.role;
+  const selectedRole = resourceName === 'users' ? (memberRole ?? focusedRole ?? 'JOB_SEEKER') : '';
+  const typeRows = resourceName === 'users' && selectedRole ? allRows.filter((row) => row.role === selectedRole) : allRows;
+  const filteredRows = filterAdminRows(allRows, resourceName, query, status, selectedRole);
+  const statuses = [...new Set(typeRows.map((row) => recordStatus(resourceName, row)))].filter(
     Boolean,
   );
   const filtering = Boolean(query.trim() || status);
-  const [params] = useSearchParams();
-  const focus = params.get('focus');
   const key = {
     users: 'userId',
     companies: 'companyId',
@@ -63,6 +67,21 @@ function AdminManageContent({ resourceName }) {
           <summary>＋ 새 공지 작성</summary>
           <NoticeForm onDone={resource.reload} />
         </details>
+      )}
+      {resourceName === 'jobs' && <p className="callout">심사 중 → 초안 → 반려 → 게시 중 → 마감 순으로 표시합니다. 같은 상태에서는 최근 등록 공고가 먼저 표시됩니다.</p>}
+      {resourceName === 'users' && (
+        <div className="admin-member-tabs" role="group" aria-label="회원 유형">
+          {[
+            ['JOB_SEEKER', '개인회원'], ['COMPANY', '기업회원'], ['', '전체'],
+            ...(allRows.some((row) => row.role === 'ADMIN') ? [['ADMIN', '관리자']] : []),
+          ].map(([role, label]) => (
+            <button key={role} type="button" className={selectedRole === role ? 'selected' : ''}
+              aria-pressed={selectedRole === role}
+              onClick={() => { setMemberRole(role); setStatus(''); }}>
+              {label} <span>{(role ? allRows.filter((row) => row.role === role) : allRows).length}</span>
+            </button>
+          ))}
+        </div>
       )}
       <div className="admin-list-toolbar">
         <div className="admin-search-field">
@@ -118,9 +137,9 @@ function AdminManageContent({ resourceName }) {
       {!resource.loading && !resource.error && (
         <div className="admin-list-caption" role="status" aria-live="polite">
           <span>
-            {filtering ? '검색 결과' : '전체'}{' '}
+            {filtering ? '검색 결과' : (resourceName === 'users' ? ({ JOB_SEEKER: '개인회원', COMPANY: '기업회원', ADMIN: '관리자' }[selectedRole] || '전체') : '전체')}{' '}
             <strong>{filteredRows.length.toLocaleString('ko-KR')}</strong>건
-            {filtering && ` / 전체 ${allRows.length.toLocaleString('ko-KR')}건`}
+            {filtering && ` / 전체 ${typeRows.length.toLocaleString('ko-KR')}건`}
           </span>
           <span>항목을 누르면 상세 내용이 펼쳐집니다</span>
         </div>
@@ -129,7 +148,7 @@ function AdminManageContent({ resourceName }) {
         resource={{ ...resource, data: resource.data == null ? null : filteredRows }}
         focusId={focus}
         idKey={key}
-        key={`${resourceName}:${query}:${status}`}
+        key={`${resourceName}:${selectedRole}:${query}:${status}`}
       >
         {(rows) =>
           rows.length ? (
@@ -213,17 +232,9 @@ function AdminRow({ name, row: r, reload }) {
           </div>
           <Badge value={r.status} />
         </div>
-        {r.role !== 'ADMIN' && r.status !== 'WITHDRAWN' && (
-          <Action
-            method="patch"
-            url={`/admin/users/${r.userId}/status`}
-            body={{ status: r.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' }}
-            onDone={reload}
-            confirm="회원 상태를 변경할까요?"
-          >
-            {r.status === 'ACTIVE' ? '회원 정지' : '정지 해제'}
-          </Action>
-        )}
+        {r.status === 'SUSPENDED' && <p className="callout" style={{ whiteSpace:'pre-line' }}>정지 사유: {r.suspensionReason || '기존 정지 건으로 사유가 등록되지 않았습니다.'}</p>}
+        {r.role !== 'ADMIN' && r.status === 'ACTIVE' && <details className="admin-suspend-form"><summary>회원 정지</summary><p className="muted">입력한 사유는 해당 회원의 로그인 화면에 표시됩니다.</p><Form fields={[{ name:'reason', label:'정지 사유 (회원에게 표시됩니다)', type:'textarea', required:true, maxLength:1000 }]} submit="사유 저장 후 회원 정지" onSubmit={async(body)=>{ await client.patch('/admin/users/'+r.userId+'/status',{ status:'SUSPENDED', reason:body.reason }); await reload(); }} /></details>}
+        {r.role !== 'ADMIN' && r.status === 'SUSPENDED' && <Action method="patch" url={'/admin/users/'+r.userId+'/status'} body={{ status:'ACTIVE' }} onDone={reload} confirm="회원 정지를 해제할까요?">정지 해제</Action>}
       </>
     );
   if (name === 'companies' || name === 'jobs') {
@@ -270,7 +281,24 @@ function AdminRow({ name, row: r, reload }) {
             {r.workLocation} · {r.startDate} ~ {r.endDate}
           </p>
         )}
-        {status === 'PENDING' && (
+        {!company && status === 'DRAFT' && (
+          <p className="callout" role="status">기업이 저장한 초안으로, 아직 심사 요청을 하지 않은 공고입니다. 기업 계정의 ‘채용공고 관리’에서 ‘심사 요청’을 누르면 관리자가 게시 승인 또는 반려할 수 있습니다.</p>
+        )}
+        {!company && status === 'REJECTED' && (
+          <p className="callout">반려된 공고입니다. 기업이 내용을 수정하고 다시 심사를 요청해야 합니다.{r.reviewReason && <> 반려 사유: {r.reviewReason}</>}</p>
+        )}
+        {!company && status === 'PENDING' && (
+          <div className="stack">
+            <p className="callout">기업의 심사 요청이 접수되었습니다. 내용을 확인한 후 게시 승인하거나, 사유를 입력해 반려해 주세요.</p>
+            <Action method="patch" url={url} body={{ status: 'PUBLISHED' }} onDone={reload} confirm="이 공고를 게시 승인할까요? 승인하면 채용공고에 공개됩니다.">게시 승인</Action>
+            <Form
+              fields={[{ name: 'reason', label: '반려 사유', type: 'textarea', required: true }]}
+              onSubmit={async (body) => { await client.patch(url, { ...body, status: 'REJECTED' }); await reload(); }}
+              submit="심사 반려"
+            />
+          </div>
+        )}
+        {company && status === 'PENDING' && (
           <Form
             fields={[
               {

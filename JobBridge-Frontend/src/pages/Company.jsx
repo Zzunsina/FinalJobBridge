@@ -1,3 +1,4 @@
+import SubmittedAssessment from '../components/common/SubmittedAssessment';
 import { formatDateTime } from "../utils/dateTime";
 import CalendarPicker from '../components/common/CalendarPicker';
 import { koreanToday } from '../utils/memberInputs';
@@ -52,6 +53,8 @@ export function JobManage() {
               {rows.map((j) => (
                 <article className="panel company-managed-job" key={j.jobId}>
                   <CompanyCover
+                    companyId={j.companyId}
+                    profileImageUrl="/api/company/image"
                     companyName={profile.data?.companyName}
                     industry={profile.data?.industry}
                     bannerImageUrl={j.bannerImageUrl}
@@ -165,7 +168,6 @@ const jobFields = [
 
 { name: 'requirements', label: '자격요건', type: 'textarea' },
   { name: 'preferredQualifications', label: '우대사항', type: 'textarea' },
-  { name: 'assessmentMinScore', label: '예시 검사 검토 기준 점수 (기업 전용·선택)', type: 'number', min: 0, max: 100 },
 ];
 export function JobForm() {
   const { id } = useParams();
@@ -181,6 +183,7 @@ export function JobForm() {
         {(data) => (
           <div className="panel narrow">
             <Form
+              key={`${id || "new"}:${data.jobId || ""}:${data.updatedAt || ""}`}
               initial={id ? { ...data, education: data.education || '학력무관' } : { headcount: 1, jobType: '정규직', careerType: '신입·경력', education: '학력무관' }}
               fields={jobFields.map((field) => {
                 if (field.name === 'education' && id && data.education && !field.options.includes(data.education)) {
@@ -199,14 +202,15 @@ export function JobForm() {
                     if (!startField && values.startDate && value < values.startDate) return '마감일은 시작일보다 빠를 수 없습니다.';
                     return '';
                   },
-                  render: ({ id: fieldId, values, setValues }) => {
+                  render: ({ id: fieldId, values, setValues, error, clearError }) => {
                     const today = koreanToday();
                     const min = startField
                       ? (originalStart && originalStart < today ? originalStart : today)
                       : (values.startDate && values.startDate > today ? values.startDate : today);
-                    return <CalendarPicker id={fieldId} name={field.name} label={field.label} required value={values[field.name] || ''} min={min}
+                    return <><CalendarPicker id={fieldId} name={field.name} label={field.label} required value={values[field.name] || ''} min={min}
                       isDateDisabled={startField ? (date) => date < today && date !== originalStart : undefined}
-                      onChange={(value) => setValues((old) => ({ ...old, [field.name]: value, ...(startField && old.endDate && old.endDate < value ? { endDate: '' } : {}) }))} />;
+                      onChange={(value) => { clearError(); setValues((old) => ({ ...old, [field.name]: value, ...(startField && old.endDate && old.endDate < value ? { endDate: '' } : {}) })); }} />
+                      {error && <p className="input-guidance" role="alert">{error}</p>}</>;
                   },
                 };
               })}
@@ -278,8 +282,9 @@ export function ApplicantDetail() {
           <div className="panel">
             <Badge value={a.status} />
             <Snapshot data={a.snapshot} />
+            <SubmittedAssessment data={a.snapshot?.careerAssessment} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
-            {a.assessment && <div className="callout"><strong>예시 검사 {a.assessment.score}점 / 기업 검토 기준 {a.assessment.minScore ?? '미설정'}</strong><p>최초 열람: {a.assessment.firstViewedAt && formatDateTime(a.assessment.firstViewedAt)}</p>{a.assessment.belowThreshold && <p>{a.assessment.reviewRequired ? '담당자 검토 필요 · 48시간 경과' : '48시간 후 담당자 검토 예정'} · {formatDateTime(a.assessment.reviewDueAt)}</p>}<p>예시 점수는 실제 인적성 진단이 아니며 최종 결정은 담당자가 검토해야 합니다.</p></div>}
+            {a.assessment && !a.snapshot?.careerAssessment && <div className="callout"><strong>예시 검사 {a.assessment.score}점 / 기업 검토 기준 {a.assessment.minScore ?? '미설정'}</strong><p>최초 열람: {a.assessment.firstViewedAt && formatDateTime(a.assessment.firstViewedAt)}</p>{a.assessment.belowThreshold && <p>{a.assessment.reviewRequired ? '담당자 검토 필요 · 48시간 경과' : '48시간 후 담당자 검토 예정'} · {formatDateTime(a.assessment.reviewDueAt)}</p>}<p>예시 점수는 실제 인적성 진단이 아니며 최종 결정은 담당자가 검토해야 합니다.</p></div>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
             <div className="actions">
