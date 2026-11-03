@@ -4,7 +4,7 @@ import CompanyCover from '../components/common/CompanyCover';
 import HomePromotion from '../components/common/HomePromotion';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import CompanyMap from '../components/common/LocationMap';
+import LocationMap from '../components/common/LocationMap';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
 import ApplyForm from '../components/common/ApplyForm';
@@ -339,7 +339,7 @@ export function JobDetail() {
               </p>
 
               <h3>근무지 위치</h3>
-              <CompanyMap address={job.workLocation} />
+              <LocationMap address={job.workLocation} />
 
               <Link to={`/companies/${job.companyId}`}>기업 자세히 보기 ↗</Link>
               <hr />
@@ -639,7 +639,7 @@ export function CompanyDetail() {
             <p>주소: {c.address || '별도 안내'}</p>
             
             {/* 🗺️ 기업 위치 지도 컴포넌트 삽입 */}
-            <CompanyMap 
+            <LocationMap 
               address={c.address} 
               latitude={c.latitude} 
               longitude={c.longitude} 
