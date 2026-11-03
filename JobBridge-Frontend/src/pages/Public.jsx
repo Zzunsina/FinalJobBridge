@@ -1,7 +1,8 @@
 import { useRecentJobs } from '../stores/recentJobs';
 import CompanyCover from '../components/common/CompanyCover';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import CompanyMap from '../components/common/LocationMap';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
 import ApplyForm from '../components/common/ApplyForm';
@@ -411,12 +412,8 @@ export function JobDetail() {
                 동료를 기다립니다.
               </p>
 
-              {/* 🗺️ 채용 공고 상세 우측에 지도 추가 */}
-              <CompanyMap 
-                address={job.address || job.workLocation} 
-                latitude={job.latitude} 
-                longitude={job.longitude} 
-              />
+              <h3>근무지 위치</h3>
+              <CompanyMap address={job.workLocation} />
 
               <Link to={`/companies/${job.companyId}`}>기업 자세히 보기 ↗</Link>
               <hr />
@@ -442,223 +439,6 @@ export function JobDetail() {
         </>
       )}
     </Resource>
-  );
-}
-
-
-// 지도 렌더링 컴포넌트
-
-function CompanyMap({ address, latitude, longitude }) {
-  const mapRef = useRef(null);
-  const [mapError, setMapError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer = null;
-    let map = null;
-    let marker = null;
-    let attempts = 0;
-
-    setMapError('');
-
-    const cleanAddress = String(address ?? '').trim();
-
-    const lat = Number(latitude);
-    const lng = Number(longitude);
-
-    const hasCoordinates =
-      latitude !== null &&
-      latitude !== undefined &&
-      String(latitude).trim() !== '' &&
-      longitude !== null &&
-      longitude !== undefined &&
-      String(longitude).trim() !== '' &&
-      Number.isFinite(lat) &&
-      Number.isFinite(lng) &&
-      lat >= -90 &&
-      lat <= 90 &&
-      lng >= -180 &&
-      lng <= 180 &&
-      (lat !== 0 || lng !== 0);
-
-    const initializeMap = () => {
-      if (cancelled || !mapRef.current) return;
-
-      const kakao = window.kakao;
-
-      if (!kakao?.maps?.load) {
-        if (attempts++ < 100) {
-          timer = window.setTimeout(initializeMap, 100);
-        } else {
-          setMapError(
-            '카카오 지도 SDK를 불러오지 못했습니다. 앱 키와 도메인을 확인해 주세요.'
-          );
-        }
-        return;
-      }
-
-      kakao.maps.load(() => {
-        if (cancelled || !mapRef.current) return;
-
-        // 지도를 새로 만들기 전에 기존 DOM을 정리합니다.
-        mapRef.current.innerHTML = '';
-
-        // 주소 검색 전에는 전국이 보이는 위치를 사용합니다.
-        const initialPosition = hasCoordinates
-          ? new kakao.maps.LatLng(lat, lng)
-          : new kakao.maps.LatLng(36.5, 127.8);
-
-        map = new kakao.maps.Map(mapRef.current, {
-          center: initialPosition,
-          level: 3,
-        });
-
-        const showLocation = (position) => {
-          if (cancelled || !map) return;
-
-          marker = new kakao.maps.Marker({
-            position,
-            map,
-          });
-
-          map.setCenter(position);
-          map.setLevel(3);
-        };
-
-        const useSavedCoordinates = () => {
-          if (hasCoordinates) {
-            showLocation(initialPosition);
-            setMapError(
-              '주소 검색에 실패하여 저장된 좌표를 표시하고 있습니다. 실제 위치와 일치하는지 확인해 주세요.'
-            );
-          } else {
-            setMapError(
-              '주소를 찾지 못했습니다. 기업 주소를 확인해 주세요.'
-            );
-          }
-        };
-
-        // 주소가 있으면 주소 검색 결과를 우선 사용합니다.
-        if (cleanAddress) {
-          if (!kakao.maps.services?.Geocoder) {
-            setMapError(
-              '주소 검색 기능을 사용할 수 없습니다. SDK의 libraries=services 설정을 확인해 주세요.'
-            );
-            useSavedCoordinates();
-            return;
-          }
-
-          const geocoder =
-            new kakao.maps.services.Geocoder();
-
-          geocoder.addressSearch(
-            cleanAddress,
-            (result, status) => {
-              if (cancelled) return;
-
-              if (
-                status === kakao.maps.services.Status.OK &&
-                result?.length
-              ) {
-                // 검색 결과의 좌표가 유효한지 확인합니다.
-                const resultLat = Number(result[0].y);
-                const resultLng = Number(result[0].x);
-
-                if (
-                  Number.isFinite(resultLat) &&
-                  Number.isFinite(resultLng) &&
-                  resultLat >= -90 &&
-                  resultLat <= 90 &&
-                  resultLng >= -180 &&
-                  resultLng <= 180
-                ) {
-                  showLocation(
-                    new kakao.maps.LatLng(resultLat, resultLng)
-                  );
-                  return;
-                }
-              }
-
-              useSavedCoordinates();
-            }
-          );
-
-          return;
-        }
-
-        // 주소가 없을 때만 저장된 좌표를 사용합니다.
-        if (hasCoordinates) {
-          showLocation(initialPosition);
-        } else {
-          setMapError(
-            '기업 주소 또는 유효한 위치 좌표가 등록되지 않았습니다.'
-          );
-        }
-      });
-    };
-
-    initializeMap();
-
-    return () => {
-      cancelled = true;
-
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-
-      if (marker) {
-        marker.setMap(null);
-      }
-
-      // 다음 초기화를 위해 지도 DOM을 정리합니다.
-      if (mapRef.current) {
-        mapRef.current.innerHTML = '';
-      }
-
-      map = null;
-      marker = null;
-    };
-  }, [address, latitude, longitude]);
-
-  return (
-    <div
-      className="company-map-wrapper"
-      style={{ margin: '20px 0' }}
-    >
-      <div
-        ref={mapRef}
-        style={{
-          width: '100%',
-          height: '280px',
-          borderRadius: '8px',
-          backgroundColor: '#f0f0f0',
-          border: '1px solid #ddd',
-        }}
-      />
-
-      <p
-        className="muted"
-        style={{
-          fontSize: '13px',
-          marginTop: '8px',
-          color: '#666',
-        }}
-      >
-        📍 {address || '주소 정보가 없습니다.'}
-      </p>
-
-      {mapError && (
-        <p
-          role="alert"
-          style={{
-            color: '#c0392b',
-            fontSize: '13px',
-          }}
-        >
-          {mapError}
-        </p>
-      )}
-    </div>
   );
 }
 

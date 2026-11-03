@@ -1,7 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
+import PageReloadGate from './components/common/PageReloadGate';
 import './assets/styles/global.css';
 
 // Browser refresh starts a fresh job search before React reads the URL.
@@ -12,10 +13,10 @@ if (
   window.history.replaceState(window.history.state, '', window.location.pathname);
 }
 
+const router = createBrowserRouter([{ path: '*', element: <App /> }]);
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <PageReloadGate><RouterProvider router={router} /></PageReloadGate>
   </React.StrictMode>,
 );

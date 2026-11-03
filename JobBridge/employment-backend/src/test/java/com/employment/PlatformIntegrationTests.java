@@ -23,7 +23,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    "kakao.client-id=test-only-client",
+    "kakao.client-secret=test-only-secret",
+    "kakao.redirect-uri=http://localhost/test-only-callback"
+})
 @AutoConfigureMockMvc
 class PlatformIntegrationTests {
 
@@ -1244,6 +1248,8 @@ class PlatformIntegrationTests {
             "OFFLINE",
             "location",
             "서울특별시 중구 세종대로 110 면접실",
+            "applicantGuidance",
+            "10분 전 도착해 주세요.\n신분증을 지참해 주세요.",
             "memo",
             "비공개 평가 메모"
         );
@@ -1282,7 +1288,23 @@ class PlatformIntegrationTests {
             .perform(get("/api/applications/" + app).cookie(login(seeker)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.interviews[0].location").value(body.get("location")))
+            .andExpect(jsonPath("$.interviews[0].applicantGuidance").value(body.get("applicantGuidance")))
             .andExpect(jsonPath("$.interviews[0].memo").doesNotExist());
+        long interviewId = number(db.one("SELECT interview_id FROM interviews WHERE application_id=?", app), "interviewId");
+        var updated = new LinkedHashMap<>(body);
+        updated.put("applicantGuidance", "신분증과 포트폴리오를 준비해 주세요.");
+        service.updateInterview(companyUser, interviewId, updated, false);
+        mvc.perform(get("/api/applications/" + app).cookie(login(seeker)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.interviews[0].applicantGuidance").value(updated.get("applicantGuidance")))
+            .andExpect(jsonPath("$.interviews[0].memo").doesNotExist());
+        updated.remove("applicantGuidance");
+        service.updateInterview(companyUser, interviewId, updated, false);
+        assertThat(db.one("SELECT applicant_guidance FROM interviews WHERE interview_id=?", interviewId))
+            .containsEntry("applicantGuidance", "신분증과 포트폴리오를 준비해 주세요.");
+        updated.put("applicantGuidance", "가".repeat(2001));
+        assertThatThrownBy(() -> service.updateInterview(companyUser, interviewId, updated, false))
+            .isInstanceOf(Problem.class);
         mvc
             .perform(get("/api/applications/" + app).cookie(login(other)))
             .andExpect(status().isNotFound());

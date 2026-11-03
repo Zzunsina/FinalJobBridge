@@ -43,6 +43,12 @@ public class Problem extends RuntimeException {
             if (detail != null && detail.toLowerCase(java.util.Locale.ROOT).contains("uq_users_phone")) {
                 return response(409, "이미 사용 중인 휴대폰번호입니다. 다른 번호를 입력해 주세요.");
             }
+            if (detail != null) {
+                String lower = detail.toLowerCase(java.util.Locale.ROOT);
+                if (lower.contains("email") && (lower.contains("duplicate") || lower.contains("unique"))) {
+                    return response(409, "이미 사용 중인 이메일입니다.", "email");
+                }
+            }
             return response(409, "중복 정보 또는 참조 중인 데이터입니다.");
         }
 
