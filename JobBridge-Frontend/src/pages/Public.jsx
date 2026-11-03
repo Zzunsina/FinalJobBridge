@@ -1,5 +1,7 @@
+import { CareerTestCard } from './CareerAssessment';
 import { useRecentJobs } from '../stores/recentJobs';
 import CompanyCover from '../components/common/CompanyCover';
+import HomePromotion from '../components/common/HomePromotion';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { useResource } from '../hooks/useResource';
@@ -24,12 +26,27 @@ import {
 
 
 export function Home() {
-  const jobs = useResource('/jobs?size=10&page=0');
+  const jobs = useResource('/jobs?size=8&page=0');
   const notices = useResource('/notices');
 
   return (
     <div className="home-page">
-      <HomePromotion />
+      <div className="home-career-hero">
+        <div className="home-promotion-column">
+          <HomePromotion searchContent={<Search />} />
+      <section className="support-banner home-hero-support">
+        <div>
+          <p className="eyebrow">WE ARE HERE FOR YOU</p>
+          <h2>취업 준비, 혼자 고민하지 마세요.</h2>
+          <p>상담부터 기업 매칭까지, 취업연계 서비스가 함께합니다.</p>
+        </div>
+        <Link className="button" to="/employment">
+          취업연계 알아보기 ↗
+        </Link>
+      </section>
+        </div>
+        <CareerTestCard />
+      </div>
 
       <section className="quick-links">
         {[
@@ -70,7 +87,7 @@ export function Home() {
 
         <Resource resource={jobs}>
           {(data) => {
-            const allJobs = data.content || [];
+            const allJobs = (data.content || []).slice(0, 8);
 
             if (!allJobs.length) {
               return <Empty>현재 게시된 채용공고가 없습니다.</Empty>;
@@ -92,16 +109,7 @@ export function Home() {
         </Resource>
       </section>
 
-      <section className="support-banner">
-        <div>
-          <p className="eyebrow">WE ARE HERE FOR YOU</p>
-          <h2>취업 준비, 혼자 고민하지 마세요.</h2>
-          <p>상담부터 기업 매칭까지, 취업연계 서비스가 함께합니다.</p>
-        </div>
-        <Link className="button" to="/employment">
-          취업연계 알아보기 ↗
-        </Link>
-      </section>
+
 
       <section className="section notice-preview">
         <div className="section-heading">
@@ -136,88 +144,6 @@ export function Home() {
 
 
 
-function HomePromotion() {
-  const [slide, setSlide] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [interacting, setInteracting] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(query.matches);
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-  useEffect(() => {
-    if (paused || interacting || reducedMotion) return;
-    const timer = window.setInterval(() => setSlide((value) => (value + 1) % 3), 3000);
-    return () => window.clearInterval(timer);
-  }, [paused, interacting, reducedMotion, slide]);
-  const labels = ['잡브릿지 소개', '함께하는 기업', '이력서 작성 안내'];
-  return <section className={'hero promo-carousel promo-theme-' + slide} aria-label="잡브릿지 홍보 배너" aria-roledescription="캐러셀"
-    onFocusCapture={() => setInteracting(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
-    <div className="promo-slide" key={slide} role="group" aria-roledescription="슬라이드" aria-label={(slide + 1) + ' / 3 · ' + labels[slide]}>
-      {slide === 0 ? <>
-        <div className="hero-copy">
-          <p className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</p>
-          <h1>
-            당신의 가능성이,
-            <br />
-            <em>새로운 기회</em>를 만나는 곳.
-          </h1>
-          <p>
-            나에게 맞는 일자리부터 든든한 취업 지원까지.
-            <br />
-            잡브릿지가 다음 커리어를 함께 연결합니다.
-          </p>
-          <Search />
-          <div className="popular">
-            <span>추천 검색어</span>
-            {['개발자', '디자이너', '기획', '신입'].map((tag) => (
-              <Link key={tag} to={`/jobs?q=${encodeURIComponent(tag)}`}>
-                {tag}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="hero-art" aria-hidden="true">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="floating float-top">
-            <span className="art-icon">✦</span>
-            <div>
-              <strong>새로운 시작을 응원해요</strong>
-              <small>당신에게 꼭 맞는 다음 기회</small>
-            </div>
-            <span className="tiny-check">✓</span>
-          </div>
-          <div className="bridge">
-            <div className="bridge-line" />
-            <div className="bridge-pillar left" />
-            <div className="bridge-pillar right" />
-            <span className="bridge-dot dot-one" />
-            <span className="bridge-dot dot-two" />
-          </div>
-          <div className="floating float-bottom">
-            <span className="art-icon blue">↗</span>
-            <div>
-              <strong>가능성을 커리어로</strong>
-              <small>한 걸음 더 가까워진 내일</small>
-            </div>
-          </div>
-          <span className="spark spark-one">✳</span>
-          <span className="spark spark-two">＋</span>
-        </div>
-</> : slide === 1 ? <>
-        <div className="hero-copy"><p className="eyebrow">MEET YOUR NEXT TEAM</p><h1>좋은 동료와 함께,<br /><em>더 크게 성장하세요.</em></h1><p>새로운 가능성을 만드는 기업들.<br />기업 소개와 채용 소식을 한곳에서 만나보세요.</p><Link className="button promo-cta" to="/companies">함께하는 기업 만나보기 ↗</Link><div className="promo-keywords"><span>기업 이야기</span><span>일하는 문화</span><span>새로운 기회</span></div></div>
-        <div className="promo-illustration promo-teams" aria-hidden="true"><div className="promo-orb" /><div className="promo-team-card team-back"><span className="promo-logo purple">ON</span><div><strong>아이디어가 자라는 곳</strong><small>함께 만드는 더 나은 경험</small></div></div><div className="promo-team-card team-front"><span className="promo-logo">BL</span><div><small>YOUR NEXT TEAM</small><strong>함께 성장할 동료를 찾아요</strong><p>개발 · 디자인 · 기획</p><span className="promo-mini-tags">협업 &nbsp; / &nbsp; 성장 &nbsp; / &nbsp; 도전</span></div></div><div className="promo-team-note">✦ 가능성을 연결하는 팀</div></div>
-      </> : <>
-        <div className="hero-copy"><p className="eyebrow">BUILD YOUR CAREER STORY</p><h1>차곡차곡 쌓은 경험,<br /><em>멋진 기회가 되도록.</em></h1><p>나만의 강점을 담은 이력서를 준비해 보세요.<br />작성부터 지원까지, 잡브릿지가 함께합니다.</p><Link className="button promo-cta" to="/resumes">내 이력서 준비하기 ↗</Link><div className="promo-keywords"><span>경험 정리</span><span>강점 발견</span><span>커리어 시작</span></div></div>
-        <div className="promo-illustration promo-resume" aria-hidden="true"><div className="promo-orb" /><div className="promo-paper"><span className="promo-paper-label">MY CAREER STORY</span><div className="promo-profile"><span>나</span><div><strong>나의 가능성을 소개합니다</strong><small>경험과 강점을 한눈에</small></div></div><div className="promo-paper-line" /><div className="promo-paper-line short" /><div className="promo-paper-section">01 &nbsp; 나의 경험과 프로젝트</div><div className="promo-paper-line" /><div className="promo-paper-line short" /><div className="promo-paper-section">02 &nbsp; 함께 성장할 나의 강점</div></div><div className="promo-resume-note">✓ 다음 기회를 향한 준비</div></div>
-      </>}
-    </div>
-    <div className="promo-controls"><div className="promo-dots">{labels.map((label, index) => <button key={label} type="button" className={slide === index ? 'active' : ''} aria-label={label + ' 배너 보기'} aria-current={slide === index ? 'true' : undefined} onClick={() => setSlide(index)} />)}</div><span className="promo-counter">{slide + 1} / 3</span><button type="button" className="promo-control" aria-label="이전 배너" onClick={() => setSlide((slide + 2) % 3)}>‹</button><button type="button" className="promo-control" aria-label={paused || reducedMotion ? '배너 자동 전환 시작' : '배너 자동 전환 일시정지'} onClick={() => { setPaused(!(paused || reducedMotion)); setReducedMotion(false); }}>{paused || reducedMotion ? '▶' : 'Ⅱ'}</button><button type="button" className="promo-control" aria-label="다음 배너" onClick={() => setSlide((slide + 1) % 3)}>›</button></div>
-  </section>;
-}
 
 function Search({ initial = '' }) {
   const [q, setQ] = useState(initial);
@@ -525,7 +451,7 @@ function CompanyMap({ address, latitude, longitude }) {
           map.setLevel(3);
         };
 
-        const useSavedCoordinates = () => {
+        const showSavedCoordinates = () => {
           if (hasCoordinates) {
             showLocation(initialPosition);
             setMapError(
@@ -544,7 +470,7 @@ function CompanyMap({ address, latitude, longitude }) {
             setMapError(
               '주소 검색 기능을 사용할 수 없습니다. SDK의 libraries=services 설정을 확인해 주세요.'
             );
-            useSavedCoordinates();
+            showSavedCoordinates();
             return;
           }
 
@@ -579,7 +505,7 @@ function CompanyMap({ address, latitude, longitude }) {
                 }
               }
 
-              useSavedCoordinates();
+              showSavedCoordinates();
             }
           );
 
@@ -678,7 +604,7 @@ export function Companies() {
                   key={c.companyId}
                   to={`/companies/${c.companyId}`}
                 >
-                  <CompanyCover companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-list-cover" />
+                  <CompanyCover companyId={c.companyId} companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-list-cover" />
                   <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
                   <div className="company-card-heading"><h2>{c.companyName}</h2>{c.description?.startsWith('[예시 기업]') && <span className="company-demo-label">예시 기업</span>}</div>
                   <p className="company-industry">{c.industry || '산업 정보 준비 중'}</p>
@@ -708,7 +634,7 @@ export function CompanyDetail() {
     <Resource resource={resource}>
       {(c) => (
         <>
-          <CompanyCover companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-detail-cover" />
+          <CompanyCover companyId={c.companyId} companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-detail-cover" />
           <CompanyImage companyId={c.companyId} companyName={c.companyName} admin={admin} className="company-symbol large" />
           <Title description={c.industry}>{c.companyName}</Title>
           <article className="panel prose">

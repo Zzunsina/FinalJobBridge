@@ -10,6 +10,7 @@ export default function CustomerCenter() {
   const user = useAuth((s) => s.user);
   const [params, setParams] = useSearchParams();
   const view = ['inquiry', 'history'].includes(params.get('view')) ? params.get('view') : 'faq';
+  const kind = ['report', 'partnership'].includes(params.get('kind')) ? params.get('kind') : undefined;
   return <div className="customer-center">
     <Title description="자주 묻는 질문에서 도움을 찾고, 궁금한 점은 1:1 문의로 남겨 주세요.">고객센터</Title>
     <div className="customer-layout">
@@ -19,7 +20,7 @@ export default function CustomerCenter() {
         <button type="button" className={view === 'history' ? 'active' : ''} aria-current={view === 'history' ? 'page' : undefined} onClick={() => setParams({ view: 'history' })}>나의 문의</button>
         <Link to="/notices">공지사항</Link>
       </nav><p>개인정보가 포함된 문의는 1:1 문의를 이용해 주세요.</p></aside>
-      <section className="customer-content">{view === 'faq' ? <Faqs /> : user ? (view === 'inquiry' ? <InquiryWrite onSubmitted={() => setParams({ view: 'history' })} /> : <Inquiries />) : <div className="customer-login"><h2>{view === 'history' ? '나의 문의' : '1:1 문의하기'}</h2><p>문의 작성과 답변 확인은 로그인 후 이용할 수 있습니다.<br />문의 내용은 작성자와 관리자에게만 공개됩니다.</p><Link className="button" to="/login" state={{ customerCenter: true, customerCenterView: view }}>{view === 'history' ? '로그인하고 내 문의 확인' : '로그인하고 문의하기'}</Link><Link className="text-link" to="/signup">아직 계정이 없으신가요? 회원가입 →</Link></div>}</section>
+      <section className="customer-content">{view === 'faq' ? <Faqs /> : user ? (view === 'inquiry' ? <InquiryWrite key={kind || 'general'} kind={kind} onSubmitted={() => setParams({ view: 'history' })} /> : <Inquiries />) : <div className="customer-login"><h2>{view === 'history' ? '나의 문의' : '1:1 문의하기'}</h2><p>문의 작성과 답변 확인은 로그인 후 이용할 수 있습니다.<br />문의 내용은 작성자와 관리자에게만 공개됩니다.</p><Link className="button" to="/login" state={{ customerCenter: true, customerCenterView: view, customerCenterKind: kind }}>{view === 'history' ? '로그인하고 내 문의 확인' : '로그인하고 문의하기'}</Link><Link className="text-link" to="/signup">아직 계정이 없으신가요? 회원가입 →</Link></div>}</section>
     </div>
   </div>;
 }

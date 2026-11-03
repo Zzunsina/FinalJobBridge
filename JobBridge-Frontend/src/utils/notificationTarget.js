@@ -10,6 +10,8 @@ export function notificationTarget(notification, role) {
         : company ? '/company/applicants' : '/applications';
     case 'COMPANY':
       return company ? '/company/profile' : '/companies';
+    case 'JOB_REVIEW':
+      return role === 'ADMIN' ? `/admin/jobs${id ? `?focus=${id}` : ''}` : null;
     case 'JOB':
       return company ? (id ? `/company/jobs/${id}/edit` : '/company/jobs') : id ? `/jobs/${id}` : '/jobs';
     case 'INQUIRY':

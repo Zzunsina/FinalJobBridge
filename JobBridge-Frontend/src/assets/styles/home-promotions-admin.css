@@ -1,0 +1,23 @@
+.admin-promotion-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:24px; }
+.admin-promotion-tabs button { display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left; background:#fff; color:#345073; border:1px solid #dae3ef; padding:14px; border-radius:12px; }
+.admin-promotion-tabs button.selected { border-color:#2563eb; color:#1751cf; background:#edf3ff; }
+.admin-promotion-tabs button > span:first-child { overflow-wrap:anywhere; }
+.admin-promotion-preview.hero { display:block; padding:26px 24px; margin:0; border-radius:18px; overflow:hidden; }
+.admin-promotion-preview .promo-slide { grid-template-columns:1fr 1fr; min-height:320px; }
+.admin-promotion-preview .hero-copy h1 { font-size:clamp(22px,2vw,32px); }
+.admin-promotion-preview .promo-photo-visual { height:320px; }
+.admin-promotion-preview .button { pointer-events:none; }
+.admin-promotion-preview .popular > span:not(:first-child) { padding:2px 8px; border-radius:5px; background:#fff; }
+.admin-promotion-image .notice-image-input > img { max-height:220px; object-fit:contain; }
+.admin-promotion-management > .panel { margin-top:20px; }
+@media(max-width:800px) { .admin-promotion-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); } .admin-promotion-preview .promo-slide { grid-template-columns:1fr; } .admin-promotion-preview .promo-photo-visual { height:240px; } }
+
+.promo-dots { max-width:180px; overflow-x:auto; scrollbar-width:none; }
+.promo-dots button { flex-shrink:0; }
+
+.promotion-complete-banner { display:block; width:100%; overflow:hidden; border-radius:20px; }
+.promotion-complete-image { display:block; width:100%; height:auto; aspect-ratio:1200/520; object-fit:contain; background:#f6f8fb; }
+.hero.promo-carousel.promo-banner-carousel { padding:0 0 52px; border:0; border-radius:0; background:transparent; }
+.admin-banner-preview { margin:0 0 20px; }
+.admin-banner-upload .notice-image-input > img { max-height:130px; object-fit:contain; }
+.admin-banner-preview .promo-slide { display:grid; grid-template-columns:1fr 1fr; }

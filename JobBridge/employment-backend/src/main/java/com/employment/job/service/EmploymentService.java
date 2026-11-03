@@ -18,6 +18,7 @@ public class EmploymentService {
     private final EmploymentReferrals referrals;
     private final ResumeFiles files;
     private final Assessments assessments;
+    private final CareerAssessments careerAssessments;
     private final ObjectMapper json;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     // EmploymentService.java 상단부
@@ -25,12 +26,13 @@ public class EmploymentService {
         " FROM job_postings j JOIN companies c ON c.company_id=j.company_id JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ";
 
     // 👇 c.address, c.latitude, c.longitude 추가
-    private static final String JOB_COLUMNS = "j.*, c.company_name, c.address, c.latitude, c.longitude";
-    public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc, ResumeFiles files, Assessments assessments, EmploymentReferrals referrals) {
+    private static final String JOB_COLUMNS = "j.*, c.company_name, c.industry, c.address, c.latitude, c.longitude";
+    public EmploymentService(Database db, ObjectMapper json, org.springframework.jdbc.core.JdbcTemplate jdbc, ResumeFiles files, Assessments assessments, EmploymentReferrals referrals, CareerAssessments careerAssessments) {
         this.db = db;
         this.referrals = referrals;
         this.files = files;
         this.assessments = assessments;
+        this.careerAssessments = careerAssessments;
         this.json = json;
         this.jdbc = jdbc;
     }
@@ -224,9 +226,6 @@ public class EmploymentService {
     ) {
         long seeker = seeker(user);
         if (id != null) resume(user, id);
-        if (!body.containsKey("assessmentAnswers") && (id == null || assessments.result(id) == null)) {
-            throw new Problem(400, "인적성검사를 완료한 후 이력서를 저장해 주세요.", "assessmentAnswers");
-        }
         String title = Input.text(body, "title", 200, true);
         String education = Input.text(body, "education", 100, false);
         String career = Input.text(body, "careerDescription", 10000, false);
@@ -424,7 +423,9 @@ public class EmploymentService {
                     "contact",
                     contact,
                     "jobTitle",
-                    job.get("title")
+                    job.get("title"),
+                    "careerAssessment",
+                    careerAssessments.latestSubmission(user)
                 )
             );
         } catch (Exception ex) {
@@ -458,6 +459,7 @@ public class EmploymentService {
             id,
             seeker(user)
         );
+        if(row==null)throw new Problem(404,"지원 내역을 찾을 수 없습니다.");
         addDetails(row, false);
         return row;
     }
@@ -622,6 +624,7 @@ public class EmploymentService {
         values.put("start_date", start);
         values.put("end_date", end);
         values.put("status", "DRAFT");
+        values.put("review_reason", null);
         if (id == null || body.containsKey("bannerImageUrl")) values.put("banner_image_url", BannerImageValue.validate(body));
         if (id == null) {
             values.put("company_id", company);
@@ -653,9 +656,13 @@ public class EmploymentService {
         if (action.equals("review-request") && status.equals("DRAFT")) {
             Input.jobType((String) job.get("jobType"), false);
             db.update(
-                "UPDATE job_postings SET status='PENDING',review_reason=NULL WHERE job_id=?",
+                "UPDATE job_postings SET status='PENDING',review_reason=NULL,updated_at=CURRENT_TIMESTAMP WHERE job_id=?",
                 id
             );
+            String companyName = company(user, true).get("companyName").toString();
+            for (var admin : db.list("SELECT user_id FROM users WHERE role='ADMIN' AND status='ACTIVE'")) {
+                notify(number(admin, "userId"), "새 공고 심사 요청", companyName + " 기업의 [" + job.get("title") + "] 공고 심사를 확인해 주세요.", "JOB_REVIEW", id);
+            }
         } else if (action.equals("close") && status.equals("PUBLISHED")) {
             db.update(
                 "UPDATE job_postings SET status='CLOSED' WHERE job_id=?",
@@ -679,6 +686,7 @@ public class EmploymentService {
             id,
             company
         );
+        if(app==null)throw new Problem(404,"지원 내역을 찾을 수 없습니다.");
         app.put("assessment", assessments.companyResult(id, true));
         addDetails(app, true);
         return app;

@@ -3229,3 +3229,114 @@ html { scroll-padding-top: 112px; }
     display: none;
   }
 }
+
+/* Editorial photographs for the three home promotions. */
+.promo-photo-visual { position:relative; min-width:0; height:370px; padding:8px 0 26px 16px; isolation:isolate; }
+.promo-photo-halo { position:absolute; z-index:-1; inset:-22px -12px 25px 45px; border-radius:50%; background:linear-gradient(145deg,#cceeea80,#d6e7ff40); border:1px solid #b9ddd780; }
+.promo-photo-frame { height:100%; border-radius:24px; overflow:hidden; box-shadow:0 18px 42px #24487914; background:#dfeaf1; }
+.promo-photo-frame img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+.promo-photo-tag { position:absolute; top:24px; right:14px; max-width:calc(100% - 42px); padding:8px 12px; border:1px solid #ffffffc9; border-radius:30px; background:#fffffff0; color:#287767; font-size:11px; font-weight:700; box-shadow:0 4px 16px #264a7010; }
+.promo-photo-card { position:absolute; display:flex; align-items:center; gap:12px; left:0; bottom:8px; max-width:calc(100% - 16px); padding:16px 20px; border:1px solid #fff; border-radius:17px; background:#fffffff5; box-shadow:0 14px 32px #27477517; }
+.promo-photo-mark { flex:0 0 48px; height:48px; display:grid; place-items:center; border-radius:13px; color:#fff; background:#2563eb; font-size:20px; font-weight:800; }
+.promo-photo-card small { display:block; margin-bottom:5px; color:#7d91ad; font-size:9px; letter-spacing:1.2px; }
+.promo-photo-card strong { display:block; font-size:16px; color:#192c48; line-height:1.45; }
+.promo-photo-card p { margin:5px 0 0; font-size:11px; color:#7286a2; line-height:1.6; }
+.promo-photo-resume .promo-photo-halo { background:linear-gradient(145deg,#e1d3f780,#e3eaff40); border-color:#d6c8ec; }
+.promo-photo-resume .promo-photo-mark { background:#8661ca; }
+.promo-photo-resume .promo-photo-tag { color:#7553a9; }
+@media (min-width:769px) and (max-width:1100px) {
+  .promo-photo-visual { height:330px; padding-left:8px; }
+  .promo-photo-card { padding:12px; gap:9px; }
+  .promo-photo-card strong { font-size:14px; }
+  .promo-photo-mark { flex-basis:40px; height:40px; font-size:17px; }
+  .promo-photo-tag { font-size:10px; padding:7px 9px; }
+}
+@media (max-width:768px) {
+  .promo-photo-visual { height:235px; margin-top:10px; padding:0 0 22px 8px; }
+  .promo-photo-halo { inset:-8px 0 8px 35px; }
+  .promo-photo-frame { border-radius:18px; }
+  .promo-photo-card { bottom:0; gap:10px; padding:12px 14px; border-radius:14px; }
+  .promo-photo-card strong { font-size:14px; }
+  .promo-photo-mark { flex-basis:40px; height:40px; font-size:17px; }
+  .promo-photo-tag { top:12px; right:10px; font-size:10px; }
+}
+
+.hero.promo-theme-3 { background:linear-gradient(120deg,#fff7ec,#fff0ec); border-color:#f4e4d6; }
+.hero.promo-theme-4 { background:linear-gradient(120deg,#eff9f3,#e9f5ef); border-color:#dcefe3; }
+.hero.promo-theme-5 { background:linear-gradient(120deg,#edf5ff,#eef0ff); border-color:#dfe7f5; }
+.promo-photo-matching .promo-photo-mark { background:#cf7844; }
+.promo-photo-matching .promo-photo-tag { color:#9e613d; }
+.promo-photo-support .promo-photo-mark { background:#26876f; }
+.promo-photo-support .promo-photo-tag { color:#26745e; }
+.promo-photo-interview .promo-photo-mark { background:#5777cb; }
+@media(max-width:480px) {
+  .promo-controls { left:18px; right:18px; justify-content:center; gap:5px; }
+  .promo-dots { gap:1px; margin-right:2px; }
+  .promo-dots button { width:16px; }
+  .promo-dots button.active { width:24px; }
+  .promo-dots button.active::after { width:20px; }
+  .promo-counter { margin-right:2px; }
+}
+
+/* Home promotion slots: eight cards in two desktop rows. */
+@media (min-width: 801px) {
+  .home-page .regular-job-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.promotion-complete-banner { display:block; width:100%; overflow:hidden; border-radius:20px; }
+.promotion-complete-image { display:block; width:100%; height:auto; aspect-ratio:1200/520; object-fit:contain; background:#f6f8fb; }
+.hero.promo-carousel.promo-banner-carousel { padding:0 0 52px; border:0; border-radius:0; background:transparent; }
+
+/* Light header shared by guests, personal members, companies and administrators. */
+#header {
+  background: #fff;
+  color: #172b4d;
+  padding: 18px 0;
+  border-bottom: 1px solid #e6ebf2;
+  box-shadow: 0 3px 12px #182d4d06;
+}
+#header .logo, #header .logo:hover { color: #172b4d; }
+#header .logo-en { color: #6c7e97; }
+#header .main-nav > a, #header .main-nav .nav-mega-trigger { color: #243650; font-weight: 600; }
+#header .main-nav > a:hover, #header .main-nav > a.active,
+#header .main-nav .nav-mega-trigger:hover, #header .main-nav .nav-mega-trigger.active { color: #245ff0; }
+#header .main-nav > a.active::after, #header .main-nav .nav-mega-trigger::after { background: #245ff0; }
+#header .main-nav .nav-mega-trigger.active::after { opacity: 1; transform: translateX(-50%) scaleX(1); }
+#header .account > a, #header .account .plain { color: #243650; }
+#header .account > a:hover, #header .account .plain:hover { color: #245ff0; }
+#header .notification-count { color: #fff; }
+#header .header-search { background: #f2f5fa; border-color: #e2e8f2; }
+#header .header-search:focus-within { background: #f7faff; border-color: #8caef7; outline-color: #b8ceff70; }
+#header .header-search input { color: #243650; }
+#header .header-search input::placeholder { color: #718198; opacity: 1; }
+#header .header-search button { color: #243650; }
+#header .header-search button:hover { color: #245ff0; background: #e5edfb; }
+#header .header-search button:focus-visible { outline-color: #245ff0; }
+#header .mobile-menu { color: #243650; background: #f2f5fa; border-color: #e2e8f2; }
+#header .mobile-menu:hover { color: #245ff0; background: #e5edfb; }
+@media (max-width: 768px) { #header { padding: 14px 0; } }
+/* Selected sky-blue palette. Keep the existing JobBridge logo asset unchanged. */
+.utility { background:#deecfc; color:#4b678c; }
+#header { background:#eaf3ff; color:#1d3558; border-bottom-color:#d6e4f5; box-shadow:0 3px 12px #24476f08; }
+#header .logo, #header .logo:hover { color:#173558; }
+#header .logo-en { color:#55749c; }
+#header .main-nav > a, #header .main-nav .nav-mega-trigger { color:#1d3558; }
+#header .main-nav > a:hover, #header .main-nav .nav-mega-trigger:hover { color:#2463d8; }
+#header .main-nav > a.active, #header .main-nav .nav-mega-trigger.active {
+  background:#2463d8; color:#fff; padding:8px 12px; margin-left:-12px; margin-right:-12px; border-radius:9px;
+}
+#header .main-nav > a.active::after, #header .main-nav .nav-mega-trigger.active::after { display:none; }
+#header .account > a, #header .account .plain { color:#244267; }
+#header .header-search { background:#fff; border-color:#bccde5; }
+#header .header-search:focus-within { background:#fff; border-color:#77a0e8; outline-color:#b8d1ff80; }
+#header .header-search input { color:#1d3558; }
+#header .header-search input::placeholder { color:#6a7f9c; }
+#header .header-search button { color:#36577f; }
+#header .header-search button:hover { background:#e6f0ff; color:#2463d8; }
+#header .mobile-menu { background:#fff; color:#244267; border-color:#c4d7ee; }
+.member-nav { background:#fff; border-bottom-color:#dce7f4; }
+.member-nav nav { gap:16px; align-items:center; }
+.member-nav a { padding:9px 14px; margin:6px 0; border-radius:9px; color:#244267; }
+.member-nav a:hover { background:#f0f6ff; color:#2463d8; }
+.member-nav a.active { background:#e0edff; color:#2463d8; }

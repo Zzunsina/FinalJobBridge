@@ -1305,3 +1305,13 @@
     font-size: 24px;
   }
 }
+
+.admin-member-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 20px; }
+.admin-member-tabs button { display:flex; align-items:center; gap:9px; padding:12px 18px; border:1px solid #dce4f1; border-radius:12px; background:#fff; color:#526580; font-weight:700; }
+.admin-member-tabs button span { padding:2px 7px; border-radius:7px; background:#f0f4fa; font-size:12px; }
+.admin-member-tabs button:hover { background:#f0f5ff; border-color:#b4caff; }
+.admin-member-tabs button.selected { background:#245ff0; border-color:#245ff0; color:#fff; }
+.admin-member-tabs button.selected span { background:rgba(255,255,255,.2); color:#fff; }
+.admin-member-tabs button:focus-visible { outline:3px solid #98b6ff; outline-offset:3px; }
+
+.admin-suspend-form > summary { cursor: pointer; }

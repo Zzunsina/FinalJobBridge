@@ -1,3 +1,4 @@
+import SubmittedAssessment from '../components/common/SubmittedAssessment';
 import { formatDateTime } from "../utils/dateTime";
 import { employmentStage } from '../utils/employmentStage';
 import { notificationTarget } from '../utils/notificationTarget';
@@ -95,6 +96,7 @@ export function ApplicationDetail() {
             <Badge value={a.status} />
             <h2>지원 당시 제출 내용</h2>
             <Snapshot data={a.snapshot} />
+            <SubmittedAssessment data={a.snapshot?.careerAssessment} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>제출한 첨부파일 다운로드</a>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '작성한 자기소개서가 없습니다.'}</p>
@@ -400,13 +402,15 @@ function NotificationContent({ notification, role, onRead }) {
   return to ? <Link className="notification-content" to={to} onClick={onRead}>{content}</Link> : <div>{content}</div>;
 }
 
-export function InquiryWrite({ onSubmitted }) {
+export function InquiryWrite({ onSubmitted, kind }) {
+  const inquiryKind = kind === 'report' ? '채용공고 신고' : kind === 'partnership' ? '제휴·광고 문의' : '1:1 문의하기';
   return (
     <>
-      <h2>1:1 문의하기</h2>
+      <h2>{inquiryKind}</h2>
       <p className="muted">문의 내용은 작성자와 관리자만 확인할 수 있습니다.</p>
       <div className="panel">
         <Form
+            initial={kind === 'report' ? { title: '[채용공고 신고] ', content: '공고 제목 또는 주소: \n신고 사유: \n확인 가능한 내용: ' } : kind === 'partnership' ? { title: '[제휴·광고 문의] ', content: '기업 또는 단체명: \n제안 내용: \n회신 받을 연락처: ' } : {}}
           fields={[
             { name: 'title', label: '문의 제목', required: true, maxLength: 200 },
             { name: 'content', label: '문의 내용', type: 'textarea', required: true },

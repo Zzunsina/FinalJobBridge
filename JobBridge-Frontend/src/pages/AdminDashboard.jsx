@@ -81,7 +81,7 @@ function Icon({ name }) {
 }
 
 export default function AdminDashboard() {
-  const resource = useResource('/admin/dashboard');
+  const resource = useResource('/admin/dashboard', { refreshInterval: 10000 });
   const user = useAuth((state) => state.user);
   return (
     <div className="admin-overview">

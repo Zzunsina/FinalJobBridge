@@ -23,7 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = {"kakao.client-id=test-client", "kakao.client-secret=test-secret", "kakao.redirect-uri=http://localhost/test-kakao"})
 @AutoConfigureMockMvc
 class PlatformIntegrationTests {
 
@@ -461,6 +461,251 @@ class PlatformIntegrationTests {
         assertThat(service.linkDetail(seeker,link)).containsEntry("status","MATCHING").containsEntry("referralStatus","CANCELED");
         assertThat(service.linkDetail(seeker,link).get("notJoinedAt")).isNotNull();
         assertThat(db.list("SELECT referral_id FROM employment_referrals WHERE employment_link_id=?",link)).hasSize(1);
+    }
+
+    @Test
+    void editedPublishedJobPersistsAsDraftThroughCompanyApi() throws Exception {
+        var body = new LinkedHashMap<>(service.ownJob(companyUser, job, false));
+        body.put("title", "수정한 공고 제목");
+        body.put("description", "수정된 상세 설명");
+        body.put("requirements", "변경된 자격요건");
+        body.put("assessmentMinScore", 75);
+        body.put("startDate", EmploymentService.today().toString());
+        body.put("endDate", EmploymentService.today().plusDays(20).toString());
+        var session = login(companyUser);
+        mvc.perform(put("/api/company/jobs/" + job).cookie(session).with(csrf())
+                .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"))
+            .andExpect(jsonPath("$.title").value("수정한 공고 제목"));
+        mvc.perform(get("/api/company/jobs/" + job).cookie(session))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.description").value("수정된 상세 설명"))
+            .andExpect(jsonPath("$.requirements").value("변경된 자격요건"))
+            .andExpect(jsonPath("$.assessmentMinScore").value(75));
+        // A validation failure must leave the saved contents intact.
+        body.put("title", "저장되면 안 되는 변경");
+        body.put("endDate", EmploymentService.today().minusDays(1).toString());
+        mvc.perform(put("/api/company/jobs/" + job).cookie(session).with(csrf())
+                .contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isBadRequest());
+        assertThat(service.ownJob(companyUser, job, false).get("title")).isEqualTo("수정한 공고 제목");
+    }
+
+    @Test
+    void reviewRequestNotifiesActiveAdminsAndUpdatesDashboard() throws Exception {
+        long inactive = signup("inactive" + UUID.randomUUID().toString().substring(0, 8), false);
+        db.update("UPDATE users SET role='ADMIN',status='SUSPENDED' WHERE user_id=?", inactive);
+        db.update("UPDATE job_postings SET status='DRAFT' WHERE job_id=?", job);
+        long before = number(db.one("SELECT COUNT(*) AS n FROM job_postings WHERE status='PENDING'"), "n");
+        var session = login(companyUser);
+        mvc.perform(post("/api/company/jobs/" + job + "/review-request").cookie(session).with(csrf()))
+            .andExpect(status().isOk());
+        var notices = db.list("SELECT * FROM notifications WHERE notification_type='JOB_REVIEW' AND related_id=?", job);
+        assertThat(notices).isNotEmpty();
+        assertThat(notices.stream().map(row -> number(row, "userId")).toList()).contains(admin).doesNotContain(inactive, companyUser, seeker);
+        assertThat(db.list("SELECT * FROM notifications WHERE user_id=? AND notification_type='JOB_REVIEW' AND related_id=?", admin, job)).hasSize(1);
+        mvc.perform(get("/api/notifications").cookie(login(admin))).andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.relatedId == " + job + " && @.notificationType == 'JOB_REVIEW')]").isNotEmpty());
+        mvc.perform(get("/api/admin/dashboard").cookie(login(admin))).andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobs").value(before + 1));
+        mvc.perform(post("/api/company/jobs/" + job + "/review-request").cookie(session).with(csrf()))
+            .andExpect(status().isConflict());
+        assertThat(db.list("SELECT * FROM notifications WHERE user_id=? AND notification_type='JOB_REVIEW' AND related_id=?", admin, job)).hasSize(1);
+    }
+
+    @Test
+    void expiredPublishedJobsCloseAutomaticallyAndPreserveOtherStates() {
+        var expiration = new com.employment.job.service.JobExpirationService(db);
+        var today = EmploymentService.today();
+        db.update("UPDATE job_postings SET start_date=?,end_date=?,updated_at=? WHERE job_id=?", today.minusDays(10), today.minusDays(1), java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), job);
+        expiration.closeExpiredJobs();
+        var closed = db.one("SELECT status,updated_at FROM job_postings WHERE job_id=?", job);
+        assertThat(closed.get("status")).isEqualTo("CLOSED");
+        assertThat(java.time.Instant.parse(closed.get("updatedAt").toString())).isAfter(java.time.Instant.parse("2020-01-02T00:00:00Z"));
+        expiration.closeExpiredJobs();
+        assertThat(db.one("SELECT updated_at FROM job_postings WHERE job_id=?", job).get("updatedAt")).isEqualTo(closed.get("updatedAt"));
+        for (var day : List.of(today, today.plusDays(1))) {
+            db.update("UPDATE job_postings SET status='PUBLISHED',end_date=? WHERE job_id=?", day, job);
+            expiration.closeExpiredJobs();
+            assertThat(db.one("SELECT status FROM job_postings WHERE job_id=?", job).get("status")).isEqualTo("PUBLISHED");
+        }
+        for (var status : List.of("DRAFT", "PENDING", "REJECTED", "CLOSED")) {
+            db.update("UPDATE job_postings SET status=?,end_date=? WHERE job_id=?", status, today.minusDays(1), job);
+            expiration.closeExpiredJobs();
+            assertThat(db.one("SELECT status FROM job_postings WHERE job_id=?", job).get("status")).isEqualTo(status);
+        }
+    }
+
+    @Autowired
+    com.employment.admin.HomePromotionService homePromotions;
+
+    private Map<String,Object> promotion(String key) {
+        return new LinkedHashMap<>(homePromotions.list(true).stream().filter(row -> key.equals(row.get("key"))).findFirst().orElseThrow());
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void homePromotionsPersistTextOrderAndVisibilityWithAdminOnlyAccess() throws Exception {
+        mvc.perform(get("/api/home-promotions")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(6));
+        mvc.perform(get("/api/admin/home-promotions")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/home-promotions").cookie(login(seeker))).andExpect(status().isForbidden());
+        var body=promotion("team");
+        body.put("label","관리자가 바꾼 배너 이름");body.put("imageAlt","새 배너 안내 문구");body.put("sortOrder",1);
+        var session=login(admin);
+        mvc.perform(put("/api/admin/home-promotions/team").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isForbidden());
+        mvc.perform(put("/api/admin/home-promotions/team").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+        var first=promotion("career");first.put("sortOrder",99);homePromotions.save("career",first);
+        mvc.perform(get("/api/home-promotions")).andExpect(status().isOk()).andExpect(jsonPath("$[0].key").value("team")).andExpect(jsonPath("$[0].label").value("관리자가 바꾼 배너 이름")).andExpect(jsonPath("$[0].imageAlt").value("새 배너 안내 문구"));
+        // A second editor cannot overwrite the saved version with an old form.
+        mvc.perform(put("/api/admin/home-promotions/team").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isConflict());
+        var saved=promotion("team");saved.put("isPublished",false);homePromotions.save("team",saved);
+        assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).doesNotContain("team");
+        assertThat(promotion("team").get("label")).isEqualTo("관리자가 바꾼 배너 이름");
+        for(var row:homePromotions.list(true)){row.put("isPublished",false);homePromotions.save(row.get("key").toString(),row);}
+        mvc.perform(get("/api/home-promotions")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void homePromotionImagesStayPrivateWhenHiddenAndSurviveTextEdits() throws Exception {
+        var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var out=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",out);
+        var body=promotion("resume");body.put("imageUrl","data:image/png;base64,"+Base64.getEncoder().encodeToString(out.toByteArray()));
+        var saved=homePromotions.save("resume",body);
+        assertThat(saved.get("imageUrl").toString()).startsWith("/api/admin/home-promotions/resume/image?v=");
+        assertThat(json.writeValueAsString(homePromotions.list(false))).doesNotContain("base64");
+        mvc.perform(get("/api/home-promotions/resume/image")).andExpect(status().isOk()).andExpect(content().contentType("image/png")).andExpect(content().bytes(out.toByteArray()));
+        saved.put("imageAlt","이미지는 유지하고 설명만 변경");saved=homePromotions.save("resume",saved);
+        mvc.perform(get("/api/home-promotions/resume/image")).andExpect(status().isOk()).andExpect(content().bytes(out.toByteArray()));
+        saved.put("isPublished",false);homePromotions.save("resume",saved);
+        mvc.perform(get("/api/home-promotions/resume/image")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/admin/home-promotions/resume/image").cookie(login(admin))).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/home-promotions/resume/image").cookie(login(companyUser))).andExpect(status().isForbidden());
+        saved=promotion("resume");saved.put("imageUrl","/images/home-banners-v1/resume.png");homePromotions.save("resume",saved);
+        mvc.perform(get("/api/admin/home-promotions/resume/image").cookie(login(admin))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void homePromotionsRejectUnsafeLinksInvalidImagesAndInvalidOrdering() throws Exception {
+        var session=login(admin);
+        for(var link:List.of("javascript:alert(1)","https://example.com","//example.com","/\\example.com","/admin/jobs")){
+            var body=promotion("career");body.put("to",link);
+            mvc.perform(put("/api/admin/home-promotions/career").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        }
+        var invalid=promotion("career");invalid.put("imageUrl","data:image/png;base64,bm90LWFuLWltYWdl");
+        mvc.perform(put("/api/admin/home-promotions/career").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(invalid))).andExpect(status().isBadRequest());
+        invalid=promotion("career");invalid.put("sortOrder",0);
+        mvc.perform(put("/api/admin/home-promotions/career").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(invalid))).andExpect(status().isBadRequest());
+        invalid=promotion("career");invalid.put("imageAlt","");
+        mvc.perform(put("/api/admin/home-promotions/career").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(invalid))).andExpect(status().isBadRequest());
+        assertThat(promotion("career").get("version")).isEqualTo(0);
+    }
+
+    @Test
+    void adminCanAddAndDeletePromotionsWithVersionAndRoleChecks() throws Exception {
+        var body=promotion("team");body.put("label","추가한 홍보");body.put("isPublished",false);body.put("sortOrder",7);
+        long before=homePromotions.list(true).size();
+        mvc.perform(post("/api/admin/home-promotions").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isForbidden());
+        var session=login(admin);
+        String response=mvc.perform(post("/api/admin/home-promotions").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        String key=json.readTree(response).path("key").asText();
+        assertThat(key).startsWith("promo-");assertThat(homePromotions.list(true)).hasSize((int)before+1);
+        assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).doesNotContain(key);
+        var saved=promotion(key);int oldVersion=((Number)saved.get("version")).intValue();saved.put("isPublished",true);saved=homePromotions.save(key,saved);
+        assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).contains(key);
+        mvc.perform(delete("/api/admin/home-promotions/"+key).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("version",oldVersion)))).andExpect(status().isConflict());
+        mvc.perform(delete("/api/admin/home-promotions/"+key).cookie(login(seeker)).with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("version",saved.get("version"))))).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/admin/home-promotions/"+key).cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("version",saved.get("version"))))).andExpect(status().isNoContent());
+        assertThat(homePromotions.list(true)).hasSize((int)before);
+        var invalid=promotion("team");invalid.put("to","javascript:alert(1)");
+        mvc.perform(post("/api/admin/home-promotions").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(invalid))).andExpect(status().isBadRequest());
+        assertThat(homePromotions.list(true)).hasSize((int)before);
+    }
+
+    @Test
+    void deletedDefaultPromotionDoesNotReturnWhenInitializationRunsAgain() throws Exception {
+        try {
+            homePromotions.delete("career",promotion("career"));
+            homePromotions.initialize();
+            assertThat(homePromotions.list(true).stream().map(row->row.get("key"))).doesNotContain("career");
+            assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).doesNotContain("career");
+        } finally {
+            db.update("DELETE FROM home_promotion_deletions WHERE promotion_key='career'");
+            homePromotions.initialize();
+        }
+    }
+
+    @Test
+    void completedBannerMigrationPreservesCustomizedDesignsAndVisibility() throws Exception {
+        var original=promotion("team");
+        var defaults=json.readValue(new org.springframework.core.io.ClassPathResource("db/home-promotion-legacy-defaults.json").getInputStream(),new com.fasterxml.jackson.core.type.TypeReference<List<Map<String,Object>>>() {});
+        var legacy=new LinkedHashMap<>(defaults.stream().filter(row->"team".equals(row.get("key"))).findFirst().orElseThrow());
+        try {
+            db.update("UPDATE home_promotions SET content_json=?,sort_order=9,is_published=FALSE WHERE promotion_key='team'",json.writeValueAsString(legacy));
+            homePromotions.initialize();
+            var converted=promotion("team");
+            assertThat(converted.get("presentation")).isEqualTo("banner");
+            assertThat(converted.get("imageUrl")).isEqualTo("/images/home-banners-v1/team.png");
+            assertThat(converted.get("isPublished")).isEqualTo(false);
+            assertThat(converted.get("sortOrder")).isEqualTo(9);
+            legacy.put("title","운영 중에 바꿔 둔 제목");
+            db.update("UPDATE home_promotions SET content_json=? WHERE promotion_key='team'",json.writeValueAsString(legacy));
+            homePromotions.initialize();
+            assertThat(promotion("team").get("title")).isEqualTo("운영 중에 바꿔 둔 제목");
+            assertThat(promotion("team").get("imageUrl")).isEqualTo(legacy.get("imageUrl"));
+        } finally {
+            db.update("UPDATE home_promotions SET content_json=?,sort_order=?,is_published=?,version=? WHERE promotion_key='team'",json.writeValueAsString(original),original.get("sortOrder"),original.get("isPublished"),original.get("version"));
+        }
+    }
+
+    @Test
+    void suspensionReasonIsShownOnlyAfterCorrectPasswordAndUnblockingRestoresLogin() throws Exception {
+        var adminCookie=login(admin);
+        for(long user:List.of(seeker,companyUser)) {
+            var previousSession=login(user);
+            String reason="반복적인 운영 정책 위반으로 이용이 제한되었습니다.";
+            mvc.perform(patch("/api/admin/users/"+user+"/status").cookie(adminCookie).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("status","SUSPENDED","reason",reason)))).andExpect(status().isOk());
+            var payload=fields("loginId",auth.publicUser(user).get("loginId"),"password",password,"memberType",auth.publicUser(user).get("role"));
+            mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value("정지된 아이디입니다.\n정지 사유: "+reason)).andExpect(cookie().doesNotExist("accessToken"));
+            payload.put("password","WrongPassword123!");
+            mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("아이디 또는 비밀번호를 확인해 주세요."));
+            mvc.perform(get("/api/me").cookie(previousSession)).andExpect(status().isUnauthorized());
+            mvc.perform(get("/api/admin/users/"+user).cookie(adminCookie)).andExpect(status().isOk()).andExpect(jsonPath("$.suspensionReason").value(reason));
+            mvc.perform(patch("/api/admin/users/"+user+"/status").cookie(adminCookie).with(csrf()).contentType("application/json").content("{\"status\":\"ACTIVE\"}")).andExpect(status().isOk());
+            payload.put("password",password);
+            mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isOk());
+            mvc.perform(get("/api/me").cookie(previousSession)).andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Test
+    void suspensionRequiresReasonAndOnlyAdministratorCanApplyIt() throws Exception {
+        var session=login(seeker);var actor=login(admin);String path="/api/admin/users/"+seeker+"/status";
+        mvc.perform(patch(path).cookie(session).with(csrf()).contentType("application/json").content("{\"status\":\"SUSPENDED\",\"reason\":\"사유\"}")).andExpect(status().isForbidden());
+        mvc.perform(patch(path).cookie(actor).with(csrf()).contentType("application/json").content("{\"status\":\"SUSPENDED\"}")).andExpect(status().isBadRequest());
+        mvc.perform(patch(path).cookie(actor).with(csrf()).contentType("application/json").content("{\"status\":\"SUSPENDED\",\"reason\":\"   \"}")).andExpect(status().isBadRequest());
+        assertThat(auth.publicUser(seeker).get("status")).isEqualTo("ACTIVE");
+        mvc.perform(get("/api/me").cookie(session)).andExpect(status().isOk());
+        mvc.perform(patch("/api/admin/users/"+admin+"/status").cookie(actor).with(csrf()).contentType("application/json").content("{\"status\":\"SUSPENDED\",\"reason\":\"사유\"}")).andExpect(status().isConflict());
+    }
+
+    @Test
+    void legacySuspendedAccountWithoutReasonHasSupportGuidance() throws Exception {
+        db.update("UPDATE users SET status='SUSPENDED' WHERE user_id=?",other);
+        var payload=fields("loginId",auth.publicUser(other).get("loginId"),"password",password,"memberType","JOB_SEEKER");
+        var response=mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isForbidden()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(json.readTree(response).path("message").asText()).contains("정지된 아이디입니다.","등록된 정지 사유가 없습니다.","고객센터");
+    }
+
+    @Test
+    void publicJobsIncludeCompanyIndustryAndUseTheCompanyProfilePhoto() throws Exception {
+        db.update("UPDATE companies SET industry='콘텐츠 디자인' WHERE company_id=?",company);
+        var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"jpg",bytes);
+        db.update("INSERT INTO company_images(company_id,image_data) VALUES(?,?)",company,bytes.toByteArray());
+        mvc.perform(get("/api/jobs/"+job)).andExpect(status().isOk()).andExpect(jsonPath("$.industry").value("콘텐츠 디자인")).andExpect(jsonPath("$.companyId").value(company));
+        mvc.perform(get("/api/companies/"+company+"/image")).andExpect(status().isOk()).andExpect(content().bytes(bytes.toByteArray()));
+        assertThat(service.jobs("테스트 채용","","","","latest",0,100).get("content").toString()).contains("industry=콘텐츠 디자인");
     }
 
     @BeforeEach
@@ -2160,22 +2405,14 @@ class PlatformIntegrationTests {
     private static final List<Integer> CORRECT_EXAMPLE_ANSWERS = List.of(2,1,1,2,2,1,2,0,2,2);
 
     @Test
-    void resumeRequiresCompletedAssessmentAndKeepsExistingResult() {
-        int before = service.resumes(seeker).size();
-        assertThatThrownBy(() -> service.saveResume(seeker, null, fields("title", "검사 미완료")))
-            .isInstanceOf(Problem.class).hasMessageContaining("인적성검사");
-        assertThat(service.resumes(seeker)).hasSize(before);
-        db.update("DELETE FROM resume_assessments WHERE resume_id=?", resume);
-        assertThatThrownBy(() -> service.saveResume(seeker, resume, fields("title", "검사 없이 수정")))
-            .isInstanceOf(Problem.class).hasMessageContaining("인적성검사");
-        assertThat(service.resume(seeker, resume).get("title")).isEqualTo("원본 이력서");
-        assertThatThrownBy(() -> service.saveResume(seeker, null, fields("title", "일부 응답", "assessmentAnswers", List.of(0))))
-            .isInstanceOf(Problem.class);
-        assertThat(service.resumes(seeker)).hasSize(before);
-        var saved = service.saveResume(seeker, resume, fields("title", "검사 완료", "assessmentAnswers", CORRECT_EXAMPLE_ANSWERS));
-        assertThat(((Map<?, ?>) saved.get("assessment")).get("score")).isEqualTo(100);
-        var updated = service.saveResume(seeker, resume, fields("title", "완료 후 수정"));
-        assertThat(((Map<?, ?>) updated.get("assessment")).get("score")).isEqualTo(100);
+    void resumeCanBeCreatedAndUpdatedWithoutAnyAssessment() {
+        var saved=service.saveResume(seeker,null,fields("title","검사 없이 신규 작성"));
+        long id=number(saved,"resumeId");
+        assertThat(saved.get("assessment")).isNull();
+        assertThat(service.saveResume(seeker,id,fields("title","검사 없이 수정")).get("title")).isEqualTo("검사 없이 수정");
+        assessments.configure(job,70);
+        var app=service.apply(seeker,job,fields("resumeId",id));
+        assertThat(app.get("applicationId")).isNotNull();
     }
 
     @Test
@@ -2197,8 +2434,6 @@ class PlatformIntegrationTests {
     void assessmentThresholdIsPrivateAndSubmissionScoreIsImmutable() throws Exception {
         assessments.configure(job,70);
         db.update("DELETE FROM resume_assessments WHERE resume_id=?", resume);
-        assertThatThrownBy(() -> service.apply(seeker,job,fields("resumeId",resume))).isInstanceOf(Problem.class);
-        assertThat(service.applications(seeker)).isEmpty();
         service.saveResume(seeker,resume,fields("title","검사","assessmentAnswers",CORRECT_EXAMPLE_ANSWERS));
         long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
         service.saveResume(seeker,resume,fields("title","다시 검사","assessmentAnswers",Collections.nCopies(10,3)));
@@ -2427,4 +2662,136 @@ class PlatformIntegrationTests {
         assertThat(service.companyApplicants(empty,"")).isEmpty();
         assertThat(service.companyInterviews(empty)).isEmpty();
     }
+    @Autowired com.employment.job.service.CareerAssessments careerAssessments;
+
+    @Test
+    void careerAssessmentScoresOnServerAndKeepsResultsPrivate() throws Exception {
+        Cookie session=login(seeker);
+        var first=mvc.perform(post("/api/career-assessments").cookie(session).with(csrf())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var started=json.readTree(first);long id=started.path("attemptId").asLong();
+        assertThat(started.path("questions").size()).isEqualTo(55);
+        assertThat(first).doesNotContain("\"correct\"","explanation","reverse");
+        assertThat(number(careerAssessments.start(seeker),"attemptId")).isEqualTo(id);
+        mvc.perform(get("/api/career-assessments/"+id).cookie(login(other))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/career-assessments").cookie(login(companyUser))).andExpect(status().isForbidden());
+        var bank=json.readTree(new org.springframework.core.io.ClassPathResource("db/career-questions-v1.json").getInputStream());
+        var answers=new ArrayList<Integer>();for(int i=0;i<55;i++)answers.add(i<40?2:bank.path("questions").get(i).path("correct").asInt());
+        var partial=new ArrayList<Integer>(Collections.nCopies(55,null));partial.set(0,4);
+        var saved=careerAssessments.save(seeker,id,fields("revision",0,"answers",partial),false);
+        assertThat(((List<?>)careerAssessments.get(seeker,id).get("answers")).get(0)).isEqualTo(4);
+        assertThatThrownBy(()->careerAssessments.save(seeker,id,fields("revision",0,"answers",answers),false)).isInstanceOf(Problem.class).hasMessageContaining("변경");
+        var invalid=new ArrayList<Object>(answers);invalid.set(0,0.5);
+        assertThatThrownBy(()->careerAssessments.save(seeker,id,fields("revision",saved.get("revision"),"answers",invalid),false)).isInstanceOf(Problem.class);
+        var finished=careerAssessments.save(seeker,id,fields("revision",saved.get("revision"),"answers",answers,"score",0),true);
+        var report=json.valueToTree(finished.get("report"));
+        assertThat(report.path("aptitudeScore").asInt()).isEqualTo(100);
+        assertThat(report.path("traits").size()).isEqualTo(5);
+        assertThat(report.path("traits").get(0).path("score").asInt()).isEqualTo(50);
+        assertThat(finished.get("status")).isEqualTo("COMPLETED");
+        assertThat(careerAssessments.save(seeker,id,fields("revision",0,"answers",Collections.nCopies(55,null)),true).get("report")).isEqualTo(finished.get("report"));
+        assertThat(number(careerAssessments.start(seeker),"attemptId")).isNotEqualTo(id);
+        assertThat(careerAssessments.history(seeker)).hasSize(2);
+    }
+
+    @Test
+    void expiredCareerAssessmentUsesOnlySavedResponsesAndIncompleteSubmissionFails() {
+        var start=careerAssessments.start(seeker);long id=number(start,"attemptId");
+        var answers=new ArrayList<Integer>(Collections.nCopies(55,null));answers.set(0,4);
+        assertThatThrownBy(()->careerAssessments.save(seeker,id,fields("revision",0,"answers",answers),true)).isInstanceOf(Problem.class).hasMessageContaining("모든 문항");
+        careerAssessments.save(seeker,id,fields("revision",0,"answers",answers),false);
+        db.update("UPDATE career_assessment_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(2)),id);
+        var late=careerAssessments.save(seeker,id,fields("revision",1,"answers",Collections.nCopies(55,0),"score",100),true);
+        var report=json.valueToTree(late.get("report"));
+        assertThat(report.path("timedOut").asBoolean()).isTrue();
+        assertThat(report.path("answeredCount").asInt()).isEqualTo(1);
+        assertThat(report.path("aptitudeScore").asInt()).isZero();
+        assertThat(careerAssessments.history(other)).isEmpty();
+    }
+
+    @Autowired com.employment.job.service.CareerExplorations careerExplorations;
+
+    private Map<String,Object> finishCareerAssessment(long user,int personalityAnswer,boolean correct) throws Exception {
+        var started=careerAssessments.start(user);long id=number(started,"attemptId");
+        var bank=json.readTree(new org.springframework.core.io.ClassPathResource("db/career-questions-v1.json").getInputStream());
+        var answers=new ArrayList<Integer>();
+        for(int i=0;i<55;i++)answers.add(i<40?personalityAnswer:(bank.path("questions").get(i).path("correct").asInt()+(correct?0:1))%4);
+        return careerAssessments.save(user,id,fields("revision",started.get("revision"),"answers",answers),true);
+    }
+
+    @Test
+    void applicationsAutomaticallyAttachLatestFullAssessmentAndFreezeIt() throws Exception {
+        assertThat(careerAssessments.latestSubmission(seeker)).isNull();
+        var first=finishCareerAssessment(seeker,2,true);
+        // Even when a new attempt times out incomplete, the last complete result is selected.
+        var incomplete=careerAssessments.start(seeker);long partial=number(incomplete,"attemptId");
+        db.update("UPDATE career_assessment_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),partial);
+        careerAssessments.get(seeker,partial);
+        var exploration=careerExplorations.start(seeker);
+        careerExplorations.save(seeker,number(exploration,"attemptId"),fields("revision",0,"answers",Collections.nCopies(36,4)),true);
+        var preview=mvc.perform(get("/api/career-assessments/submission").cookie(login(seeker))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(json.readTree(preview).path("assessment").path("attemptId").asLong()).isEqualTo(number(first,"attemptId"));
+        var application=service.apply(seeker,job,fields("resumeId",resume,"careerAssessment",fields("score",999),"assessmentId",partial));
+        long app=number(application,"applicationId");
+        var snapshot=json.valueToTree(application.get("snapshot"));
+        assertThat(snapshot.path("careerAssessment").path("report").path("aptitudeScore").asInt()).isEqualTo(100);
+        assertThat(snapshot.path("careerAssessment").path("attemptId").asLong()).isEqualTo(number(first,"attemptId"));
+        assertThat(snapshot.path("careerAssessment").toString()).doesNotContain("answers","review","explanation");
+        assertThat(snapshot.has("exploration")).isFalse();
+        var before=json.valueToTree(service.companyApplication(companyUser,app).get("snapshot")).path("careerAssessment");
+        finishCareerAssessment(seeker,4,false);
+        var after=json.valueToTree(service.companyApplication(companyUser,app).get("snapshot")).path("careerAssessment");
+        assertThat(after).isEqualTo(before);
+        assertThat(careerAssessments.latestSubmission(seeker).get("attemptId")).isNotEqualTo(first.get("attemptId"));
+        long foreignCompany=signup("foreign"+UUID.randomUUID().toString().substring(0,8),true);
+        db.update("UPDATE companies SET approval_status='APPROVED' WHERE user_id=?",foreignCompany);
+        mvc.perform(get("/api/company/applications/"+app).cookie(login(foreignCompany))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/applications/"+app).cookie(login(other))).andExpect(status().is4xxClientError());
+        mvc.perform(get("/api/career-assessments/submission").cookie(login(companyUser))).andExpect(status().isForbidden());
+        var owned=mvc.perform(get("/api/company/applications/"+app).cookie(login(companyUser))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(json.readTree(owned).path("snapshot").path("careerAssessment")).isEqualTo(before);
+    }
+
+    @Test
+    void careerExplorationHasThirtySixQuestionsAndPrivateScoredResults() throws Exception {
+        var started=careerExplorations.start(seeker);long id=number(started,"attemptId");
+        assertThat(((List<?>)started.get("questions"))).hasSize(36);
+        assertThat(number(careerExplorations.start(seeker),"attemptId")).isEqualTo(id);
+        assertThat(started.get("kind")).isEqualTo("exploration");
+        var partial=new ArrayList<Integer>(Collections.nCopies(36,null));partial.set(0,4);
+        var saved=careerExplorations.save(seeker,id,fields("revision",0,"answers",partial),false);
+        assertThat(((List<?>)careerExplorations.get(seeker,id).get("answers")).get(0)).isEqualTo(4);
+        assertThatThrownBy(()->careerExplorations.save(seeker,id,fields("revision",0,"answers",partial),false)).isInstanceOf(Problem.class);
+        assertThatThrownBy(()->careerExplorations.save(seeker,id,fields("revision",saved.get("revision"),"answers",partial),true)).isInstanceOf(Problem.class);
+        var invalid=new ArrayList<Object>(Collections.nCopies(36,2));invalid.set(0,0.5);
+        assertThatThrownBy(()->careerExplorations.save(seeker,id,fields("revision",saved.get("revision"),"answers",invalid),false)).isInstanceOf(Problem.class);
+        var answers=new ArrayList<Integer>(Collections.nCopies(36,2));
+        // First interest and first value are deliberately higher; no client score is accepted.
+        for(int i=0;i<24;i+=6)answers.set(i,4);answers.set(24,4);answers.set(30,4);
+        var done=careerExplorations.save(seeker,id,fields("revision",saved.get("revision"),"answers",answers,"score",999),true);
+        var report=json.valueToTree(done.get("report"));
+        assertThat(report.path("interests").size()).isEqualTo(6);
+        assertThat(report.path("values").size()).isEqualTo(6);
+        assertThat(report.path("interests").get(0).path("score").asInt()).isEqualTo(100);
+        assertThat(report.path("interests").get(1).path("score").asInt()).isEqualTo(50);
+        assertThat(report.path("values").get(0).path("score").asInt()).isEqualTo(100);
+        assertThat(report.path("answeredCount").asInt()).isEqualTo(36);
+        assertThat(careerExplorations.get(seeker,id).get("report")).isEqualTo(done.get("report"));
+        mvc.perform(get("/api/career-explorations/"+id).cookie(login(other))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/career-explorations").cookie(login(companyUser))).andExpect(status().isForbidden());
+        assertThat(careerAssessments.latestSubmission(seeker)).isNull();
+        var application=service.apply(seeker,job,fields("resumeId",resume));
+        assertThat(json.valueToTree(application.get("snapshot")).path("careerAssessment").isNull()).isTrue();
+    }
+
+    @Test
+    void expiredExplorationCannotAcceptLateAnswers() {
+        var started=careerExplorations.start(seeker);long id=number(started,"attemptId");
+        db.update("UPDATE career_exploration_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(2)),id);
+        var result=careerExplorations.save(seeker,id,fields("revision",0,"answers",Collections.nCopies(36,4)),true);
+        var report=json.valueToTree(result.get("report"));
+        assertThat(report.path("timedOut").asBoolean()).isTrue();
+        assertThat(report.path("answeredCount").asInt()).isZero();
+        assertThat(report.path("interests").get(0).path("score").isNull()).isTrue();
+    }
+
 }

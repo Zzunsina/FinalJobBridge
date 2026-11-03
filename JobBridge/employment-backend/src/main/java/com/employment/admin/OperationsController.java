@@ -341,7 +341,7 @@ public class OperationsController {
         String table = ADMIN_TABLES.get(resource);
         if (table == null) throw new Problem(404, "정보를 찾을 수 없습니다.");
         String columns = resource.equals("users")
-            ? "user_id,email,name,phone,role,status,created_at"
+            ? "user_id,email,name,phone,role,status,created_at,(SELECT s.reason FROM account_suspensions s WHERE s.user_id=users.user_id AND s.lifted_at IS NULL) AS suspension_reason"
             : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
             : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
             : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
@@ -351,8 +351,9 @@ public class OperationsController {
                 " FROM " +
                 table +
                 " ORDER BY " +
-                IDS.get(resource) +
-                " DESC"
+                (resource.equals("inquiries")
+                    ? "CASE WHEN status='OPEN' THEN 0 ELSE 1 END, created_at DESC, inquiry_id DESC"
+                    : IDS.get(resource) + " DESC")
         );
         if (resource.equals("employment-links")) rows.forEach(service::decorateEmploymentPreferences);
         return rows;
@@ -368,7 +369,7 @@ public class OperationsController {
         String table = ADMIN_TABLES.get(resource);
         if (table == null) throw new Problem(404, "정보를 찾을 수 없습니다.");
         String columns = resource.equals("users")
-            ? "user_id,email,name,phone,role,status,created_at"
+            ? "user_id,email,name,phone,role,status,created_at,(SELECT s.reason FROM account_suspensions s WHERE s.user_id=users.user_id AND s.lifted_at IS NULL) AS suspension_reason"
             : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
             : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
             : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
@@ -502,8 +503,8 @@ public class OperationsController {
             400,
             "회원 상태를 확인해 주세요."
         );
-        db.update("UPDATE users SET status=? WHERE user_id=?", next, id);
-        db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", id);
+        String reason=Input.text(body,"reason",1000,next.equals("SUSPENDED"));
+        auth.accountStatus(id,next,reason,actor);
     }
 
     @DeleteMapping("/admin/notices/{id}")
