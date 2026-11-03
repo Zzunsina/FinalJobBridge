@@ -598,16 +598,13 @@ public class AuthService {
             params.add("redirect_uri", KAKAO_REDIRECT_URI);
             params.add("code", code);
 
-            System.out.println("요청데이터 담아서 요청객체에 담기");
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
 
-            System.out.println("카카오톡 토큰데이터 요청하기");
             ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(
                 "https://kauth.kakao.com/oauth/token", request, Map.class
             );
-            System.out.println("tokenResponse값: " + tokenResponse);
+
             String accessToken = (String) tokenResponse.getBody().get("access_token");
-            System.out.println("accessToken값: " + accessToken);
 
             HttpHeaders profileHeaders = new HttpHeaders();
             profileHeaders.set("Authorization", "Bearer " + accessToken);
