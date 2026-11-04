@@ -154,7 +154,7 @@ export function Snapshot({ data }) {
   );
 }
 
-export function Interviews({ rows, onDelete }) {
+export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false }) {
   return rows.length ? (
     rows.map((i) => (
       <div className="callout" key={i.interviewId}>
@@ -164,7 +164,7 @@ export function Interviews({ rows, onDelete }) {
           (한국 시간)
         </p>
         <p>
-          {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'} · {i.location}
+          {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'}{i.location ? ` · ${i.location}` : ''}
         </p>
         {i.interviewType === 'OFFLINE' && i.location?.trim() && (
           <LocationMap address={i.location} label="면접 장소 지도" />
@@ -179,6 +179,13 @@ export function Interviews({ rows, onDelete }) {
           <h3>면접 안내사항</h3>
           <p className="prose">{i.applicantGuidance}</p>
         </section>}
+        {showInternalMemo && <section aria-label="기업 내부 메모">
+          <h3>기업 내부 메모 (구직자에게 비공개)</h3>
+          <p className="prose">{i.memo || '등록된 내부 메모가 없습니다.'}</p>
+        </section>}
+        {onEdit && i.status === 'SCHEDULED' && (
+          <button type="button" className="secondary" onClick={() => onEdit(i)}>면접 일정 수정</button>
+        )}
         {onDelete && (
           <Action method="delete" url={`/company/interviews/${i.interviewId}`} onDone={onDelete}
             confirm="이 면접 일정을 삭제할까요? 삭제한 일정은 복구할 수 없습니다.">
