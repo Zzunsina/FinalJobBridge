@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import CompanyInterviewForm from '../components/common/CompanyInterviewForm';
 import SubmittedAssessment from '../components/common/SubmittedAssessment';
 import { formatDateTime } from "../utils/dateTime";
 import CalendarPicker from '../components/common/CalendarPicker';
@@ -267,6 +269,12 @@ export function Applicants() {
 
 export function ApplicantDetail() {
   const { id } = useParams();
+  return <ApplicantDetailContent key={id} id={id} />;
+}
+
+function ApplicantDetailContent({ id }) {
+  const [editingInterview, setEditingInterview] = useState(null);
+  const [interviewMessage, setInterviewMessage] = useState('');
   const resource = useResource(`/company/applications/${id}`);
   const transitions = {
     APPLIED: ['UNDER_REVIEW', 'REJECTED'],
@@ -310,72 +318,28 @@ export function ApplicantDetail() {
               ))}
             </div>
             <h2>면접 일정</h2>
-            <Interviews rows={a.interviews} onDelete={resource.reload} />
-            {a.status === 'INTERVIEW' && !a.interviews.some((interview) => interview.status === 'SCHEDULED') && (
-              <>
-                <h3>면접 등록</h3>
-                <Form
-                  fields={[
-                    {
-                      name: 'interviewAt',
-                      label: '면접 일시 (한국 시간)',
-                      type: 'confirmed-datetime',
-                      required: true,
-                    },
-                    {
-                      name: 'interviewType',
-                      label: '면접 방식',
-                      options: ['ONLINE', 'OFFLINE'],
-                      required: true,
-                    },
-                    {
-                      name: 'location',
-                      label: '면접 장소',
-                      type: 'address',
-                      maxLength: 255,
-                      required: true,
-                      visibleWhen: (v) => v.interviewType === 'OFFLINE',
-                    },
-                    {
-                      name: 'meetingUrl',
-                      label: '온라인 면접 주소',
-                      type: 'url',
-                      required: true,
-                      maxLength: 500,
-                      visibleWhen: (v) => v.interviewType === 'ONLINE',
-                    },
-                    {
-                      name: 'applicantGuidance',
-                      label: '면접 안내사항 (지원자에게 공개)',
-                      type: 'textarea',
-                      maxLength: 2000,
-                      placeholder: '예: 면접 10분 전 도착해 주세요. 신분증을 지참하시고, 1층 안내데스크에서 방문 등록 후 3층 면접실로 와 주세요.',
-                    },
-                    {
-                      name: 'memo',
-                      label: '기업 내부 메모 (구직자에게 비공개)',
-                      type: 'textarea',
-                    },
-                  ]}
-                  onSubmit={async (body) => {
-                    const key = crypto.randomUUID();
-                    await client.post(
-                      `/company/applications/${id}/interviews`,
-                      {
-                        ...body,
-                        location: body.interviewType === 'OFFLINE' ? body.location : '',
-                        meetingUrl: body.interviewType === 'ONLINE' ? body.meetingUrl : '',
-                        interviewAt: body.interviewAt + ':00+09:00',
-                      },
-                      { headers: { 'Idempotency-Key': key } },
-                    );
-                    await resource.reload();
-                  }}
-                  submit="면접 일정 등록"
-                  resetOnSuccess
-                  successMessage="면접 일정이 등록되었습니다."
-                />
-              </>
+            {interviewMessage && <p className="form-success" role="status">{interviewMessage}</p>}
+            <Interviews rows={a.interviews} onDelete={resource.reload} showInternalMemo
+              onEdit={a.status === 'INTERVIEW' ? (interview) => {
+                setInterviewMessage('');
+                setEditingInterview(interview);
+              } : undefined} />
+            {editingInterview && a.status === 'INTERVIEW' && (
+              <CompanyInterviewForm key={editingInterview.interviewId} interview={editingInterview}
+                onCancel={() => setEditingInterview(null)}
+                onSubmit={async (body) => {
+                  await client.put('/company/interviews/' + editingInterview.interviewId, body);
+                  setEditingInterview(null);
+                  setInterviewMessage('면접 일정을 수정했습니다.');
+                  await resource.reload();
+                }} />
+            )}
+            {!editingInterview && a.status === 'INTERVIEW' && !a.interviews.some((interview) => interview.status === 'SCHEDULED') && (
+              <CompanyInterviewForm onSubmit={async (body) => {
+                await client.post('/company/applications/' + id + '/interviews', body,
+                  { headers: { 'Idempotency-Key': crypto.randomUUID() } });
+                await resource.reload();
+              }} />
             )}
           </div>
         </>

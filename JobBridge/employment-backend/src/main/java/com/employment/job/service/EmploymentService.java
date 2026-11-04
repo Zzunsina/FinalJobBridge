@@ -913,6 +913,14 @@ public class EmploymentService {
                 400,
                 "온라인 면접 주소가 필요합니다."
             );
+            String guidance = body.containsKey("applicantGuidance")
+                ? Input.text(body, "applicantGuidance", 2000, false)
+                : Objects.toString(interview.get("applicantGuidance"), "");
+            boolean scheduleChanged = !at.equals(Instant.parse(interview.get("interviewAt").toString()))
+                || !type.equals(interview.get("interviewType"))
+                || !location.equals(Objects.toString(interview.get("location"), ""))
+                || !url.equals(Objects.toString(interview.get("meetingUrl"), ""))
+                || !guidance.equals(Objects.toString(interview.get("applicantGuidance"), ""));
             db.update(
                 "UPDATE interviews SET interview_at=?,interview_type=?,location=?,meeting_url=?,memo=?,applicant_guidance=? WHERE interview_id=?",
                 Timestamp.from(at),
@@ -920,9 +928,10 @@ public class EmploymentService {
                 location,
                 url,
                 Input.text(body, "memo", 10000, false),
-                body.containsKey("applicantGuidance") ? Input.text(body, "applicantGuidance", 2000, false) : interview.get("applicantGuidance"),
+                guidance,
                 id
             );
+            if (!scheduleChanged) return;
         }
         notify(
             number(app, "userId"),

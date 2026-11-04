@@ -1485,6 +1485,37 @@ class PlatformIntegrationTests {
     }
 
     @Test
+    void interviewEditsNotifyOnlyWhenPublicDetailsChange() {
+        long application = number(service.apply(seeker, job, fields("resumeId", resume)), "applicationId");
+        service.applicationStatus(companyUser, application, "UNDER_REVIEW");
+        service.applicationStatus(companyUser, application, "DOCUMENT_PASSED");
+        var at = java.time.OffsetDateTime.now().plusDays(2).withNano(0);
+        var details = fields("interviewAt", at.toString(), "interviewType", "OFFLINE",
+            "location", "면접실 A", "applicantGuidance", "10분 전 도착");
+        service.interview(companyUser, application, "edit-notification-check", details);
+        long interview = number(db.one("SELECT interview_id FROM interviews WHERE application_id=?", application), "interviewId");
+        String countSql = "SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND notification_type='INTERVIEW' AND related_id=?";
+
+        details.put("interviewAt", at.toInstant().toString());
+        details.put("memo", "기업 내부 메모");
+        service.updateInterview(companyUser, interview, details, false);
+        service.updateInterview(companyUser, interview, details, false);
+        assertThat(db.one("SELECT memo FROM interviews WHERE interview_id=?", interview))
+            .containsEntry("memo", "기업 내부 메모");
+        assertThat(number(db.one(countSql, seeker, application), "n")).isEqualTo(1);
+
+        details.put("interviewAt", at.plusDays(1).toString());
+        service.updateInterview(companyUser, interview, details, false);
+        assertThat(number(db.one(countSql, seeker, application), "n")).isEqualTo(2);
+        details.put("location", "면접실 B");
+        service.updateInterview(companyUser, interview, details, false);
+        assertThat(number(db.one(countSql, seeker, application), "n")).isEqualTo(3);
+        details.put("applicantGuidance", "신분증 지참");
+        service.updateInterview(companyUser, interview, details, false);
+        assertThat(number(db.one(countSql, seeker, application), "n")).isEqualTo(4);
+    }
+
+    @Test
     void interviewIsVisibleAndNotifiedOnlyToItsApplicant() throws Exception {
         long app = number(service.apply(seeker, job, fields("resumeId", resume)), "applicationId");
         service.applicationStatus(companyUser, app, "UNDER_REVIEW");
