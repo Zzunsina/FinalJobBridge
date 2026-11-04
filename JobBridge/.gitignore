@@ -7,3 +7,5 @@ data/
 *.log
 backend.zip
 .tools/
+
+.env.local

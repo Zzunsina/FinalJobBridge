@@ -32,6 +32,7 @@ public class SecurityConfig {
             .httpBasic(b -> b.disable())
             .csrf(c ->
                 c
+                    .ignoringRequestMatchers("/api/payments/portone/webhook")
                     .csrfTokenRepository(csrf)
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )

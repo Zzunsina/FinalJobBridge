@@ -37,6 +37,10 @@ public class EmploymentService {
         this.jdbc = jdbc;
     }
 
+    @jakarta.annotation.PostConstruct
+    public void initializeJobDetailImages(){jdbc.execute("CREATE TABLE IF NOT EXISTS job_detail_images (job_id BIGINT PRIMARY KEY, image_data MEDIUMTEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES job_postings(job_id) ON DELETE CASCADE)");}
+    private String detailImage(long job){var row=db.one("SELECT image_data FROM job_detail_images WHERE job_id=?",job);return row==null?"":Objects.toString(row.get("imageData"),"");}
+
     public Map<String, Object> jobs(
         String q,
         String region,
@@ -116,6 +120,7 @@ public class EmploymentService {
             id
         );
         sanitizeJob(row);
+        row.put("detailImageUrl",detailImage(id));
         row.put(
             "accepting",
             row.get("status").equals("PUBLISHED") &&
@@ -541,6 +546,7 @@ public class EmploymentService {
             id,
             number(company(user, approved), "companyId")
         );
+        row.put("detailImageUrl",detailImage(id));
         row.put("assessmentMinScore", assessments.minimum(id));
         return row;
     }
@@ -585,6 +591,8 @@ public class EmploymentService {
         Map<String, Object> body
     ) {
         long company = number(company(user, false), "companyId");
+        String detail=null;
+        if(body.containsKey("detailImageUrl")){try{detail=BannerImageValue.validate(fields("bannerImageUrl",body.get("detailImageUrl")));}catch(Problem error){throw new Problem(400,"4MB 이하의 올바른 JPG 또는 PNG 상세 소개 이미지를 첨부해 주세요.","detailImageUrl");}}
         LocalDate originalStart = null;
         if (id != null) {
             var old = ownJob(user, id, false);
@@ -647,6 +655,7 @@ public class EmploymentService {
                 args.toArray()
             );
         }
+        if(detail!=null){db.update("DELETE FROM job_detail_images WHERE job_id=?",id);if(!detail.isBlank())db.update("INSERT INTO job_detail_images(job_id,image_data) VALUES(?,?)",id,detail);}
         if (body.containsKey("assessmentMinScore")) assessments.configure(id, body.get("assessmentMinScore"));
         return ownJob(user, id, false);
     }
@@ -674,10 +683,9 @@ public class EmploymentService {
 
     public List<Map<String, Object>> applicants(long user, long jobId) {
         ownJob(user, jobId, true);
-        return db.list(
-            "SELECT a.application_id,a.status,a.applied_at,u.name,e.score FROM applications a JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id LEFT JOIN application_assessments e ON e.application_id=a.application_id WHERE a.job_id=? ORDER BY a.application_id DESC",
-            jobId
-        );
+        var rows=db.list("SELECT a.application_id,a.status,a.applied_at,s.user_id AS applicant_user_id,u.name,x.snapshot_json FROM applications a JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id LEFT JOIN application_snapshots x ON x.application_id=a.application_id WHERE a.job_id=? ORDER BY a.application_id DESC",jobId);
+        decorateSubmittedApplicantScores(rows);
+        return rows;
     }
 
     public Map<String, Object> companyApplication(long user, long id) {
@@ -1075,11 +1083,26 @@ public class EmploymentService {
         if (!Set.of("","new","unreviewed").contains(view)) throw new Problem(400,"지원자 조회 조건을 확인해 주세요.");
         var profile=companyProfile(user);
         if (Boolean.TRUE.equals(profile.get("profileMissing"))) return List.of();
-        String sql="SELECT a.application_id,a.job_id,a.status,a.applied_at,u.name,j.title FROM applications a JOIN job_postings j ON j.job_id=a.job_id JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id WHERE j.company_id=?";
+        String sql="SELECT a.application_id,a.job_id,a.status,a.applied_at,s.user_id AS applicant_user_id,u.name,j.title,x.snapshot_json FROM applications a JOIN job_postings j ON j.job_id=a.job_id JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id JOIN users u ON u.user_id=s.user_id LEFT JOIN application_snapshots x ON x.application_id=a.application_id WHERE j.company_id=?";
         var args=new ArrayList<Object>();args.add(profile.get("companyId"));
         if (view.equals("new")) { sql+=" AND a.applied_at>=? AND a.status<>'CANCELED'";args.add(Timestamp.from(Instant.now().minus(Duration.ofDays(7)))); }
         if (view.equals("unreviewed")) sql+=" AND a.status='APPLIED'";
-        return db.list(sql+" ORDER BY a.applied_at DESC,a.application_id DESC",args.toArray());
+        var rows=db.list(sql+" ORDER BY a.applied_at DESC,a.application_id DESC",args.toArray());
+        decorateSubmittedApplicantScores(rows);
+        return rows;
+    }
+
+    private void decorateSubmittedApplicantScores(List<Map<String,Object>> rows) {
+        for(var row:rows) {
+            Object stored=row.remove("snapshotJson");
+            try {
+                var assessment=stored==null?json.nullNode():json.readTree(stored.toString()).path("careerAssessment");
+                var score=assessment.path("report").path("aptitudeScore");
+                row.put("score",score.isNumber()?score.numberValue():null);
+                row.put("assessmentCompletedAt",assessment.path("completedAt").isTextual()?assessment.path("completedAt").asText():null);
+                row.put("assessmentAttemptId",assessment.path("attemptId").isNumber()?assessment.path("attemptId").numberValue():null);
+            } catch(java.io.IOException ex) { throw new IllegalStateException(ex); }
+        }
     }
 
     public List<Map<String,Object>> companyInterviews(long user) {

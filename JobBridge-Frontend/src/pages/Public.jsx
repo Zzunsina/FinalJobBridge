@@ -1,9 +1,11 @@
+import TieredJobAds from '../components/common/TieredJobAds';
+import JobDeadline, { useJobDeadline } from '../components/common/JobDeadline';
 import { CareerTestCard } from './CareerAssessment';
 import { useRecentJobs } from '../stores/recentJobs';
 import CompanyCover from '../components/common/CompanyCover';
 import HomePromotion from '../components/common/HomePromotion';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import LocationMap from '../components/common/LocationMap';
 import { useResource } from '../hooks/useResource';
 import { useAuth } from '../stores/auth';
@@ -27,7 +29,6 @@ import {
 
 
 export function Home() {
-  const jobs = useResource('/jobs?size=8&page=0');
   const notices = useResource('/notices');
 
   return (
@@ -74,44 +75,7 @@ export function Home() {
         ))}
       </section>
 
-      <section className="section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">FIND YOUR OPPORTUNITY</p>
-            <h2>지금, 주목할 만한 채용</h2>
-            <p>새로운 동료를 기다리는 기업들을 만나보세요.</p>
-          </div>
-          <Link className="text-link" to="/jobs">
-            전체 공고 보기 →
-          </Link>
-        </div>
-
-        <Resource resource={jobs}>
-          {(data) => {
-            const allJobs = (data.content || []).slice(0, 8);
-
-            if (!allJobs.length) {
-              return <Empty>현재 게시된 채용공고가 없습니다.</Empty>;
-            }
-
-            return (
-              <>
-                <div className="regular-job-grid">
-                  {allJobs.map((job) => (
-                    <div className="regular-job-item" key={job.jobId}>
-                      <JobCard job={job} />
-                    </div>
-                  ))}
-                </div>
-
-              </>
-            );
-          }}
-        </Resource>
-      </section>
-
-
-
+      <TieredJobAds />
       <section className="section notice-preview">
         <div className="section-heading">
           <h2>잡브릿지 소식</h2>
@@ -260,7 +224,8 @@ export function Jobs() {
 
 export function JobDetail() {
   const { id } = useParams();
-  const resource = useResource(`/jobs/${id}`);
+  const resource = useResource(`/jobs/${id}`, { refreshInterval:60000 });
+  const deadline = useJobDeadline(resource.data);
   const user = useAuth((s) => s.user);
   const [applying, setApplying] = useState(false);
   const [done, setDone] = useState(false);
@@ -274,7 +239,7 @@ export function JobDetail() {
 
   return (
     <Resource resource={resource}>
-      {(job) => applying && !done ? (
+      {(job) => applying && !done && deadline.accepting ? (
         <>
           <button className="plain back" onClick={() => setApplying(false)}>
             ← 공고 상세로 돌아가기
@@ -300,7 +265,7 @@ export function JobDetail() {
               <div className="tags">
                 <span>{job.jobType}</span>
                 <span>{job.careerType}</span>
-                <Badge value={job.accepting ? 'PUBLISHED' : 'CLOSED'} />
+                <Badge value={deadline.tone === 'scheduled' ? '접수 예정' : deadline.accepting ? 'PUBLISHED' : 'CLOSED'} />
               </div>
               <dl className="facts">
                 {[
@@ -324,6 +289,7 @@ export function JobDetail() {
               ].map(([k, v]) => (
                 <section className="prose" key={k}>
                   <h2>{k}</h2>
+                  {k === '상세 소개' && job.detailImageUrl && <div className="job-detail-poster-link"><img className="job-detail-poster" src={job.detailImageUrl} alt={job.companyName + ' ' + job.title + ' 상세 소개'} /></div>}
                   <p>{v || '별도 안내'}</p>
                 </section>
               ))}
@@ -343,16 +309,16 @@ export function JobDetail() {
 
               <Link to={`/companies/${job.companyId}`}>기업 자세히 보기 ↗</Link>
               <hr />
-              <p>
-                접수 마감 <strong>{job.endDate}</strong>
-              </p>
+              <JobDeadline endDate={job.endDate} deadline={deadline} />
               {done ? (
                 <p className="success" role="status">
                   지원이 완료되었습니다. <Link to="/applications">내역 보기</Link>
                 </p>
+              ) : !deadline.accepting ? (
+                <button type="button" disabled className="button application-deadline-disabled">{deadline.tone === 'scheduled' ? '접수 예정' : '접수 마감'}</button>
               ) : user?.role === 'JOB_SEEKER' ? (
                 <>
-                  <ApplyButton id={id} accepting={job.accepting} onApply={() => setApplying(!applying)} />
+                  <ApplyButton id={id} accepting={deadline.accepting} onApply={() => setApplying(!applying)} />
                 </>
               ) : (
                 <Link className="button" to="/login">
@@ -713,3 +679,4 @@ function PremiumJobBanner({ job }) {
 }
 
 export default PremiumJobBanner;
+
