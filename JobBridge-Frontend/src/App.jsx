@@ -1,4 +1,7 @@
 
+import CompanyAdvertising, { AdminAdvertising } from './pages/Advertising';
+
+
 import CareerExploration from './pages/CareerExploration';
 import CareerAssessment from './pages/CareerAssessment';
 import SiteFooter from './components/common/SiteFooter';
@@ -40,6 +43,10 @@ import CompanyEmployment from './pages/CompanyEmployment';
 import CompanyEmploymentDetail from './pages/CompanyEmploymentDetail';
 import { BookmarkNotice } from './components/common/BookmarkButton';
 
+// 💡 [추가] 앞서 만든 결제 상품 숍 컴포넌트와 결제 성공 페이지 컴포넌트 임포트
+import CompanyProductShop from './components/common/CompanyProductShop';
+import CompanyPaymentSuccess from './components/common/CompanyPaymentSuccess';
+
 const companyLinks = [
   ['/company', '대시보드'],
   ['/company/jobs', '채용공고 관리'],
@@ -47,6 +54,11 @@ const companyLinks = [
   ['/company/employment', '취업연계'],
   ['/company/interviews', '면접 일정'],
   ['/company/profile', '기업 정보'],
+
+  ['/company/advertising', '광고·결제'],
+
+  ['/company/payment/shop', '이용권 구매'], // 💡 [추가] 기업회원 메뉴바에 이용권 구매 링크 추가
+
   ['/mypage', '내 정보'],
 ];
 const adminLinks = [
@@ -57,6 +69,7 @@ const adminLinks = [
   ['/admin/employment', '취업연계 관리'],
   ['/admin/notices', '공지 관리'],
   ['/admin/home-promotions', '홈 홍보 관리'],
+  ['/admin/advertising', '광고·결제 관리'],
   ['/admin/inquiries', '문의 관리'],
 ];
 const seekerLinks = [
@@ -85,19 +98,24 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  // 💡 [추가] 카카오 로그인 성공 시 URL 파라미터(?login=kakao)를 감지하여 localStorage에 저장하는 로직
+  // 카카오 로그인 성공 시 URL 파라미터(?login=kakao) 감지 로직
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('login') === 'kakao') {
       localStorage.setItem('loginProvider', 'kakao');
-      // 주소창에서 ?login=kakao 파라미터만 지우고 깔끔하게 URL 유지
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
   const workspace =
     location.pathname !== '/admin/login' &&
-    (location.pathname.startsWith('/admin') || location.pathname.startsWith('/company'));
+
+    (location.pathname.startsWith('/admin') ||
+      location.pathname.startsWith('/company') ||
+      (user?.role === 'COMPANY' && location.pathname === '/mypage'));
+
+    (location.pathname.startsWith('/admin') || location.pathname.startsWith('/company') || location.pathname.startsWith('/company/payment'));
+
   const links =
     user?.role === 'ADMIN' ? adminLinks : user?.role === 'COMPANY' ? companyLinks : seekerLinks;
 
@@ -225,7 +243,6 @@ export default function App() {
                   className="plain"
                   onClick={async () => {
                     try {
-                      // 카카오 외부 서버를 호출하지 않고, 우리 서비스 백엔드 세션/쿠키만 깔끔하게 정리
                       await logout();
                       localStorage.removeItem('loginProvider');
                       navigate('/');
@@ -323,6 +340,8 @@ export default function App() {
             <Route path="/mypage" element={protectedPage(null, <MyPage />)} />
             <Route path="/notifications" element={protectedPage(null, <Notifications />)} />
             <Route path="/inquiries" element={<CustomerCenter />} />
+
+            {/* 기업회원 전용 라우트 */}
             <Route path="/company" element={protectedPage('COMPANY', <CompanyDashboard />)} />
             <Route path="/company/applicants" element={protectedPage('COMPANY', <CompanyApplicants />)} />
             <Route path="/company/employment" element={protectedPage('COMPANY', <CompanyEmployment />)} />
@@ -339,7 +358,14 @@ export default function App() {
               path="/company/applications/:id"
               element={protectedPage('COMPANY', <ApplicantDetail />)}
             />
+            <Route path="/company/advertising" element={protectedPage('COMPANY', <CompanyAdvertising />)} />
+            <Route path="/admin/advertising" element={protectedPage('ADMIN', <AdminAdvertising />)} />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
+
+            {/* 💡 [추가] 기업회원 결제 상품 숍 및 결제 성공 처리 라우트 */}
+            <Route path="/company/payment/shop" element={protectedPage('COMPANY', <CompanyProductShop companyUser={user} />)} />
+            <Route path="/company/payment/success" element={protectedPage('COMPANY', <CompanyPaymentSuccess />)} />
+
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />
             <Route path="/admin/home-promotions" element={protectedPage('ADMIN', <AdminHomePromotions />)} />
             {[

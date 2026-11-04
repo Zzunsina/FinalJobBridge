@@ -90,6 +90,7 @@ export function Pagination({ page, totalPages, total, onChange }) {
   const start = Math.max(0, Math.min(page - 2, totalPages - 5));
   return (
     <nav className="pagination" aria-label="페이지 이동">
+      <button type="button" className="secondary" disabled={page <= 0} onClick={() => onChange(0)}>처음</button>
       <button
         type="button"
         className="secondary"
@@ -109,9 +110,13 @@ export function Pagination({ page, totalPages, total, onChange }) {
           {p + 1}
         </button>
       ))}
-      <span>
-        {page + 1} / {Math.max(totalPages, 1)}
-      </span>
+      <label className="pagination-jump">
+        <span>바로 이동</span>
+        <select aria-label="이동할 페이지" value={page} onChange={(e) => onChange(Number(e.target.value))}>
+          {Array.from({ length: totalPages }, (_, p) => <option key={p} value={p}>{p + 1}페이지</option>)}
+        </select>
+        <span>/ {totalPages}</span>
+      </label>
       <button
         type="button"
         className="secondary"
@@ -120,6 +125,7 @@ export function Pagination({ page, totalPages, total, onChange }) {
       >
         다음
       </button>
+      <button type="button" className="secondary" disabled={page >= totalPages - 1} onClick={() => onChange(totalPages - 1)}>마지막</button>
     </nav>
   );
 }

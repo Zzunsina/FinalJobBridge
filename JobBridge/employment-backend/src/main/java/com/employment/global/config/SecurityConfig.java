@@ -26,12 +26,20 @@ public class SecurityConfig {
         var csrf = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrf.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/").secure(secure));
         http
+            // 💡 1. 브라우저 보안 헤더(CSP 및 프레임 허용) 설정 추가
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin()) // 동일 출처 프레임 허용
+                .contentSecurityPolicy(csp -> csp
+                    .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.tosspayments.com https://*.vpay.co.kr https://*.n.pay.naver.com; style-src 'self' 'unsafe-inline' https://*; img-src 'self' data: https://*; connect-src 'self' https://*.tosspayments.com https://api.tosspayments.com; frame-src 'self' https://*.tosspayments.com https://*.shinhancard.com https://*.lottecard.co.kr https://*.hyundaicard.com https://*.kbcard.com https://*.wooricard.com; form-action 'self' https://*.tosspayments.com https://*.shinhancard.com https://*.lottecard.co.kr https://*.hyundaicard.com https://*.kbcard.com https://*.wooricard.com;")
+                )
+            )
             .addFilterBefore(new PageReloadFilter(secure), CsrfFilter.class)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(f -> f.disable())
             .httpBasic(b -> b.disable())
             .csrf(c ->
                 c
+                    .ignoringRequestMatchers("/api/payments/portone/webhook")
                     .csrfTokenRepository(csrf)
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )

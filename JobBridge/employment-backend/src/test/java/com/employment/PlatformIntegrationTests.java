@@ -2937,4 +2937,165 @@ class PlatformIntegrationTests {
         invalid.put("to","/companies/999999999");assertThatThrownBy(()->homePromotions.save("team",invalid)).isInstanceOf(Problem.class);
         mvc.perform(get("/api/admin/home-promotion-targets").param("kind","users").cookie(session)).andExpect(status().isBadRequest());
     }
+
+    @Test
+    void applicationsPreserveProfilePhotosLargerThanLegacyTextLimit() throws Exception {
+        var image=new java.awt.image.BufferedImage(512,512,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var random=new Random(20261104L);
+        for(int y=0;y<512;y++)for(int x=0;x<512;x++)image.setRGB(x,y,random.nextInt(0x1000000));
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"jpeg",bytes);
+        db.update("DELETE FROM user_profile_photos WHERE user_id=?",seeker);
+        db.update("INSERT INTO user_profile_photos(user_id,image_data) VALUES(?,?)",seeker,bytes.toByteArray());
+        var application=service.apply(seeker,job,fields("resumeId",resume));
+        String snapshot=db.one("SELECT snapshot_json FROM application_snapshots WHERE application_id=?",number(application,"applicationId")).get("snapshotJson").toString();
+        assertThat(snapshot.getBytes(java.nio.charset.StandardCharsets.UTF_8).length).isGreaterThan(65535);
+        assertThat(json.readTree(snapshot).path("contact").path("photo").asText()).isEqualTo("data:image/jpeg;base64,"+Base64.getEncoder().encodeToString(bytes.toByteArray()));
+        assertThat(json.valueToTree(service.companyApplication(companyUser,number(application,"applicationId")).get("snapshot")).path("contact").path("photo").asText()).isEqualTo(json.readTree(snapshot).path("contact").path("photo").asText());
+    }
+
+    @Test
+    void companyRankingAndDetailKeepSubmittedAssessmentAndPhoto() throws Exception {
+        finishCareerAssessment(seeker,2,true);
+        db.update("DELETE FROM user_profile_photos WHERE user_id=?",seeker);
+        db.update("INSERT INTO user_profile_photos(user_id,image_data) VALUES(?,?)",seeker,new byte[]{1,2,3});
+        long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        com.fasterxml.jackson.databind.JsonNode original=json.valueToTree(service.companyApplication(companyUser,app).get("snapshot"));
+        finishCareerAssessment(seeker,4,false);
+        db.update("UPDATE user_profile_photos SET image_data=? WHERE user_id=?",new byte[]{4,5,6},seeker);
+        db.update("UPDATE resumes SET title='Changed after submission' WHERE resume_id=?",resume);
+        var detail=service.companyApplication(companyUser,app);
+        assertThat((com.fasterxml.jackson.databind.JsonNode)json.valueToTree(detail.get("snapshot"))).isEqualTo(original);
+        assertThat(original.path("contact").path("photo").asText()).isEqualTo("data:image/jpeg;base64,AQID");
+        assertThat(number(service.applicants(companyUser,job).get(0),"score")).isEqualTo(100);
+        assertThat(number(service.companyApplicants(companyUser,"").get(0),"score")).isEqualTo(100);
+        assertThat(detail).doesNotContainKeys("currentSnapshot","currentCareerAssessment","currentPhotoUrl");
+        db.update("DELETE FROM user_profile_photos WHERE user_id=?",seeker);
+        assertThat((com.fasterxml.jackson.databind.JsonNode)json.valueToTree(service.companyApplication(companyUser,app).get("snapshot"))).isEqualTo(original);
+        db.update("UPDATE applications SET status='REJECTED' WHERE application_id=?",app);
+        long next=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        var nextSnapshot=json.valueToTree(service.companyApplication(companyUser,next).get("snapshot"));
+        assertThat(nextSnapshot.path("careerAssessment").path("report").path("aptitudeScore").asInt()).isZero();
+        var scores=service.applicants(companyUser,job);
+        assertThat(number(scores.stream().filter(r->number(r,"applicationId")==app).findFirst().orElseThrow(),"score")).isEqualTo(100);
+        assertThat(number(scores.stream().filter(r->number(r,"applicationId")==next).findFirst().orElseThrow(),"score")).isZero();
+        db.update("DELETE FROM application_snapshots WHERE application_id=?",next);
+        assertThat(service.applicants(companyUser,job).stream().filter(r->number(r,"applicationId")==next).findFirst().orElseThrow().get("score")).isNull();
+    }
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.employment.ads.PortOneGateway portOne;
+    @Autowired com.employment.ads.AdvertisingService advertising;
+    private void advertisingGateway(){
+        org.mockito.Mockito.when(portOne.configuration()).thenReturn(fields("ready",true,"testOnly",true,"impCode","imp12345678","channelKey","channel-test"));
+        org.mockito.Mockito.doAnswer(inv->{new com.employment.ads.PortOneGateway(json,"imp12345678","channel-test","api-key-test","secret-test").validate(inv.getArgument(0),inv.getArgument(1),inv.getArgument(2));return null;}).when(portOne).validate(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyInt());
+    }
+    private Map<String,Object> advertisingBody(String code)throws Exception{
+        var image=new java.awt.image.BufferedImage(20,10,java.awt.image.BufferedImage.TYPE_INT_RGB);var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);
+        return fields("productCode",code,"startDate",EmploymentService.today().toString(),"linkType","internal","jobId",job,"image","data:image/png;base64,"+Base64.getEncoder().encodeToString(bytes.toByteArray()),"consent",true,"totalAmount",1);
+    }
+    private com.fasterxml.jackson.databind.JsonNode advertisingPayment(String id,String status,int amount){return json.valueToTree(fields("id",id,"status",status,"providerPaymentId","imp_123456789","provider","html5_inicis","sandbox",true,"currency","KRW","amount",fields("total",amount)));}
+    @Test void advertisingReviewApprovalThenPaymentControlsPublication()throws Exception{
+        advertisingGateway();var created=advertising.create(companyUser,advertisingBody("SLIDE"));String id=created.get("orderId").toString();
+        assertThat(created.get("reviewStatus")).isEqualTo("PENDING_REVIEW");assertThat(created.get("displayStatus")).isEqualTo("PENDING_REVIEW");
+        org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).requireReady();org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).payment(org.mockito.ArgumentMatchers.anyString());
+        assertThatThrownBy(()->advertising.checkout(companyUser,id)).isInstanceOf(Problem.class);
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND title='광고 심사 요청'",admin)).hasSize(1);
+        advertising.review(admin,id,fields("action","approve"));
+        assertThat(advertising.orders(company).stream().filter(r->id.equals(r.get("orderId"))).findFirst().orElseThrow().get("displayStatus")).isEqualTo("PAYMENT_PENDING");
+        assertThat(advertising.active("SLIDE").stream().filter(r->id.equals(r.get("orderId")))).isEmpty();
+        var checkout=advertising.checkout(companyUser,id);assertThat(number(checkout,"totalAmount")).isEqualTo(242000);
+        org.mockito.Mockito.when(portOne.payment(id)).thenReturn(advertisingPayment(id,"PAID",242000));advertising.confirm(companyUser,id);advertising.confirm(companyUser,id);
+        assertThat(advertising.orders(company).stream().filter(r->id.equals(r.get("orderId"))).findFirst().orElseThrow().get("reviewStatus")).isEqualTo("APPROVED");
+        assertThat(advertising.active("SLIDE").stream().filter(r->id.equals(r.get("orderId")))).hasSize(1);
+        assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND title='광고 결제 완료'",admin)).hasSize(1);
+        advertising.review(admin,id,fields("action","pause"));assertThat(advertising.active("SLIDE").stream().filter(r->id.equals(r.get("orderId")))).isEmpty();
+    }
+    @Test void advertisingCheckoutRetryReusesApprovedApplicationAndCanWithdraw()throws Exception{
+        advertisingGateway();var body=advertisingBody("COMPANY");body.put("startDate",EmploymentService.today().plusDays(10).toString());String id=advertising.create(companyUser,body).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));
+        long before=number(db.one("SELECT COUNT(*) AS n FROM ad_orders WHERE company_id=?",company),"n");var first=advertising.checkout(companyUser,id);var retry=advertising.checkout(companyUser,id);
+        assertThat(first.get("paymentId")).isEqualTo(retry.get("paymentId"));assertThat(number(db.one("SELECT COUNT(*) AS n FROM ad_orders WHERE company_id=?",company),"n")).isEqualTo(before);
+        assertThat(db.one("SELECT payment_status FROM ad_orders WHERE order_id=?",id).get("paymentStatus")).isEqualTo("READY");
+        long foreign=signup("adforeign"+UUID.randomUUID().toString().substring(0,8),true);db.update("UPDATE companies SET approval_status='APPROVED' WHERE user_id=?",foreign);assertThatThrownBy(()->advertising.checkout(foreign,id)).isInstanceOf(Problem.class);
+        mvc.perform(post("/api/admin/ad-orders/"+id+"/review").cookie(login(companyUser)).with(csrf()).contentType("application/json").content("{\"action\":\"approve\"}")).andExpect(status().isForbidden());
+        advertising.withdraw(companyUser,id);assertThatThrownBy(()->advertising.checkout(companyUser,id)).isInstanceOf(Problem.class);
+        org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).payment(org.mockito.ArgumentMatchers.anyString());
+    }
+    @Test void advertisingPrepaymentRevisionAndCapacityReserveSlots()throws Exception{
+        advertisingGateway();var original=db.one("SELECT max_slots FROM ad_products WHERE product_code='SLIDE'");try{
+            db.update("UPDATE ad_products SET max_slots=1 WHERE product_code='SLIDE'");db.update("UPDATE job_postings SET end_date=? WHERE job_id=?",EmploymentService.today().plusDays(100),job);
+            var body=advertisingBody("SLIDE");body.put("startDate",EmploymentService.today().plusDays(60).toString());String first=advertising.create(companyUser,body).get("orderId").toString(),second=advertising.create(companyUser,body).get("orderId").toString();
+            advertising.review(admin,first,fields("action","changes","memo","이미지를 보완해 주세요."));assertThatThrownBy(()->advertising.checkout(companyUser,first)).isInstanceOf(Problem.class);
+            advertising.creative(companyUser,first,fields("image",body.get("image"),"startDate",body.get("startDate")));advertising.review(admin,first,fields("action","approve"));
+            assertThatThrownBy(()->advertising.review(admin,second,fields("action","approve"))).isInstanceOf(Problem.class);
+            advertising.withdraw(companyUser,first);advertising.review(admin,second,fields("action","approve"));advertising.withdraw(companyUser,second);
+        }finally{db.update("UPDATE ad_products SET max_slots=? WHERE product_code='SLIDE'",original.get("maxSlots"));}
+    }
+    @Test void advertisingPaymentValidationDoesNotGrantApprovalAndRefundIsVerified()throws Exception{
+        advertisingGateway();var body=advertisingBody("COMPANY");body.put("startDate",EmploymentService.today().plusDays(20).toString());String id=advertising.create(companyUser,body).get("orderId").toString();
+        org.mockito.Mockito.when(portOne.payment(id)).thenReturn(advertisingPayment(id,"PAID",1));assertThatThrownBy(()->advertising.confirm(companyUser,id)).isInstanceOf(Problem.class);
+        var live=(com.fasterxml.jackson.databind.node.ObjectNode)advertisingPayment(id,"PAID",121000);live.put("sandbox",false);org.mockito.Mockito.when(portOne.payment(id)).thenReturn(live);assertThatThrownBy(()->advertising.confirm(companyUser,id)).isInstanceOf(Problem.class);
+        org.mockito.Mockito.when(portOne.payment(id)).thenReturn(advertisingPayment(id,"PAID",121000));advertising.confirm(companyUser,id);
+        assertThat(db.one("SELECT review_status FROM ad_orders WHERE order_id=?",id).get("reviewStatus")).isEqualTo("PENDING_REVIEW");assertThat(advertising.active("COMPANY").stream().filter(r->id.equals(r.get("orderId")))).isEmpty();
+        advertising.refundRequest(companyUser,id,"일정 변경");org.mockito.Mockito.when(portOne.payment(id)).thenReturn(advertisingPayment(id,"PAID",121000),advertisingPayment(id,"CANCELLED",121000));assertThat(advertising.refund(admin,id).get("refundStatus")).isEqualTo("COMPLETED");
+        advertising.refund(admin,id);org.mockito.Mockito.verify(portOne,org.mockito.Mockito.times(1)).cancel(id,"일정 변경",121000);
+    }
+    @Test void advertisingOldUnsubmittedOrdersAreHiddenButExistingHistoryRemains()throws Exception{
+        advertisingGateway();String id=advertising.create(companyUser,advertisingBody("SLIDE")).get("orderId").toString();db.update("UPDATE ad_orders SET review_status='AWAITING_PAYMENT' WHERE order_id=?",id);advertising.initialize();
+        assertThat(advertising.orders(company).stream().filter(r->id.equals(r.get("orderId")))).isEmpty();assertThat(db.one("SELECT review_status FROM ad_orders WHERE order_id=?",id).get("reviewStatus")).isEqualTo("ABANDONED");
+    }
+    @Test void advertisingSimulationNeverCallsPaymentGateway()throws Exception{
+        advertisingGateway();var body=advertisingBody("JOB");body.put("startDate",EmploymentService.today().plusDays(25).toString());db.update("UPDATE job_postings SET end_date=? WHERE job_id=?",EmploymentService.today().plusDays(40),job);String id=advertising.create(companyUser,body).get("orderId").toString();
+        db.update("INSERT INTO ad_order_simulations(order_id) VALUES(?)",id);db.update("UPDATE ad_orders SET payment_status='PAID',review_status='APPROVED' WHERE order_id=?",id);advertising.confirm(companyUser,id);advertising.webhook(id);advertising.refundRequest(companyUser,id,"시작 전 취소");assertThat(advertising.refund(admin,id).get("paymentStatus")).isEqualTo("CANCELLED");
+        org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).payment(org.mockito.ArgumentMatchers.anyString());org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).cancel(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test void advertisingBasicHasNoApprovalOrPublicLimit() throws Exception {
+        advertisingGateway();
+        assertThat(number(db.one("SELECT max_slots FROM ad_products WHERE product_code='SLIDE'"),"maxSlots")).isEqualTo(9);
+        assertThat(number(db.one("SELECT max_slots FROM ad_products WHERE product_code='COMPANY'"),"maxSlots")).isEqualTo(20);
+        assertThat(number(db.one("SELECT max_slots FROM ad_products WHERE product_code='JOB'"),"maxSlots")).isZero();
+        db.update("UPDATE job_postings SET end_date=? WHERE job_id=?",EmploymentService.today().plusDays(150),job);
+        var body=advertisingBody("JOB");body.put("startDate",EmploymentService.today().plusDays(100).toString());var ids=new HashSet<String>();
+        for(int i=0;i<6;i++){String id=advertising.create(companyUser,body).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));db.update("INSERT INTO ad_order_simulations(order_id) VALUES(?)",id);db.update("UPDATE ad_orders SET payment_status='PAID',start_date=?,end_date=? WHERE order_id=?",EmploymentService.today(),EmploymentService.today().plusDays(6),id);ids.add(id);}
+        assertThat(advertising.active("JOB").stream().filter(r->ids.contains(r.get("orderId")))).hasSize(6);
+        mvc.perform(get("/api/ads/products")).andExpect(status().isOk()).andExpect(jsonPath("$[2].maxSlots").value(0));
+        org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).payment(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test void advertisingAvailabilityChecksWholePeriodAndBlocksFullSubmission() throws Exception {
+        advertisingGateway();var old=db.one("SELECT max_slots FROM ad_products WHERE product_code='SLIDE'");
+        try {
+            db.update("UPDATE ad_products SET max_slots=1 WHERE product_code='SLIDE'");
+            var today=EmploymentService.today();db.update("UPDATE job_postings SET start_date=?,end_date=? WHERE job_id=?",today,today.plusDays(200),job);
+            var body=advertisingBody("SLIDE");body.put("startDate",today.plusDays(10).toString());String id=advertising.create(companyUser,body).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));
+            var result=advertising.availability(companyUser,"SLIDE",job,"");
+            var days=(List<Map<String,Object>>)result.get("days");assertThat(days).hasSize(181);
+            assertThat(days.get(3).get("available")).isEqualTo(true);
+            assertThat(days.get(4).get("available")).isEqualTo(false);
+            assertThat(days.get(16).get("available")).isEqualTo(false);
+            assertThat(days.get(17).get("available")).isEqualTo(true);
+            body.put("startDate",today.plusDays(12).toString());assertThatThrownBy(()->advertising.create(companyUser,body)).isInstanceOf(Problem.class).hasMessageContaining("모두 찼습니다");
+            var own=(List<Map<String,Object>>)advertising.availability(companyUser,"SLIDE",job,id).get("days");assertThat(own.get(10).get("available")).isEqualTo(true);
+            mvc.perform(get("/api/company/ad-availability").param("productCode","SLIDE").param("jobId",Long.toString(job)).cookie(login(companyUser))).andExpect(status().isOk()).andExpect(jsonPath("$.days[4].available").value(false));
+            mvc.perform(get("/api/company/ad-availability").param("productCode","SLIDE")).andExpect(status().isUnauthorized());
+            advertising.withdraw(companyUser,id);assertThat(((List<Map<String,Object>>)advertising.availability(companyUser,"SLIDE",job,"").get("days")).get(10).get("available")).isEqualTo(true);
+        }finally{db.update("UPDATE ad_products SET max_slots=? WHERE product_code='SLIDE'",old.get("maxSlots"));}
+    }
+    @Test void advertisingAvailabilityHonorsJobDeadlineAndUnlimitedBasic() throws Exception {
+        advertisingGateway();var today=EmploymentService.today();db.update("UPDATE job_postings SET start_date=?,end_date=? WHERE job_id=?",today,today.plusDays(8),job);
+        var result=advertising.availability(companyUser,"JOB",job,"");var days=(List<Map<String,Object>>)result.get("days");
+        assertThat(result.get("maxSlots")).isEqualTo(0L);assertThat(days.get(2).get("available")).isEqualTo(true);assertThat(days.get(3).get("available")).isEqualTo(false);assertThat(days.get(3).get("reason")).isEqualTo("공고 접수 기간 초과");
+        assertThatThrownBy(()->advertising.availability(companyUser,"JOB",Long.MAX_VALUE,"")).isInstanceOf(Problem.class);
+        org.mockito.Mockito.verify(portOne,org.mockito.Mockito.never()).payment(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test void jobDetailPosterPersistsReplacesAndDeletesWithoutChangingBanner() throws Exception {
+        var body=regressionJobBody();String image=Objects.toString(advertisingBody("SLIDE").get("image"));body.put("detailImageUrl",image);
+        long id=number(service.saveJob(companyUser,null,body),"jobId");assertThat(service.ownJob(companyUser,id,false).get("detailImageUrl")).isEqualTo(image);
+        db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",id);assertThat(service.publicJob(id).get("detailImageUrl")).isEqualTo(image);
+        assertThat(db.one("SELECT banner_image_url FROM job_postings WHERE job_id=?",id).get("bannerImageUrl")).isIn(null,"");
+        db.update("UPDATE job_postings SET status='DRAFT' WHERE job_id=?",id);service.saveJob(companyUser,id,regressionJobBody());assertThat(service.ownJob(companyUser,id,false).get("detailImageUrl")).isEqualTo(image);
+        body.put("detailImageUrl","");service.saveJob(companyUser,id,body);assertThat(service.ownJob(companyUser,id,false).get("detailImageUrl")).isEqualTo("");
+        body.put("detailImageUrl","data:image/svg+xml;base64,PHN2Zz4=");assertThatThrownBy(()->service.saveJob(companyUser,id,body)).isInstanceOf(Problem.class);
+        body.put("detailImageUrl",image);service.saveJob(companyUser,id,body);service.deleteJob(companyUser,id);assertThat(db.list("SELECT * FROM job_detail_images WHERE job_id=?",id)).isEmpty();
+    }
 }
