@@ -10,7 +10,10 @@ import org.springframework.web.bind.annotation.*;
 public class HomePromotionController {
     private final HomePromotionService service;
     private final AuthService auth;
-    public HomePromotionController(HomePromotionService service,AuthService auth){this.service=service;this.auth=auth;}
+    private final HomePromotionTargets targets;
+    public HomePromotionController(HomePromotionService service,AuthService auth,HomePromotionTargets targets){this.service=service;this.auth=auth;this.targets=targets;}
+    @GetMapping("/admin/home-promotion-targets")
+    Object targets(@RequestParam String kind,@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="0") long selectedId,HttpServletRequest req){auth.require(req,"ADMIN");return targets.search(kind,q,selectedId);}
     @GetMapping("/home-promotions") Object published(){return service.list(false);}
     @GetMapping("/admin/home-promotions") Object all(HttpServletRequest req){auth.require(req,"ADMIN");return service.list(true);}
     @PostMapping("/admin/home-promotions") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)

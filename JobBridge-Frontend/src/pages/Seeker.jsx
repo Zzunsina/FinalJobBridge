@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import SubmittedAssessment from '../components/common/SubmittedAssessment';
 import { formatDateTime } from "../utils/dateTime";
 import { employmentStage } from '../utils/employmentStage';
@@ -360,46 +361,54 @@ export function MyPage() {
 export function Notifications() {
   const user = useAuth((s) => s.user);
   const resource = useResource('/notifications', { refreshInterval: 30000 });
+  const [filter, setFilter] = useState('all');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const unread = (resource.data || []).filter((row) => !row.isRead).length;
+  const filtered = { ...resource, data: filter === 'unread' ? (resource.data || []).filter((row) => !row.isRead) : resource.data };
+  const markRead = async (row) => {
+    if (row.isRead) return;
+    try {
+      await client.patch('/notifications/' + row.notificationId + '/read');
+      window.dispatchEvent(new Event('notifications-changed'));
+      await resource.reload(true);
+      setError('');
+    } catch {
+      setError('읽음 상태를 저장하지 못했습니다. 다시 눌러 주세요.');
+    }
+  };
+  const readAll = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await client.patch('/notifications/read-all');
+      window.dispatchEvent(new Event('notifications-changed'));
+      await resource.reload(true);
+    } catch {
+      setError('모두 읽음 처리하지 못했습니다. 다시 시도해 주세요.');
+    } finally { setBusy(false); }
+  };
   return (
     <>
       <Title>내 알림</Title>
-      <PagedResource resource={resource}>
-        {(rows) =>
-          rows.length ? (
-            <div className="stack">
-              {rows.map((r) => (
-                <article className="panel row" key={r.notificationId}>
-                  <NotificationContent notification={r} role={user?.role} onRead={async () => {
-                    if (r.isRead) return;
-                    try {
-                      await client.patch('/notifications/' + r.notificationId + '/read');
-                      window.dispatchEvent(new Event('notifications-changed'));
-                      await resource.reload();
-                    } catch {
-                      // Keep navigation available when updating the read status fails.
-                    }
-                  }} />
-                  {r.isRead ? (
-                    <Badge value="읽음" />
-                  ) : (
-                    <Action
-                      url={`/notifications/${r.notificationId}/read`}
-                      method="patch"
-                      onDone={async () => {
-                        await resource.reload();
-                        window.dispatchEvent(new Event('notifications-changed'));
-                      }}
-                    >
-                      읽음 처리
-                    </Action>
-                  )}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <Empty>새로운 알림이 없습니다.</Empty>
-          )
-        }
+      <div className="notification-toolbar">
+        <div className="notification-filters" role="group" aria-label="알림 표시">
+          <button type="button" className={filter === 'all' ? 'active' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>전체</button>
+          <button type="button" className={filter === 'unread' ? 'active' : ''} aria-pressed={filter === 'unread'} onClick={() => setFilter('unread')}>안 읽음 <span>{unread}</span></button>
+        </div>
+        <button type="button" className="secondary" disabled={busy || !unread || resource.loading || Boolean(resource.error)} onClick={readAll}>{busy ? '처리 중…' : '모두 읽음'}</button>
+      </div>
+      {error && <p role="alert" className="error">{error}</p>}
+      <PagedResource key={filter} resource={filtered}>
+        {(rows) => rows.length ? (
+          <div className="stack notification-list">
+            {rows.map((row) => (
+              <article className={'panel notification-item' + (row.isRead ? '' : ' is-unread')} key={row.notificationId}>
+                <NotificationContent notification={row} role={user?.role} onRead={() => markRead(row)} />
+              </article>
+            ))}
+          </div>
+        ) : <div className="notification-empty">{filter === 'unread' ? '읽지 않은 알림이 없습니다.' : '새로운 알림이 없습니다.'}</div>}
       </PagedResource>
     </>
   );
@@ -407,8 +416,8 @@ export function Notifications() {
 
 function NotificationContent({ notification, role, onRead }) {
   const to = notificationTarget(notification, role);
-  const content = <><h3>{notification.title}</h3><p>{notification.content}</p><small>{notification.createdAt?.slice(0, 10)}</small>{to && <span className="notification-open">관련 화면 보기 →</span>}</>;
-  return to ? <Link className="notification-content" to={to} onClick={onRead}>{content}</Link> : <div>{content}</div>;
+  const content = <><div className="notification-item-heading"><h3>{notification.title}</h3>{!notification.isRead && <span className="notification-unread-dot" role="img" aria-label="읽지 않음" />}</div><p>{notification.content}</p><small>{formatDateTime(notification.createdAt)}</small></>;
+  return to ? <Link className="notification-content" to={to} onClick={onRead}>{content}</Link> : <button type="button" className="notification-content notification-content-button" onClick={onRead}>{content}</button>;
 }
 
 export function InquiryWrite({ onSubmitted, kind }) {

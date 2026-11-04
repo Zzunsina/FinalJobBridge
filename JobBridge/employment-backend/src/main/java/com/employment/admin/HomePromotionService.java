@@ -18,7 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class HomePromotionService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
-    public HomePromotionService(JdbcTemplate jdbc, ObjectMapper json) { this.jdbc=jdbc; this.json=json; }
+    private final HomePromotionTargets targets;
+    public HomePromotionService(JdbcTemplate jdbc, ObjectMapper json,HomePromotionTargets targets) { this.jdbc=jdbc; this.json=json;this.targets=targets; }
 
     @EventListener(ApplicationReadyEvent.class)
     public void initialize() throws IOException {
@@ -35,6 +36,7 @@ public class HomePromotionService {
             if(designFields.stream().allMatch(field->Objects.equals(content.get(field),legacy.get(field)))) {
                 var converted=new LinkedHashMap<>(defaults.stream().filter(row->row.get("key").equals(legacy.get("key"))).findFirst().orElseThrow());
                 converted.put("label",content.get("label"));converted.put("to",content.get("to"));
+                for(String field:List.of("linkType","advertiserName","isAd","startDate","endDate"))if(content.containsKey(field))converted.put(field,content.get(field));
                 jdbc.update("UPDATE home_promotions SET content_json=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE promotion_key=?",json.writeValueAsString(converted),legacy.get("key"));
             }
         }
@@ -69,9 +71,11 @@ public class HomePromotionService {
                 row.put("key",key); row.put("sortOrder",rs.getInt("sort_order"));row.put("isPublished",rs.getBoolean("is_published"));
                 int version=rs.getInt("version");row.put("version",version);
                 if(rs.getBoolean("has_image"))row.put("imageUrl","/api/"+(admin?"admin/":"")+"home-promotions/"+key+"/image?v="+version);
+                row.putIfAbsent("linkType","internal");row.putIfAbsent("isAd",false);row.putIfAbsent("advertiserName","");
+                row.put("displayStatus",!rs.getBoolean("is_published")?"HIDDEN":displayStatus(row));
                 return row;
             } catch(IOException ex) { throw new IllegalStateException("홍보 데이터를 읽을 수 없습니다.",ex); }
-        });
+        }).stream().filter(row->admin || "LIVE".equals(row.get("displayStatus"))).toList();
     }
 
     @Transactional
@@ -81,7 +85,18 @@ public class HomePromotionService {
         if(integer(body,"version",0,Integer.MAX_VALUE)!=versions.get(0))throw new Problem(409,"다른 관리자가 변경했습니다. 목록을 새로고침한 뒤 다시 수정해 주세요.");
         Map<String,Object> data=new LinkedHashMap<>();data.put("key",key);
         for(String field:List.of("label","imageAlt"))data.put(field,Input.text(body,field,field.equals("label")?50:300,true).trim());
-        String to=Input.text(body,"to",300,true);validatePath(to);data.put("to",to);
+        String linkType=Objects.toString(body.get("linkType"),"internal");
+        if(!Set.of("internal","external").contains(linkType))throw new Problem(400,"이동 방식을 선택해 주세요.","linkType");
+        String to=Input.text(body,"to",300,true).trim();
+        if(linkType.equals("external"))validateExternalUrl(to);else {validatePath(to);targets.validate(to);}
+        data.put("to",to);data.put("linkType",linkType);
+        boolean isAd=body.containsKey("isAd")?bool(body,"isAd"):false;
+        String advertiser=Input.text(body,"advertiserName",100,false).trim();
+        if(isAd && advertiser.isEmpty())throw new Problem(400,"광고 기업을 입력해 주세요.","advertiserName");
+        data.put("isAd",isAd);data.put("advertiserName",advertiser);
+        var start=date(body,"startDate");var end=date(body,"endDate");
+        if(start!=null && end!=null && end.isBefore(start))throw new Problem(400,"노출 종료일은 시작일 이후로 선택해 주세요.","endDate");
+        data.put("startDate",start==null?null:start.toString());data.put("endDate",end==null?null:end.toString());
         int order=integer(body,"sortOrder",1,99);boolean published=bool(body,"isPublished");
         data.put("presentation","banner");
         String image=Input.text(body,"imageUrl",5600000,true);byte[] bytes=null;String mime=null;boolean replaceImage=false;
@@ -109,8 +124,26 @@ public class HomePromotionService {
 
     public org.springframework.http.ResponseEntity<byte[]> image(String key,boolean admin) {
         var rows=jdbc.query("SELECT image_data,image_type FROM home_promotions WHERE promotion_key=? AND image_data IS NOT NULL"+(admin?"":" AND is_published=TRUE"),(rs,n)->Map.of("bytes",rs.getBytes(1),"type",rs.getString(2)),key);
-        if(rows.isEmpty())throw new Problem(404,"홍보 이미지를 찾을 수 없습니다.");
+        if(rows.isEmpty() || (!admin && list(false).stream().noneMatch(row->key.equals(row.get("key")))))throw new Problem(404,"홍보 이미지를 찾을 수 없습니다.");
         return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).contentType(org.springframework.http.MediaType.parseMediaType(rows.get(0).get("type").toString())).body((byte[])rows.get(0).get("bytes"));
+    }
+    private static java.time.LocalDate date(Map<String,Object> body,String field) {
+        String value=Objects.toString(body.get(field),"").trim();
+        if(value.isEmpty())return null;
+        try {if(!value.matches("\\d{4}-\\d{2}-\\d{2}"))throw new IllegalArgumentException();return java.time.LocalDate.parse(value);}
+        catch(Exception ex){throw new Problem(400,"올바른 날짜를 선택해 주세요.",field);}
+    }
+    private static String displayStatus(Map<String,Object> row) {
+        var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+        var start=date(row,"startDate");var end=date(row,"endDate");
+        if(start!=null && today.isBefore(start))return "SCHEDULED";
+        if(end!=null && today.isAfter(end))return "EXPIRED";
+        return "LIVE";
+    }
+    private static void validateExternalUrl(String value) {
+        try {var uri=URI.create(value);
+            if(!Set.of("https","http").contains(Objects.toString(uri.getScheme(),"").toLowerCase(Locale.ROOT)) || uri.getHost()==null || uri.getHost().isBlank() || uri.getRawUserInfo()!=null || value.contains("\\") || value.chars().anyMatch(c->c<=32) || value.toLowerCase(Locale.ROOT).matches(".*%(0a|0d|5c).*"))throw new IllegalArgumentException();
+        }catch(Exception ex){throw new Problem(400,"http:// 또는 https://로 시작하는 홈페이지 주소를 입력해 주세요.","to");}
     }
     private static void validatePath(String value) {
         try { URI uri=URI.create(value);if(!value.startsWith("/")||value.startsWith("//")||value.contains("\\")||uri.isAbsolute()||uri.getRawAuthority()!=null||value.chars().anyMatch(c->c<32)||!Set.of("/jobs","/companies","/resumes","/employment","/notices","/inquiries","/login","/signup","/").stream().anyMatch(path->uri.getPath().equals(path)||(!path.equals("/")&&uri.getPath().startsWith(path+"/"))))throw new IllegalArgumentException(); }
