@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.gradle/
+build/
+data/
+.env
+.env.*
+*.log
+backend.zip
+.tools/
