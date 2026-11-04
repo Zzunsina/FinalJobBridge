@@ -71,6 +71,11 @@ public class OperationsController {
         );
     }
 
+    @PatchMapping("/notifications/read-all")
+    void readAll(HttpServletRequest req) {
+        db.update("UPDATE notifications SET is_read=TRUE WHERE user_id=? AND is_read=FALSE", member(req));
+    }
+
     @PatchMapping("/notifications/{id}/read")
     void read(@PathVariable long id, HttpServletRequest req) {
         if (

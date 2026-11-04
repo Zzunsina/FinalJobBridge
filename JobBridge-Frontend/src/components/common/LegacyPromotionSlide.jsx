@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 export default function PromotionSlide({ slide, preview = false, searchContent }) {
   const tags = slide.tags || String(slide.tagsText || '').split(',').map((tag) => tag.trim()).filter(Boolean);
   const photoThemes = ['career', 'team', 'resume', 'matching', 'support', 'interview'];
-  return <div className="promo-slide">
+  return <div className="promo-slide">{slide.isAd && <span className="promotion-ad-label">광고</span>}
     <div className="hero-copy">
       <p className="eyebrow">{slide.eyebrow}</p>
       <h1>{slide.title}<br /><em>{slide.highlight}</em>{slide.titleSuffix}</h1>
@@ -12,7 +12,7 @@ export default function PromotionSlide({ slide, preview = false, searchContent }
         {preview ? <div className="search"><span aria-hidden="true">⌕</span><input aria-label="검색창 미리보기" placeholder="어떤 기회를 찾고 계신가요?" disabled /><span className="button">검색하기</span></div> : searchContent}
         <div className="popular"><span>추천 검색어</span>{tags.map((tag, index) => preview ? <span key={index}>{tag}</span> : <Link key={index} to={`/jobs?q=${encodeURIComponent(tag)}`}>{tag}</Link>)}</div>
       </> : <>
-        {preview ? <span className="button promo-cta">{slide.cta} ↗</span> : <Link className="button promo-cta" to={slide.to}>{slide.cta} ↗</Link>}
+        {preview ? <span className="button promo-cta">{slide.cta} ↗</span> : (slide.linkType === 'external' ? <a className="button promo-cta" href={slide.to} target="_blank" rel={slide.isAd ? 'noopener noreferrer sponsored' : 'noopener noreferrer'}>{slide.cta} ↗<span className="sr-only"> (새 탭에서 열림)</span></a> : <Link className="button promo-cta" to={slide.to}>{slide.cta} ↗</Link>)}
         <div className="promo-keywords">{tags.map((tag, index) => <span key={index}>{tag}</span>)}</div>
       </>}
     </div>

@@ -21,3 +21,38 @@
 .admin-banner-preview { margin:0 0 20px; }
 .admin-banner-upload .notice-image-input > img { max-height:130px; object-fit:contain; }
 .admin-banner-preview .promo-slide { display:grid; grid-template-columns:1fr 1fr; }
+
+/* Advertising editor: reusable finished artwork, destination and scheduled exposure. */
+.admin-promotion-workspace{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
+.admin-promotion-workspace>.admin-promotion-tabs{grid-template-columns:1fr;gap:8px;position:sticky;top:145px}
+.admin-promotion-workspace>.panel{min-width:0;margin:0;padding:24px}
+.admin-promotion-workspace .admin-promotion-tabs button{align-items:flex-start;flex-wrap:wrap}
+.admin-banner-link-types{display:flex;gap:20px;flex-wrap:wrap;padding:14px 16px;border:1px solid #d7e4fc;border-radius:10px;background:#f3f7ff}
+.admin-banner-link-types label{display:flex;gap:8px;align-items:center;cursor:pointer;margin:0;font-weight:600}
+.admin-banner-link-types input{width:16px;height:16px;accent-color:#2563eb;margin:0}
+.admin-banner-destination small{display:block;margin-top:8px;color:#6a7f99;font-size:12px}
+.promotion-complete-banner,.promo-slide{position:relative}
+.promotion-ad-label{position:absolute;right:20px;top:18px;background:#fffffff0;color:#4d596a;border:1px solid #e0e5ec;border-radius:20px;padding:4px 11px;font-size:12px;font-weight:600;line-height:1.4;pointer-events:none}
+@media(max-width:900px){.admin-promotion-workspace{grid-template-columns:1fr}.admin-promotion-workspace>.admin-promotion-tabs{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.admin-promotion-workspace>.panel{padding:18px}.promotion-ad-label{right:12px;top:12px;font-size:10px}}
+
+.admin-promotion-workspace>.panel>.form{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
+.admin-promotion-workspace .form>.form-field{grid-column:1/-1;margin:0}
+.admin-promotion-workspace .form>.form-field:has([id$="-advertiserName"]),.admin-promotion-workspace .form>.form-field:has([id$="-label"]),.admin-promotion-workspace .form>.form-field:has([id$="-startDate"]),.admin-promotion-workspace .form>.form-field:has([id$="-endDate"]){grid-column:auto}
+.admin-promotion-workspace .form>.checkbox{margin:0;align-self:center}
+.admin-promotion-workspace .form>.button,.admin-promotion-workspace .form>button,.admin-promotion-workspace .form>.error,.admin-promotion-workspace .form>.form-success{grid-column:1/-1}
+.admin-promotion-workspace .admin-banner-preview{margin:0}.admin-promotion-workspace .form-field:has(.admin-banner-preview)>label{display:none}
+.admin-promotion-workspace .admin-banner-upload .notice-image-input>img{display:none}
+.admin-promotion-workspace .form textarea{min-height:80px}
+@media(max-width:600px){.admin-promotion-workspace>.panel>.form{grid-template-columns:1fr}.admin-promotion-workspace .form>.form-field:has([id$="-advertiserName"]),.admin-promotion-workspace .form>.form-field:has([id$="-label"]),.admin-promotion-workspace .form>.form-field:has([id$="-startDate"]),.admin-promotion-workspace .form>.form-field:has([id$="-endDate"]){grid-column:1/-1}}
+
+.admin-promotion-workspace .form .admin-banner-link-types label{display:inline-flex;flex-direction:row;align-items:center;gap:8px;margin:0}
+.admin-promotion-workspace .form .admin-banner-link-types input{width:16px;height:16px;min-height:16px;padding:0;margin:0;flex:0 0 16px}
+.admin-promotion-workspace .form .admin-banner-destination>small{color:#6a7f99;font-weight:400}
+
+.admin-promotion-workspace .banner-target-picker{display:grid;gap:10px;padding:16px;border:1px solid #dce6f7;border-radius:12px;background:#f8faff}
+.admin-promotion-workspace .banner-target-picker>label{margin:0;font-size:13px;font-weight:600;color:#344d6c}
+.banner-target-search{display:flex;gap:8px}.banner-target-search>input{min-width:0;flex:1}.banner-target-search>button{flex-shrink:0;font-size:12px}
+.admin-promotion-workspace .form .banner-target-picker>small{color:#657b96;font-size:12px;font-weight:400;line-height:1.6}
+.banner-target-selected{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;padding-top:10px;border-top:1px solid #e0e8f5;font-size:13px;color:#315680}
+.banner-target-selected>a{color:#2563eb;text-decoration:underline}
+@media(max-width:600px){.banner-target-search{flex-wrap:wrap}.banner-target-search>input{width:100%;flex-basis:100%}}

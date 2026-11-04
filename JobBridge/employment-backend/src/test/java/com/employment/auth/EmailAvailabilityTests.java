@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class EmailAvailabilityTests {
     final Database db = mock(Database.class);
-    final AuthService auth = new AuthService(db, null, "test-secret-at-least-thirty-two-characters-long", false, null, null);
+    final AuthService auth = new AuthService(db, null, "test-secret-at-least-thirty-two-characters-long", false, null, null, null);
 
     @Test void checksNormalizedEmailAndReportsDuplicate() {
         when(db.list("SELECT user_id FROM users WHERE LOWER(email)=?", "user@example.com"))

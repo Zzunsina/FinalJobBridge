@@ -3340,3 +3340,21 @@ html { scroll-padding-top: 112px; }
 .member-nav a { padding:9px 14px; margin:6px 0; border-radius:9px; color:#244267; }
 .member-nav a:hover { background:#f0f6ff; color:#2463d8; }
 .member-nav a.active { background:#e0edff; color:#2463d8; }
+/* Notifications: open to read; unread items remain visually distinct. */
+.notification-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 20px;flex-wrap:wrap}
+.notification-filters{display:flex;gap:6px;padding:4px;border-radius:12px;background:#f0f4fa}
+.notification-filters button{background:transparent;color:#62748d;border:0;border-radius:9px;padding:10px 16px;box-shadow:none}
+.notification-filters button.active{background:white;color:#235ed9;box-shadow:0 2px 8px #2347730d}
+.notification-filters span{margin-left:5px;font-size:12px}
+.notification-list .notification-item{padding:0;background:#fff;border-color:#e1e8f2;transition:background .18s,border-color .18s}
+.notification-list .notification-item.is-unread{background:#f2f6ff;border-color:#d7e4ff}
+.notification-list .notification-item:hover{background:#edf3fe;border-color:#b8cff6}
+.notification-item .notification-content{display:block;width:100%;box-sizing:border-box;padding:22px 24px;text-align:left}
+.notification-item-heading{display:flex;align-items:center;gap:10px}
+.notification-item-heading h3{font-size:16px;line-height:1.5;margin:0;color:#213957}
+.notification-unread-dot{width:7px;height:7px;border-radius:50%;background:#2864ed;flex-shrink:0}
+.notification-item .notification-content p{font-size:14px;line-height:1.7;color:#536781;margin:7px 0 10px}
+.notification-item .notification-content small{font-size:12px;color:#7889a1}
+.notification-item .notification-content-button{border:0;background:transparent;color:inherit;font:inherit;border-radius:inherit;cursor:pointer;box-shadow:none}
+.notification-empty{padding:64px 20px;text-align:center;border:1px solid #e1e8f2;border-radius:14px;color:#6b7e97;background:#f9fbfe}
+@media(max-width:600px){.notification-item .notification-content{padding:18px}.notification-filters button{padding:9px 12px}}

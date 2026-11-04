@@ -2819,4 +2819,91 @@ class PlatformIntegrationTests {
         assertThat(report.path("interests").get(0).path("score").isNull()).isTrue();
     }
 
+
+    @Test
+    void readingNotificationsOnlyChangesOwnedReadFlags() throws Exception {
+        long mine=db.insert("notifications",fields("user_id",seeker,"title","지원 알림","content","내용","notification_type","JOB","related_id",job));
+        long foreign=db.insert("notifications",fields("user_id",other,"title","다른 회원 알림","content","내용"));
+        String jobStatus=db.one("SELECT status FROM job_postings WHERE job_id=?",job).get("status").toString();
+        Cookie session=login(seeker);
+        mvc.perform(patch("/api/notifications/"+foreign+"/read").cookie(session).with(csrf())).andExpect(status().isNotFound());
+        mvc.perform(patch("/api/notifications/"+mine+"/read").cookie(session).with(csrf())).andExpect(status().isOk());
+        assertThat(db.one("SELECT is_read FROM notifications WHERE notification_id=?",mine).get("isRead")).isEqualTo(true);
+        long second=db.insert("notifications",fields("user_id",seeker,"title","추가 알림","content","내용"));
+        mvc.perform(patch("/api/notifications/read-all").cookie(session).with(csrf())).andExpect(status().isOk());
+        mvc.perform(patch("/api/notifications/read-all").cookie(session).with(csrf())).andExpect(status().isOk());
+        assertThat(db.one("SELECT is_read FROM notifications WHERE notification_id=?",second).get("isRead")).isEqualTo(true);
+        assertThat(db.one("SELECT is_read FROM notifications WHERE notification_id=?",foreign).get("isRead")).isEqualTo(false);
+        assertThat(db.one("SELECT status FROM job_postings WHERE job_id=?",job).get("status")).isEqualTo(jobStatus);
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void promotionAdvertisingSupportsExternalLinksAndKoreanDateWindows() throws Exception {
+        var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+        var body=promotion("team");body.put("linkType","external");body.put("to","https://example.com/careers?from=jobbridge");
+        body.put("isAd",true);body.put("advertiserName","브릿지랩");body.put("startDate",today.toString());body.put("endDate",today.toString());
+        var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var out=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",out);
+        body.put("imageUrl","data:image/png;base64,"+Base64.getEncoder().encodeToString(out.toByteArray()));
+        var saved=homePromotions.save("team",body);
+        assertThat(saved).containsEntry("displayStatus","LIVE").containsEntry("isAd",true).containsEntry("linkType","external").containsEntry("advertiserName","브릿지랩");
+        mvc.perform(get("/api/home-promotions/team/image")).andExpect(status().isOk());
+        assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).contains("team");
+        saved.put("startDate",today.plusDays(1).toString());saved.put("endDate",today.plusDays(3).toString());
+        saved=homePromotions.save("team",saved);
+        assertThat(saved.get("displayStatus")).isEqualTo("SCHEDULED");
+        assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).doesNotContain("team");
+        mvc.perform(get("/api/home-promotions/team/image")).andExpect(status().isNotFound());
+        saved.put("startDate",today.minusDays(3).toString());saved.put("endDate",today.minusDays(1).toString());
+        saved=homePromotions.save("team",saved);assertThat(saved.get("displayStatus")).isEqualTo("EXPIRED");
+        saved.put("startDate",null);saved.put("endDate",null);saved=homePromotions.save("team",saved);
+        assertThat(saved.get("displayStatus")).isEqualTo("LIVE");
+        assertThat(saved.get("to")).isEqualTo("https://example.com/careers?from=jobbridge");
+        saved.put("isPublished",false);saved=homePromotions.save("team",saved);assertThat(saved.get("displayStatus")).isEqualTo("HIDDEN");
+        assertThat(homePromotions.list(false).stream().map(row->row.get("key"))).doesNotContain("team");
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void promotionAdvertisingRejectsUnsafeExternalUrlsAndInvalidDates() throws Exception {
+        for(String url:List.of("javascript:alert(1)","data:text/html,test","//example.com","https://user:pass@example.com","https://example.com/%0aevil","https://")){
+            var body=promotion("career");body.put("linkType","external");body.put("to",url);
+            assertThatThrownBy(()->homePromotions.save("career",body)).isInstanceOf(Problem.class);
+        }
+        var body=promotion("career");body.put("startDate","2026-11-30");body.put("endDate","2026-11-01");
+        assertThatThrownBy(()->homePromotions.save("career",body)).isInstanceOf(Problem.class);
+        body.remove("endDate");body.put("startDate","2026-02-30");
+        assertThatThrownBy(()->homePromotions.save("career",body)).isInstanceOf(Problem.class);
+        body.remove("startDate");body.put("isAd",true);body.put("advertiserName","");
+        assertThatThrownBy(()->homePromotions.save("career",body)).isInstanceOf(Problem.class);
+        assertThat(promotion("career").get("version")).isEqualTo(0);
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void bannerDestinationsSearchLiveDatabaseAndRequireAdministrator() throws Exception {
+        mvc.perform(get("/api/admin/home-promotion-targets").param("kind","company")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/home-promotion-targets").param("kind","company").cookie(login(companyUser))).andExpect(status().isForbidden());
+        db.update("UPDATE companies SET company_name=? WHERE company_id=?","연결 선택 기업",company);
+        var session=login(admin);
+        var companyResults=json.readTree(mvc.perform(get("/api/admin/home-promotion-targets").param("kind","company").param("q","연결 선택").cookie(session)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(companyResults.toString()).contains("연결 선택 기업","/companies/"+company).doesNotContain("password","businessNumber");
+        var body=promotion("team");body.put("to","/companies/"+company);homePromotions.save("team",body);
+        assertThat(promotion("team").get("to")).isEqualTo("/companies/"+company);
+        long notice=db.insert("notices",fields("title","연결 검색 안내","content","내용","author_user_id",admin,"is_published",true));
+        long hidden=db.insert("notices",fields("title","연결 검색 비공개","content","내용","author_user_id",admin,"is_published",false));
+        var notices=json.readTree(mvc.perform(get("/api/admin/home-promotion-targets").param("kind","notice").param("q","연결 검색").cookie(session)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(notices.size()).isEqualTo(1);assertThat(notices.get(0).path("to").asText()).isEqualTo("/notices/"+notice);
+        db.update("UPDATE notices SET is_published=TRUE WHERE notice_id=?",hidden);
+        var refreshed=json.readTree(mvc.perform(get("/api/admin/home-promotion-targets").param("kind","notice").param("q","연결 검색").cookie(session)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(refreshed.size()).isEqualTo(2);
+        db.update("UPDATE job_postings SET status='PENDING' WHERE job_id=?",job);
+        var unavailable=json.readTree(mvc.perform(get("/api/admin/home-promotion-targets").param("kind","job").param("selectedId",Long.toString(job)).cookie(session)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(unavailable.toString()).doesNotContain("/jobs/"+job+"\"");
+        var invalid=promotion("team");invalid.put("to","/jobs/"+job);
+        assertThatThrownBy(()->homePromotions.save("team",invalid)).isInstanceOf(Problem.class);
+        invalid.put("to","/companies/999999999");assertThatThrownBy(()->homePromotions.save("team",invalid)).isInstanceOf(Problem.class);
+        mvc.perform(get("/api/admin/home-promotion-targets").param("kind","users").cookie(session)).andExpect(status().isBadRequest());
+    }
 }
