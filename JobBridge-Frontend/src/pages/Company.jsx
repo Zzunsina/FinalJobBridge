@@ -1,5 +1,6 @@
+import NoticeImageInput from '../components/common/NoticeImageInput';
 import SubmittedAssessment from '../components/common/SubmittedAssessment';
-import { formatDateTime } from "../utils/dateTime";
+
 import CalendarPicker from '../components/common/CalendarPicker';
 import { koreanToday } from '../utils/memberInputs';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -158,6 +159,7 @@ const jobFields = [
   { name: 'startDate', label: '접수 시작일', type: 'date', required: true },
   { name: 'endDate', label: '접수 마감일', type: 'date', required: true },
  { name: 'description', label: '상세 설명', type: 'textarea', required: true },
+ { name: 'detailImageUrl', label: '상세 소개 이미지', render: ({ id, values, setValues }) => <NoticeImageInput id={id} value={values.detailImageUrl || ''} onChange={(value) => setValues(old => ({ ...old, detailImageUrl: value }))} helpText="채용 안내 포스터 1장 · JPG, PNG, WEBP 최대 10MB · 공고 저장 시 함께 반영됩니다." previewAlt="상세 소개 이미지 미리보기" removeLabel="상세 소개 이미지 삭제" /> },
 
 {
   name: 'bannerImageUrl',
@@ -232,10 +234,10 @@ export function JobForm() {
 
 export function Applicants() {
   const { id } = useParams();
-  const resource = useResource(`/company/jobs/${id}/applications`);
+  const resource = useResource(`/company/jobs/${id}/applications`, { refreshInterval:10000 });
   return (
     <>
-      <Title>지원자 관리</Title>
+      <Title action={<button type="button" className="secondary" onClick={resource.reload}>새로고침</button>}>지원자 관리</Title>
       <Resource resource={resource}>{(rows) => <AssessmentRanking rows={rows} />}</Resource>
       <h2>전체 지원자</h2>
       <PagedResource resource={resource}>
@@ -250,7 +252,7 @@ export function Applicants() {
                 >
                   <div>
                     <h2>{a.name}</h2>
-                    <p>{a.appliedAt?.slice(0, 10)} 지원</p>
+                    <p>{a.appliedAt?.slice(0, 10)} 지원{a.score != null && <> · 지원 당시 적성 점수 {a.score}점</>}</p>
                   </div>
                   <Badge value={a.status} />
                 </Link>
@@ -267,7 +269,7 @@ export function Applicants() {
 
 export function ApplicantDetail() {
   const { id } = useParams();
-  const resource = useResource(`/company/applications/${id}`);
+  const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
   const transitions = {
     APPLIED: ['UNDER_REVIEW', 'REJECTED'],
     UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'],
@@ -278,13 +280,12 @@ export function ApplicantDetail() {
     <Resource resource={resource}>
       {(a) => (
         <>
-          <Title description={a.title}>지원자 상세</Title>
+          <Title description={a.title} action={<button type="button" className="secondary" onClick={resource.reload}>새로고침</button>}>지원자 상세</Title>
           <div className="panel">
             <Badge value={a.status} />
             <Snapshot data={a.snapshot} />
             <SubmittedAssessment data={a.snapshot?.careerAssessment} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
-            {a.assessment && !a.snapshot?.careerAssessment && <div className="callout"><strong>예시 검사 {a.assessment.score}점 / 기업 검토 기준 {a.assessment.minScore ?? '미설정'}</strong><p>최초 열람: {a.assessment.firstViewedAt && formatDateTime(a.assessment.firstViewedAt)}</p>{a.assessment.belowThreshold && <p>{a.assessment.reviewRequired ? '담당자 검토 필요 · 48시간 경과' : '48시간 후 담당자 검토 예정'} · {formatDateTime(a.assessment.reviewDueAt)}</p>}<p>예시 점수는 실제 인적성 진단이 아니며 최종 결정은 담당자가 검토해야 합니다.</p></div>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
             <div className="actions">

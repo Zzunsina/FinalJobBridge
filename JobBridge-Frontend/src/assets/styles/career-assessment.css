@@ -94,3 +94,9 @@
 @media(max-width:760px){.home-content-container .home-career-hero>.career-home-tools{grid-template-rows:auto auto auto auto auto;height:auto;gap:12px;padding:20px}.home-content-container .home-career-hero>.career-home-tools .career-tool-card{min-height:175px}.home-content-container .career-home-tools .career-tool-action{margin-top:14px}.home-content-container .home-promotion-column .home-hero-support{padding:18px}}
 
 @media(min-width:1001px){.home-content-container .career-home-tools>h2{font-size:22px}.home-content-container .career-home-tools .career-tool-card>strong{font-size:24px}.home-content-container .career-home-tools .career-tool-card>small{font-size:13px}.home-content-container .career-home-tools .career-tool-action{padding:10px;font-size:14px}.home-content-container .career-home-tools .career-tool-card.exploration .career-tool-action{padding:9px}}
+
+.assessment-ranking{margin:20px 0}.assessment-ranking h2{margin-top:0}.assessment-ranking-count{font-size:12px;color:#71849e;line-height:1.6}
+.assessment-ranking ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 30px;padding-left:24px;margin:20px 0 0}
+.assessment-ranking li{padding:6px 0;color:#5476aa}.assessment-ranking li>a{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-radius:8px;background:#f5f8fe;color:#284767}
+.assessment-ranking li>a:hover{background:#eaf1ff;color:#215ed8}.assessment-ranking li span{font-weight:700;white-space:nowrap}.assessment-ranking li strong{font-weight:600}
+@media(max-width:650px){.assessment-ranking ol{grid-template-columns:1fr}}

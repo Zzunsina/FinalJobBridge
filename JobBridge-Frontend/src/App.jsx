@@ -1,3 +1,7 @@
+
+import CompanyAdvertising, { AdminAdvertising } from './pages/Advertising';
+
+
 import CareerExploration from './pages/CareerExploration';
 import CareerAssessment from './pages/CareerAssessment';
 import SiteFooter from './components/common/SiteFooter';
@@ -50,7 +54,11 @@ const companyLinks = [
   ['/company/employment', '취업연계'],
   ['/company/interviews', '면접 일정'],
   ['/company/profile', '기업 정보'],
+
+  ['/company/advertising', '광고·결제'],
+
   ['/company/payment/shop', '이용권 구매'], // 💡 [추가] 기업회원 메뉴바에 이용권 구매 링크 추가
+
   ['/mypage', '내 정보'],
 ];
 const adminLinks = [
@@ -61,6 +69,7 @@ const adminLinks = [
   ['/admin/employment', '취업연계 관리'],
   ['/admin/notices', '공지 관리'],
   ['/admin/home-promotions', '홈 홍보 관리'],
+  ['/admin/advertising', '광고·결제 관리'],
   ['/admin/inquiries', '문의 관리'],
 ];
 const seekerLinks = [
@@ -100,7 +109,13 @@ export default function App() {
 
   const workspace =
     location.pathname !== '/admin/login' &&
+
+    (location.pathname.startsWith('/admin') ||
+      location.pathname.startsWith('/company') ||
+      (user?.role === 'COMPANY' && location.pathname === '/mypage'));
+
     (location.pathname.startsWith('/admin') || location.pathname.startsWith('/company') || location.pathname.startsWith('/company/payment'));
+
   const links =
     user?.role === 'ADMIN' ? adminLinks : user?.role === 'COMPANY' ? companyLinks : seekerLinks;
 
@@ -343,6 +358,8 @@ export default function App() {
               path="/company/applications/:id"
               element={protectedPage('COMPANY', <ApplicantDetail />)}
             />
+            <Route path="/company/advertising" element={protectedPage('COMPANY', <CompanyAdvertising />)} />
+            <Route path="/admin/advertising" element={protectedPage('ADMIN', <AdminAdvertising />)} />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
 
             {/* 💡 [추가] 기업회원 결제 상품 숍 및 결제 성공 처리 라우트 */}

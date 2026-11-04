@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE TABLE IF NOT EXISTS application_snapshots (
     application_id BIGINT PRIMARY KEY,
-    snapshot_json TEXT NOT NULL,
+    snapshot_json MEDIUMTEXT NOT NULL,
     schema_version INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (application_id) REFERENCES applications(application_id)

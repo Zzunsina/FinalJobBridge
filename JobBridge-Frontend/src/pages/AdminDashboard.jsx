@@ -1,3 +1,4 @@
+import { AdvertisingSummary } from './Advertising';
 import { formatTime } from '../utils/dateTime';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -85,6 +86,7 @@ export default function AdminDashboard() {
   const user = useAuth((state) => state.user);
   return (
     <div className="admin-overview">
+<AdvertisingSummary admin />
       <div className="admin-page-heading">
         <div>
           <p className="eyebrow">JOBBRIDGE ADMIN CENTER</p>

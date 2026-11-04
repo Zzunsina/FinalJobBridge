@@ -1,3 +1,5 @@
+import { AdvertisingSummary } from './Advertising';
+import AssessmentRanking from '../components/common/AssessmentRanking';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCompanyOverview } from '../hooks/companyOverview';
@@ -15,6 +17,7 @@ function Icon({ type }) {
 export default function CompanyOverview() {
   const resource = useCompanyOverview();
   return <div className="company-overview">
+    <AdvertisingSummary />
     <Title description="우리 기업의 채용 현황을 한눈에 확인하세요." action={<button className="secondary" onClick={resource.reload} disabled={resource.loading}>새로고침</button>}>기업 채용 대시보드</Title>
     <Resource resource={resource}>{(data) => data.profile.profileMissing ? <div className="callout"><h2>기업 정보를 등록해 주세요</h2><p>기업명과 사업자번호를 등록하면 관리자 심사가 시작됩니다.</p><Link className="button" to="/company/profile">기업 정보 등록 →</Link></div> : <>
       <section className="company-welcome"><span className="company-welcome-icon"><Icon /></span><div><h2>{data.profile.companyName}님, 좋은 인재와의 만남을 응원합니다.</h2><p>{data.profile.reviewReason || (data.profile.approvalStatus === 'APPROVED' ? '지원자를 확인하고 다음 채용 단계를 준비해 보세요.' : '기업 승인 상태를 확인하고 채용을 준비해 보세요.')}</p></div><Badge value={data.profile.approvalStatus} /></section>
@@ -57,7 +60,7 @@ export function CompanyActivityPanels() {
 export function CompanyApplicants() {
   const [params] = useSearchParams();
   const view = ['new','unreviewed'].includes(params.get('view')) ? params.get('view') : '';
-  const resource = useResource(`/company/applicants?view=${view}`, { refreshInterval: 30000 });
+  const resource = useResource(`/company/applicants?view=${view}`, { refreshInterval: 10000 });
   return <><Title description="공고별 지원자를 확인하고 이름과 심사 상태로 찾아보세요." action={view ? <Link to="/company/applicants">전체 지원자 보기 →</Link> : null}>{view === 'new' ? '신규 지원자' : view === 'unreviewed' ? '미검토 지원자' : '지원자 관리'}</Title>
     <Resource resource={resource}>{(rows) => <ApplicantList key={view} rows={rows} />}</Resource>
   </>;
@@ -77,10 +80,11 @@ function ApplicantList({ rows }) {
       <label>심사 상태<select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">전체 상태</option>{['APPLIED', 'UNDER_REVIEW', 'DOCUMENT_PASSED', 'INTERVIEW', 'FINAL_PASSED', 'REJECTED', 'CANCELED'].map((value) => <option key={value} value={value}>{labels[value]}</option>)}</select></label>
       <button className="secondary" onClick={() => { setJobId(''); setQuery(''); setStatus(''); }}>초기화</button>
     </div>
+    <AssessmentRanking rows={filtered} />
     <p className="applicant-result-count" role="status">지원서 <strong>{number(filtered.length)}</strong>건 · 공고 {number(groups.length)}개</p>
     {groups.length ? <div className="stack">{groups.map((job) => <section className="panel applicant-job-group" key={job.id}>
       <div className="applicant-job-heading"><div><small>채용공고 #{job.id}</small><h2>{job.title}</h2></div><strong>{number(job.rows.length)}명</strong></div>
-      <PagedRows key={job.id + ':' + query + ':' + status} rows={job.rows}>{(pageRows) => <div className="applicant-table-wrap"><table className="applicant-table"><thead><tr><th scope="col">지원자</th><th scope="col">지원일</th><th scope="col">심사 상태</th><th scope="col">지원서</th></tr></thead><tbody>{pageRows.map((row) => <tr key={row.applicationId}><td><Link to={'/company/applications/' + row.applicationId}>{row.name}</Link></td><td>{date(row.appliedAt)}</td><td><Badge value={row.status} /></td><td><Link to={'/company/applications/' + row.applicationId}>상세 보기 →</Link></td></tr>)}</tbody></table></div>}</PagedRows>
+      <PagedRows key={job.id + ':' + query + ':' + status} rows={job.rows}>{(pageRows) => <div className="applicant-table-wrap"><table className="applicant-table"><thead><tr><th scope="col">지원자</th><th scope="col">지원일</th><th scope="col">지원 당시 적성 점수</th><th scope="col">심사 상태</th><th scope="col">지원서</th></tr></thead><tbody>{pageRows.map((row) => <tr key={row.applicationId}><td><Link to={'/company/applications/' + row.applicationId}>{row.name}</Link></td><td>{date(row.appliedAt)}</td><td>{row.score == null ? '제출 결과 없음' : row.score + '점'}</td><td><Badge value={row.status} /></td><td><Link to={'/company/applications/' + row.applicationId}>상세 보기 →</Link></td></tr>)}</tbody></table></div>}</PagedRows>
     </section>)}</div> : <div className="empty">{rows.length ? '검색 조건에 맞는 지원자가 없습니다.' : '접수된 지원서가 없습니다.'}</div>}
   </>;
 }

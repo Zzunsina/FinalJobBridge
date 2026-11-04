@@ -2,6 +2,8 @@ export function notificationTarget(notification, role) {
   const id = notification.relatedId;
   const company = role === 'COMPANY';
   switch (notification.notificationType) {
+    case 'ADVERTISEMENT':
+      return role === 'ADMIN' ? '/admin/advertising' : '/company/advertising';
     case 'APPLICATION':
     case 'INTERVIEW':
       if (role === 'ADMIN') return '/admin';
