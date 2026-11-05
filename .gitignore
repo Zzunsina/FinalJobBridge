@@ -8,3 +8,8 @@ data/
 *.log
 backend.zip
 .tools/
+
+# Track the frontend skill catalog without exposing ignored database folders.
+!JobBridge-Frontend/src/data/
+JobBridge-Frontend/src/data/*
+!JobBridge-Frontend/src/data/skills.js

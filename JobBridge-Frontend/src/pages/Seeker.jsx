@@ -13,7 +13,6 @@ import BookmarkButton from '../components/common/BookmarkButton';
 import ProfilePhoto from '../components/common/ProfilePhoto';
 import WithdrawAccount from '../components/common/WithdrawAccount';
 import LocationMap from '../components/common/LocationMap';
-import SmsPhoneInput from '../components/common/SmsPhoneInput';
 import { ResumeCollection, ApplicationCollection } from '../components/common/CareerLists';
 import {
   Action,
@@ -191,131 +190,58 @@ export function Snapshot({ data }) {
 }
 
 export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false }) {
-  // 💡 삭제 모달 및 사유 관리용 상태 추가
   const [deletingId, setDeletingId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
-  const handleConfirmDelete = async () => {
-    if (!cancelReason.trim()) {
-      alert('면접 취소 사유를 입력해 주세요.');
+  async function handleConfirmDelete() {
+    if (isSubmitting) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      setDeleteError('면접 취소 사유를 입력해 주세요.');
       return;
     }
-
+    setIsSubmitting(true);
+    setDeleteError('');
     try {
-      setIsSubmitting(true);
-      // 💡 DELETE 요청 시 사유(cancelReason)를 Request Body 또는 Query Parameter로 전달
       await client.delete(`/company/interviews/${deletingId}`, {
-        data: { cancelReason }
+        data: { cancelReason: reason },
       });
-      
-      alert('면접 일정이 삭제되었습니다.');
       setDeletingId(null);
       setCancelReason('');
-      if (onDelete) onDelete();
+      await onDelete?.();
+      window.alert('면접 일정이 삭제되었으며 취소 사유가 전달되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.message || '면접 일정 삭제에 실패했습니다.');
+      setDeleteError(error.response?.data?.message || '면접 일정 삭제에 실패했습니다.');
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
-  return rows.length ? (
+  if (!rows.length) return <p className="muted">등록된 면접 일정이 없습니다.</p>;
 
-    rows.map((i) => (
-      <div className="callout" key={i.interviewId}>
-        <Badge value={i.status} />
-
-        {i.status === 'CANCELED' && i.cancellationReason && (
-          <section className="callout" aria-label="면접 취소 사유">
-            <h3>취소 사유</h3>
-            <p className="prose">{i.cancellationReason}</p>
-          </section>
-        )}
-
-        <p>
-          {formatDateTime(i.interviewAt)}{' '}
-          (한국 시간)
-        </p>
-        <p>
-          {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'}{i.location ? ` · ${i.location}` : ''}
-        </p>
-        {i.interviewType === 'OFFLINE' && i.location?.trim() && (
-          <LocationMap address={i.location} label="면접 장소 지도" />
-        )}
-        {i.meetingUrl && (
-          <a href={i.meetingUrl} target="_blank" rel="noreferrer">
-            면접 참여 링크 ↗
-          </a>
-        )}
-        {i.result && <p>{i.result}</p>}
-        {i.applicantGuidance && <section aria-label="면접 안내사항">
-          <h3>면접 안내사항</h3>
-          <p className="prose">{i.applicantGuidance}</p>
-        </section>}
-        {showInternalMemo && <section aria-label="기업 내부 메모">
-          <h3>기업 내부 메모 (구직자에게 비공개)</h3>
-          <p className="prose">{i.memo || '등록된 내부 메모가 없습니다.'}</p>
-        </section>}
-        {showInternalMemo && i.status==='SCHEDULED' && Date.parse(i.interviewAt)<=Date.now() && <Action method="patch" url={'/company/interviews/'+i.interviewId+'/status'} body={{status:'COMPLETED'}} onDone={onDelete} confirm="실제로 진행한 면접이 맞나요? 완료 확인 후 지원자가 익명 후기를 작성할 수 있습니다.">면접 완료 확인</Action>}
-        {!showInternalMemo && i.status==='COMPLETED' && <Link className="button secondary" to="/interview-reviews">면접 후기 작성</Link>}
-        {onEdit && i.status === 'SCHEDULED' && (
-          <button type="button" className="secondary" onClick={() => onEdit(i)}>면접 일정 수정</button>
-        )}
-        {onDelete && i.status === 'SCHEDULED' && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={async () => {
-              const reason = window.prompt(
-                '면접 취소 사유를 입력해 주세요.'
-              );
-
-              if (reason === null) return;
-
-              if (!reason.trim()) {
-                window.alert('취소 사유를 입력해 주세요.');
-                return;
-              }
-
-              try {
-                await client.delete(
-                  `/company/interviews/${i.interviewId}`,
-                  { data: { reason: reason.trim() } }
-                );
-
-                onDelete();
-              } catch (error) {
-                window.alert(
-                  error.response?.data?.message || '면접 취소에 실패했습니다.'
-                );
-              }
-            }}
-          >
-            면접 취소
-          </button>
-        )}
-      </div>
-    ))
-
+  return (
     <>
       {rows.map((i) => (
         <div className="callout" key={i.interviewId}>
           <Badge value={i.status} />
+          {i.status === 'CANCELED' && i.cancellationReason && (
+            <section className="callout" aria-label="면접 취소 사유">
+              <h3>취소 사유</h3>
+              <p className="prose">{i.cancellationReason}</p>
+            </section>
+          )}
+          <p>{formatDateTime(i.interviewAt)} (한국 시간)</p>
           <p>
-            {formatDateTime(i.interviewAt)}{' '}
-            (한국 시간)
-          </p>
-          <p>
-            {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'}{i.location ? ` · ${i.location}` : ''}
+            {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'}
+            {i.location ? ` · ${i.location}` : ''}
           </p>
           {i.interviewType === 'OFFLINE' && i.location?.trim() && (
             <LocationMap address={i.location} label="면접 장소 지도" />
           )}
           {i.meetingUrl && (
-            <a href={i.meetingUrl} target="_blank" rel="noreferrer">
-              면접 참여 링크 ↗
-            </a>
+            <a href={i.meetingUrl} target="_blank" rel="noreferrer">면접 참여 링크 ↗</a>
           )}
           {i.result && <p>{i.result}</p>}
           {i.applicantGuidance && (
@@ -330,74 +256,58 @@ export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false })
               <p className="prose">{i.memo || '등록된 내부 메모가 없습니다.'}</p>
             </section>
           )}
-          
           <div className="actions">
-            {onEdit && i.status === 'SCHEDULED' && (
-              <button type="button" className="secondary" onClick={() => onEdit(i)}>
-                면접 일정 수정
-              </button>
+            {showInternalMemo && i.status === 'SCHEDULED' && Date.parse(i.interviewAt) <= Date.now() && (
+              <Action method="patch" url={`/company/interviews/${i.interviewId}/status`}
+                body={{ status: 'COMPLETED' }} onDone={onDelete}
+                confirm="실제로 진행한 면접이 맞나요? 완료 확인 후 지원자가 익명 후기를 작성할 수 있습니다.">
+                면접 완료 확인
+              </Action>
             )}
-            {/* 💡 기존 Action 컴포넌트 대신 사유 입력을 위한 버튼으로 교체 */}
-            {onDelete && (
-              <button
-                type="button"
-                className="secondary danger"
-                onClick={() => {
-                  setDeletingId(i.interviewId);
-                  setCancelReason('');
-                }}
-              >
-                일정 삭제
-              </button>
+            {!showInternalMemo && i.status === 'COMPLETED' && (
+              <Link className="button secondary" to="/interview-reviews">면접 후기 작성</Link>
+            )}
+            {onEdit && i.status === 'SCHEDULED' && (
+              <button type="button" className="secondary" onClick={() => onEdit(i)}>면접 일정 수정</button>
+            )}
+            {onDelete && i.status === 'SCHEDULED' && (
+              <button type="button" className="secondary danger" onClick={() => {
+                setDeletingId(i.interviewId);
+                setCancelReason('');
+                setDeleteError('');
+              }}>일정 삭제</button>
             )}
           </div>
         </div>
       ))}
-
-      {/* 💡 면접 삭제 사유 입력 모달 */}
-      {deletingId && (
+      {deletingId !== null && (
         <div className="modal-backdrop" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1000,
         }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '480px', background: '#fff', padding: '24px' }}>
-            <h3>면접 일정 삭제</h3>
+          <div className="panel" role="dialog" aria-modal="true" aria-labelledby="interview-delete-title"
+            onKeyDown={(event) => { if (event.key === 'Escape' && !isSubmitting) setDeletingId(null); }}
+            style={{ width: '100%', maxWidth: 480, background: '#fff', padding: 24 }}>
+            <h3 id="interview-delete-title">면접 일정 삭제</h3>
             <p className="muted">구직자에게 전달할 취소 사유를 입력해 주세요.</p>
-            
-            <div style={{ margin: '16px 0' }}>
-              <textarea
-                style={{ width: '100%', minHeight: '100px', padding: '10px' }}
+            <label style={{ display: 'block', margin: '16px 0' }}>
+              취소 사유
+              <textarea style={{ width: '100%', minHeight: 100, padding: 10 }}
                 placeholder="예: 내부 사정으로 인해 해당 면접 일정이 취소되었습니다."
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-              />
-            </div>
-
-            <div className="actions" style={{ justifyContent: 'flex-end', display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                className="secondary"
-                disabled={isSubmitting}
-                onClick={() => setDeletingId(null)}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="button danger"
-                disabled={isSubmitting}
-                onClick={handleConfirmDelete}
-              >
-                {isSubmitting ? '삭제 중…' : '삭제 및 사유 발송'}
-              </button>
+                value={cancelReason} maxLength={2000} disabled={isSubmitting}
+                onChange={(event) => { setCancelReason(event.target.value); setDeleteError(''); }} />
+            </label>
+            {deleteError && <p className="error" role="alert">{deleteError}</p>}
+            <div className="actions" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="secondary" disabled={isSubmitting}
+                onClick={() => setDeletingId(null)}>취소</button>
+              <button type="button" className="button danger" disabled={isSubmitting}
+                onClick={handleConfirmDelete}>{isSubmitting ? '삭제 중…' : '삭제 및 사유 발송'}</button>
             </div>
           </div>
         </div>
       )}
     </>
-
-  ) : (
-    <p className="muted">등록된 면접 일정이 없습니다.</p>
   );
 }
 
@@ -499,8 +409,6 @@ export function AccountSettings({ company = false }) {
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const navigate = useNavigate();
-  const [phoneVerificationToken, setPhoneVerificationToken] =
-    useState('');
 
   return (
     <>
@@ -508,84 +416,15 @@ export function AccountSettings({ company = false }) {
         {!company && <ProfilePhoto key={user.userId} user={user} />}
         <h2>{company ? '계정 정보' : '기본 정보'}</h2>
         <p>아이디: {user.loginId}</p>
+        <p>{user.email}</p>
         <Form
           initial={user}
           fields={[
-            { name: 'name', label: '이름', required: true, maxLength: 100 },
-            {
-              name: 'phone',
-              label: '휴대폰번호',
-              required: true,
-              render: ({ id, values, setValues }) => (
-                <SmsPhoneInput
-                  id={id}
-                  value={values.phone || ''}
-                  onChange={(phone) => {
-                    setValues((old) => ({
-                      ...old,
-                      phone
-                    }));
-                    setPhoneVerificationToken('');
-                  }}
-                  onVerified={setPhoneVerificationToken}
-                />
-              )
-            },
-          ]}
-          onSubmit={async (body) => {
-            const { data } = await client.patch('/me', {
-              ...body,
-              verificationToken: phoneVerificationToken
-            });
-
-
             { name: 'name', label: company ? '담당자 이름' : '이름', required: true, maxLength: 100 },
             { name: 'phone', label: '휴대폰번호', type: 'tel', required: true },
-
-            { name: 'name', label: '이름', required: true, maxLength: 100 },
-            {
-              name: 'email',
-              label: '이메일',
-              type: 'email',
-              required: true,
-              maxLength: 255,
-            },
-            {
-              name: 'phone',
-              label: '휴대폰번호',
-              required: true,
-              validate: (_value, values) => {
-                // 기존 휴대폰 번호와 같으면 인증 토큰 없이 통과, 번호가 바뀌었을 때만 인증 토큰 검사
-                if (values.phone === user.phone) return '';
-                return values.smsVerificationToken ? '' : '휴대폰 문자 인증을 완료해 주세요.';
-              },
-              render: ({ id, values, setValues, error, clearError }) => (
-                <SmsPhoneInput
-                  id={id}
-                  value={values.phone || ''}
-                  serverError={error}
-                  onChange={(phone) => {
-                    clearError();
-                    // 번호가 원래 번호로 돌아오면 인증 토큰 초기화 여부 결정
-                    setValues((old) => ({
-                      ...old,
-                      phone,
-                      smsVerificationToken: phone === user.phone ? 'BYPASS' : '',
-                    }));
-                  }}
-                  onVerified={(smsVerificationToken) => {
-                    clearError();
-                    setValues((old) => ({ ...old, smsVerificationToken }));
-                  }}
-                />
-              ),
-            },
-
           ]}
           onSubmit={async (body) => {
-            // 서버 전송 시 smsVerificationToken 필드가 불필요하다면 제외하고 전송
-            const { smsVerificationToken, ...payload } = body;
-            const { data } = await client.patch('/me', payload);
+            const { data } = await client.patch('/me', body);
             setUser(data);
             window.alert('내 정보를 저장했습니다.');
           }}
@@ -595,7 +434,7 @@ export function AccountSettings({ company = false }) {
         <p className="muted">현재 비밀번호와 최근 6개월 이내 사용한 비밀번호는 다시 사용할 수 없습니다.</p>
         <Form
           key="password-change-form"
-          method="patch"
+          method="patch" // 💡 PATCH 메서드로 전송되도록 명시
           fields={[
             {
               name: 'currentPassword',
@@ -624,6 +463,7 @@ export function AccountSettings({ company = false }) {
             },
           ]}
           onSubmit={async (body) => {
+            // passwordConfirm을 제외하고 currentPassword와 password만 전달
             await client.patch('/me/password', {
               currentPassword: body.currentPassword,
               password: body.password,
