@@ -57,7 +57,11 @@ const companyLinks = [
   ['/company/advertising', '광고·결제'],
 
 
+  ['/mypage', '내 정보'],
+
+
   
+
 
 
 
@@ -368,7 +372,7 @@ export default function App() {
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
 
 
-  
+          
 
 
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />

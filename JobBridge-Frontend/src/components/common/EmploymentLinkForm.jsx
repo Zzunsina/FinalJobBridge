@@ -14,7 +14,9 @@ const moves = {
 };
 
 export default function EmploymentLinkForm({ record, onDone }) {
-  const resource = useResource('/admin/employment-link-options');
+  const resource = useResource(
+    `/admin/employment-link-options?employmentLinkId=${record.employmentLinkId}`
+  );
   const history = useResource(`/admin/employment-links/${record.employmentLinkId}/referrals`, { refreshInterval: 30000 });
   return <Resource resource={resource}>{(options) => <Resource resource={history}>{(rows) => <SelectionForm key={record.employmentLinkId + ':' + record.status + ':' + (rows[0]?.referralId || '') + ':' + (rows[0]?.reviewStatus || '')} record={record} referral={rows.find((row) => row.referralId)} options={options} onDone={async (values) => { await onDone(values); await history.reload(); }} />}</Resource>}</Resource>;
 }
@@ -74,9 +76,15 @@ function SelectionForm({ record, referral, options, onDone }) {
         </select>
       </div>
       <div className="form-field">
-        <label htmlFor={id + '-job'}>연계 공고 (추천 전달 시 필수)</label>
+        <label htmlFor={id + '-job'}>
+          연계 공고 (선택 사항)
+        </label>
         <select id={id + '-job'} value={values.jobId || ''} disabled={busy || active || !values.companyId} onChange={(e) => field('jobId', e.target.value)}>
-          <option value="">{!values.companyId ? '기업을 먼저 선택해 주세요' : jobs.length ? '공고 선택 안 함' : '해당 기업의 등록된 공고가 없습니다'}</option>
+          <option value="">
+            {values.companyId
+              ? '채용공고 없이 기업만 추천'
+              : '기업을 먼저 선택해 주세요'}
+          </option>
           {unavailable(jobs, 'jobId', values.jobId) && <option value={values.jobId} disabled>기존 공고 · 사용 불가 (다시 선택해 주세요)</option>}
           {jobs.map((j) => <option key={j.jobId} value={j.jobId}>{j.title} · {labels[j.status] || j.status}</option>)}
         </select>
@@ -94,7 +102,24 @@ function SelectionForm({ record, referral, options, onDone }) {
       {success && <p className="form-success" role="status">{success}</p>}
       <div className="form-actions"><button type="submit" disabled={busy}>{busy ? '저장 중…' : '정보 저장'}</button></div>
       <div className="actions">
-        {!active && record.status === 'MATCHING' && record.companyId && record.jobId && record.managerUserId && <Action url={`/admin/employment-links/${record.employmentLinkId}/referrals`} confirm="저장된 기업·공고에 현재 공개 이력서를 추천 전달할까요?" onDone={() => onDone({ ...record, status: 'MATCHING', completionMessage: '기업에 추천을 전달했습니다. 기업 검토를 기다려 주세요.' })}>저장된 기업에 추천 전달</Action>}
+        {!active &&
+          record.status === 'MATCHING' &&
+          record.companyId &&
+          record.managerUserId && (
+            <Action
+              url={`/admin/employment-links/${record.employmentLinkId}/referrals`}
+              confirm="저장된 기업에 현재 공개 이력서를 추천 전달할까요? 채용공고를 선택하지 않은 경우에도 기업에 이력서를 전달합니다."
+              onDone={() =>
+                onDone({
+                  ...record,
+                  status: 'MATCHING',
+                  completionMessage: '기업에 추천을 전달했습니다. 기업 검토를 기다려 주세요.',
+                })
+              }
+            >
+              저장된 기업에 추천 전달
+            </Action>
+          )}
         {(active || record.status === 'INTERVIEW') && <Action url={`/admin/employment-links/${record.employmentLinkId}/rematch`} confirm="현재 추천을 종료하고 다른 기업과 재매칭할까요? 이전 추천 이력은 보관됩니다." onDone={() => onDone({ ...record, status: 'MATCHING', completionMessage: '이전 추천을 종료했습니다. 새로운 기업과 공고를 선택해 저장한 뒤 추천을 전달해 주세요.' })}>현재 추천 종료 · 재매칭 시작</Action>}
       </div>
     </form>

@@ -7,6 +7,7 @@ import ResumeDocument from './ResumeDocument';
 import CalendarPicker from '../common/CalendarPicker';
 import ProfileAvatar from '../common/ProfileAvatar';
 import '../../assets/styles/resume.css';
+import { skillOptions } from '../../data/skills';
 
 const sections = [
   {
@@ -476,14 +477,39 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
                   </div>
                 </div>
                 <Field label="보유 기술">
-                  <textarea
-                    rows={2}
-                    maxLength={10000}
-                    value={values.skills}
-                    onChange={(e) => field('skills', e.target.value)}
-                    placeholder="Java, React, Figma처럼 쉼표로 구분해 주세요"
-                  />
-                </Field>
+  <div className="resume-skill-selector">
+    {skillOptions.map((skill) => {
+      const selected = values.skills
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .includes(skill);
+
+      return (
+        <button
+          key={skill}
+          type="button"
+          className={selected ? 'selected' : ''}
+          onClick={() => {
+            const current = values.skills
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean);
+
+            const next = selected
+              ? current.filter((item) => item !== skill)
+              : [...current, skill];
+
+            field('skills', next.join(', '));
+          }}
+        >
+          {selected ? '✓ ' : '+ '}
+          {skill}
+        </button>
+      );
+    })}
+  </div>
+</Field>
                 {skills.length > 0 && (
                   <div className="resume-skill-tags">
                     {skills.map((skill, i) => (

@@ -1398,7 +1398,14 @@ class PlatformIntegrationTests {
         assertThat(service.application(seeker, app).get("interviews").toString()).doesNotContain(
             "비공개 메모"
         );
-        service.cancel(seeker, app);
+        service.cancel(
+            seeker,
+            app,
+            java.util.Map.of(
+                "reason",
+                "개인 사정으로 인한 지원 취소"
+            )
+        );
         assertThat(
             db.one("SELECT status FROM interviews WHERE interview_id=?", interview).get("status")
         ).isEqualTo("CANCELED");

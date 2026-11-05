@@ -107,13 +107,48 @@ export function ApplicationDetail() {
             <h2>면접 일정</h2>
             <Interviews rows={a.interviews} />
             {['APPLIED', 'UNDER_REVIEW', 'DOCUMENT_PASSED', 'INTERVIEW'].includes(a.status) && (
-              <Action
-                url={`/applications/${id}/cancel`}
-                onDone={resource.reload}
-                confirm="지원을 취소할까요? 취소한 지원은 복구할 수 없습니다."
+              <button
+                type="button"
+                className="secondary"
+                onClick={async () => {
+                  const reason = window.prompt(
+                    '입사지원 및 면접 취소 사유를 입력해 주세요.'
+                  );
+
+                  if (reason === null) return;
+
+                  if (!reason.trim()) {
+                    window.alert('취소 사유를 입력해 주세요.');
+                    return;
+                  }
+
+                  const confirmed = window.confirm(
+                    '면접 일정과 입사지원 전체를 취소하시겠습니까?\n취소 후에는 복구할 수 없습니다.'
+                  );
+
+                  if (!confirmed) return;
+
+                  try {
+                    await client.post(
+                      `/applications/${id}/cancel`,
+                      {
+                        reason: reason.trim()
+                      }
+                    );
+
+                    window.alert('면접 일정과 입사지원이 취소되었습니다.');
+
+                    await resource.reload();
+                  } catch (error) {
+                    window.alert(
+                      error.response?.data?.message ||
+                      '지원 취소에 실패했습니다.'
+                    );
+                  }
+                }}
               >
-                지원 취소
-              </Action>
+                면접 및 입사지원 취소
+              </button>
             )}
           </div>
         </>
@@ -190,6 +225,14 @@ export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false })
     rows.map((i) => (
       <div className="callout" key={i.interviewId}>
         <Badge value={i.status} />
+
+        {i.status === 'CANCELED' && i.cancellationReason && (
+          <section className="callout" aria-label="면접 취소 사유">
+            <h3>취소 사유</h3>
+            <p className="prose">{i.cancellationReason}</p>
+          </section>
+        )}
+
         <p>
           {formatDateTime(i.interviewAt)}{' '}
           (한국 시간)
@@ -219,11 +262,38 @@ export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false })
         {onEdit && i.status === 'SCHEDULED' && (
           <button type="button" className="secondary" onClick={() => onEdit(i)}>면접 일정 수정</button>
         )}
-        {onDelete && (
-          <Action method="delete" url={`/company/interviews/${i.interviewId}`} onDone={onDelete}
-            confirm="이 면접 일정을 삭제할까요? 삭제한 일정은 복구할 수 없습니다.">
-            일정 삭제
-          </Action>
+        {onDelete && i.status === 'SCHEDULED' && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={async () => {
+              const reason = window.prompt(
+                '면접 취소 사유를 입력해 주세요.'
+              );
+
+              if (reason === null) return;
+
+              if (!reason.trim()) {
+                window.alert('취소 사유를 입력해 주세요.');
+                return;
+              }
+
+              try {
+                await client.delete(
+                  `/company/interviews/${i.interviewId}`,
+                  { data: { reason: reason.trim() } }
+                );
+
+                onDelete();
+              } catch (error) {
+                window.alert(
+                  error.response?.data?.message || '면접 취소에 실패했습니다.'
+                );
+              }
+            }}
+          >
+            면접 취소
+          </button>
         )}
       </div>
     ))
@@ -388,11 +458,11 @@ export function Employment() {
         <h2>당신의 다음 걸음을 돕습니다.</h2>
         <p>희망 업종과 선호 직업을 제출하면 담당자가 조건에 맞는 기업과 채용 기회를 연결합니다.</p>
         <Resource resource={eligibility}>{(data) => data.hasPublicResume ? <>
-        <p className="muted">공개 이력서를 바탕으로 기업 매칭이 진행됩니다.</p>
-        {activeLink ? <div className="callout"><p>진행 중인 취업연계 신청이 있습니다.</p><Link className="button secondary" to={`/employment/${activeLink.employmentLinkId}`}>진행 중인 신청 확인 →</Link></div> : <Form fields={[
-          { name: 'preferredIndustry', label: '희망 업종', required: true, maxLength: 100, placeholder: '예: IT·정보통신, 제조업, 서비스업' },
-          { name: 'preferredOccupation', label: '선호 직업·직무', required: true, maxLength: 100, placeholder: '예: 백엔드 개발자, 사무직, 생산직' },
-        ]} onSubmit={async (body) => { await client.post('/employment-links', body); await resource.reload(); }} submit="희망 조건 제출하고 취업연계 신청" successMessage="희망 조건과 취업연계 신청을 접수했습니다." />}
+          <p className="muted">공개 이력서를 바탕으로 기업 매칭이 진행됩니다.</p>
+          {activeLink ? <div className="callout"><p>진행 중인 취업연계 신청이 있습니다.</p><Link className="button secondary" to={`/employment/${activeLink.employmentLinkId}`}>진행 중인 신청 확인 →</Link></div> : <Form fields={[
+            { name: 'preferredIndustry', label: '희망 업종', required: true, maxLength: 100, placeholder: '예: IT·정보통신, 제조업, 서비스업' },
+            { name: 'preferredOccupation', label: '선호 직업·직무', required: true, maxLength: 100, placeholder: '예: 백엔드 개발자, 사무직, 생산직' },
+          ]} onSubmit={async (body) => { await client.post('/employment-links', body); await resource.reload(); }} submit="희망 조건 제출하고 취업연계 신청" successMessage="희망 조건과 취업연계 신청을 접수했습니다." />}
         </> : <div className="callout"><p>취업연계 신청에는 공개된 이력서가 필요합니다. 이력서를 작성하거나 기존 이력서의 ‘공개 여부 설정’을 켜고 저장해 주세요.</p><Link className="button secondary" to="/resumes">이력서 관리로 이동 →</Link></div>}</Resource>
       </div>
       <h2 className="section">나의 진행 내역</h2>
@@ -429,6 +499,8 @@ export function AccountSettings({ company = false }) {
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const navigate = useNavigate();
+  const [phoneVerificationToken, setPhoneVerificationToken] =
+    useState('');
 
   return (
     <>
@@ -439,6 +511,33 @@ export function AccountSettings({ company = false }) {
         <Form
           initial={user}
           fields={[
+            { name: 'name', label: '이름', required: true, maxLength: 100 },
+            {
+              name: 'phone',
+              label: '휴대폰번호',
+              required: true,
+              render: ({ id, values, setValues }) => (
+                <SmsPhoneInput
+                  id={id}
+                  value={values.phone || ''}
+                  onChange={(phone) => {
+                    setValues((old) => ({
+                      ...old,
+                      phone
+                    }));
+                    setPhoneVerificationToken('');
+                  }}
+                  onVerified={setPhoneVerificationToken}
+                />
+              )
+            },
+          ]}
+          onSubmit={async (body) => {
+            const { data } = await client.patch('/me', {
+              ...body,
+              verificationToken: phoneVerificationToken
+            });
+
 
             { name: 'name', label: company ? '담당자 이름' : '이름', required: true, maxLength: 100 },
             { name: 'phone', label: '휴대폰번호', type: 'tel', required: true },
@@ -624,7 +723,7 @@ export function InquiryWrite({ onSubmitted, kind }) {
       <p className="muted">문의 내용은 작성자와 관리자만 확인할 수 있습니다.</p>
       <div className="panel">
         <Form
-            initial={kind === 'report' ? { title: '[채용공고 신고] ', content: '공고 제목 또는 주소: \n신고 사유: \n확인 가능한 내용: ' } : kind === 'partnership' ? { title: '[제휴·광고 문의] ', content: '기업 또는 단체명: \n제안 내용: \n회신 받을 연락처: ' } : {}}
+          initial={kind === 'report' ? { title: '[채용공고 신고] ', content: '공고 제목 또는 주소: \n신고 사유: \n확인 가능한 내용: ' } : kind === 'partnership' ? { title: '[제휴·광고 문의] ', content: '기업 또는 단체명: \n제안 내용: \n회신 받을 연락처: ' } : {}}
           fields={[
             { name: 'title', label: '문의 제목', required: true, maxLength: 200 },
             { name: 'content', label: '문의 내용', type: 'textarea', required: true },

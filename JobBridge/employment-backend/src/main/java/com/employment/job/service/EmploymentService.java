@@ -470,29 +470,18 @@ public class EmploymentService {
         return row;
     }
 
+
     private void addDetails(Map<String, Object> row, boolean internal) {
-        if (row == null) throw new Problem(404, "지원 내역을 찾을 수 없습니다.");
-        long id = number(row, "applicationId");
-        var snapshots = db.list(
-            "SELECT snapshot_json FROM application_snapshots WHERE application_id=?",
-            id
-        );
-        try {
-            row.put(
-                "snapshot",
-                snapshots.isEmpty()
-                    ? null
-                    : json.readTree(
-                          snapshots.get(0).get("snapshotJson").toString()
-                      )
-            );
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException(ex);
+        if (row == null) {
+            throw new Problem(404, "지원 내역을 찾을 수 없습니다.");
         }
+
+        long id = number(row, "applicationId");
+
         row.put(
             "interviews",
             db.list(
-                "SELECT interview_id,interview_at,interview_type,location,meeting_url,status,applicant_guidance" +
+                "SELECT interview_id,interview_at,interview_type,location,meeting_url,status,applicant_guidance,cancellation_reason" +
                     (internal ? ",result,memo" : "") +
                     " FROM interviews WHERE application_id=? ORDER BY interview_at",
                 id
@@ -500,8 +489,26 @@ public class EmploymentService {
         );
     }
 
-    public void cancel(long user, long id) {
+
+    public void cancel(
+        long user,
+        long id,
+        Map<String, Object> body
+    ) {
+        String reason = Input.text(
+            body,
+            "reason",
+            1000,
+            true
+        ).strip();
+
+        if (reason.isBlank()) {
+            throw new Problem(400, "지원 취소 사유를 입력해 주세요.");
+        }
+
+        // 구직자 본인의 지원인지 확인
         var app = application(user, id);
+
         if (
             !Set.of(
                 "APPLIED",
@@ -509,26 +516,66 @@ public class EmploymentService {
                 "DOCUMENT_PASSED",
                 "INTERVIEW"
             ).contains(app.get("status"))
-        ) throw new Problem(409, "현재 상태에서는 취소할 수 없습니다.");
-        db.update(
-            "UPDATE applications SET status='CANCELED',updated_at=CURRENT_TIMESTAMP WHERE application_id=?",
+        ) {
+            throw new Problem(
+                409,
+                "현재 상태에서는 취소할 수 없습니다."
+            );
+        }
+
+        // 예정된 면접이 있는지 확인
+        var scheduledInterviews = db.list(
+            "SELECT interview_id FROM interviews " +
+                "WHERE application_id=? AND status='SCHEDULED'",
             id
         );
+
+        // 지원 취소 사유는 예정된 면접에도 함께 저장
+        if (!scheduledInterviews.isEmpty()) {
+            db.update(
+                """
+                UPDATE interviews
+                SET status='CANCELED',
+                    cancellation_reason=?
+                WHERE application_id=?
+                  AND status='SCHEDULED'
+                """,
+                reason,
+                id
+            );
+        }
+
+        // 입사지원 전체 취소
         db.update(
-            "UPDATE interviews SET status='CANCELED' WHERE application_id=? AND status='SCHEDULED'",
+            """
+            UPDATE applications
+            SET status='CANCELED',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE application_id=?
+            """,
             id
         );
+
+        // 해당 기업 사용자 조회
         long owner = number(
             db.one(
-                "SELECT c.user_id FROM companies c JOIN job_postings j ON j.company_id=c.company_id WHERE j.job_id=?",
+                """
+                SELECT c.user_id
+                FROM companies c
+                JOIN job_postings j
+                  ON j.company_id=c.company_id
+                WHERE j.job_id=?
+                """,
                 app.get("jobId")
             ),
             "userId"
         );
+
+        // 기업에 취소 사유까지 알림
         notify(
             owner,
             "지원이 취소되었습니다.",
-            "지원자 관리에서 확인해 주세요.",
+            app.get("title") + " · 지원 취소 사유: " + reason,
             "APPLICATION",
             id
         );
@@ -877,6 +924,61 @@ public class EmploymentService {
         );
     }
 
+    public void cancelInterview(
+        long user,
+        long id,
+        Map<String, Object> body
+    ) {
+        String reason = Input.text(
+            body,
+            "reason",
+            1000,
+            true
+        ).strip();
+
+        if (reason.isBlank()) {
+            throw new Problem(400, "면접 취소 사유를 입력해 주세요.");
+        }
+
+        var existing = db.one(
+            "SELECT application_id FROM interviews WHERE interview_id=?",
+            id
+        );
+
+        var app = companyApplication(
+            user,
+            number(existing, "applicationId")
+        );
+
+        var interview = db.one(
+            "SELECT * FROM interviews WHERE interview_id=? FOR UPDATE",
+            id
+        );
+
+        if (!"SCHEDULED".equals(interview.get("status"))) {
+            throw new Problem(409, "예정된 면접만 취소할 수 있습니다.");
+        }
+
+        db.update(
+            """
+            UPDATE interviews
+            SET status='CANCELED',
+                cancellation_reason=?
+            WHERE interview_id=?
+            """,
+            reason,
+            id
+        );
+
+        notify(
+            number(app, "userId"),
+            "면접 일정이 취소되었습니다.",
+            app.get("title") + " · 면접 취소 사유: " + reason,
+            "INTERVIEW",
+            number(app, "applicationId")
+        );
+    }
+
     public void updateInterview(
         long user,
         long id,
@@ -1138,5 +1240,7 @@ public class EmploymentService {
     public static LocalDate today() {
         return LocalDate.now(ZoneId.of("Asia/Seoul"));
     }
+
+
 }
 

@@ -128,8 +128,16 @@ public class JobController {
     }
 
     @PostMapping("/applications/{id}/cancel")
-    void cancel(@PathVariable long id, HttpServletRequest req) {
-        service.cancel(auth.require(req, "JOB_SEEKER"), id);
+    void cancel(
+        @PathVariable long id,
+        @RequestBody Map<String, Object> body,
+        HttpServletRequest req
+    ) {
+        service.cancel(
+            auth.require(req, "JOB_SEEKER"),
+            id,
+            body
+        );
     }
 
     @GetMapping("/company/employment-links")
@@ -169,14 +177,7 @@ public class JobController {
         return service.linkDetail(auth.require(req, "JOB_SEEKER"), id);
     }
 
-    @PutMapping("/company/interviews/{id}")
-    void editInterview(
-        @PathVariable long id,
-        @RequestBody Map<String, Object> body,
-        HttpServletRequest req
-    ) {
-        service.updateInterview(auth.require(req, "COMPANY"), id, body, false);
-    }
+
 
     @PatchMapping("/company/interviews/{id}/status")
     void interviewStatus(
