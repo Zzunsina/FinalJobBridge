@@ -1746,6 +1746,17 @@ footer {
   border-top: 1px solid #f0f2f5;
   box-shadow: 0 -5px 16px rgb(24 39 66 / 4%);
 }
+.region-panel-actions-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e5eaf1;
+}
 .region-panel-actions > button {
   min-height: 36px;
   padding: 8px 14px;

@@ -56,29 +56,175 @@ public class EmploymentReferrals {
     private boolean live(Map<String,Object> r) { return r != null && !Set.of("DECLINED","CANCELED").contains(r.get("reviewStatus")); }
     private boolean same(Object a, Object b) { return Objects.equals(a == null ? null : a.toString(), b == null ? null : b.toString()); }
 
+
     public Map<String,Object> send(long linkId) {
         ensureReady();
-        var link = one("SELECT * FROM employment_links WHERE employment_link_id=? FOR UPDATE", linkId);
-        if (!"MATCHING".equals(link.get("status"))) throw new Problem(409,"기업 매칭 단계로 변경한 후 추천을 전달해 주세요.");
-        if (link.get("companyId") == null || link.get("jobId") == null || link.get("managerUserId") == null) throw new Problem(400,"담당자, 기업과 채용공고를 먼저 저장해 주세요.");
-        if (live(latest(linkId))) throw new Problem(409,"이미 검토 중인 추천이 있습니다. 재매칭하려면 현재 추천을 먼저 종료해 주세요.");
-        var company = one("SELECT c.user_id FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.company_id=? AND c.approval_status='APPROVED' AND u.status='ACTIVE'", link.get("companyId"));
-        one("SELECT user_id FROM users WHERE user_id=? AND role='ADMIN' AND status='ACTIVE'",link.get("managerUserId"));
-        one("SELECT job_id FROM job_postings WHERE job_id=? AND company_id=? AND status='PUBLISHED' AND end_date>=?", link.get("jobId"), link.get("companyId"),EmploymentService.today());
-        var resumes = db.list("SELECT resume_id,title,education,career_description,skills,portfolio_url,details_json,updated_at FROM resumes WHERE job_seeker_id=? AND is_public=TRUE ORDER BY is_default DESC,updated_at DESC,resume_id DESC LIMIT 1", link.get("jobSeekerId"));
-        if (resumes.isEmpty()) throw new Problem(409,"신청자의 공개 이력서가 없습니다. 공개 설정 후 추천을 전달해 주세요.");
+
+        var link = one(
+            "SELECT * FROM employment_links WHERE employment_link_id=? FOR UPDATE",
+            linkId
+        );
+
+        if (!"MATCHING".equals(link.get("status"))) {
+            throw new Problem(
+                409,
+                "기업 매칭 단계로 변경한 후 추천을 전달해 주세요."
+            );
+        }
+
+        // 담당 관리자와 기업은 필수, 채용공고는 선택사항
+        if (
+            link.get("companyId") == null ||
+                link.get("managerUserId") == null
+        ) {
+            throw new Problem(
+                400,
+                "담당 관리자와 연계 기업을 먼저 지정해 주세요."
+            );
+        }
+
+        // 기존에 진행 중인 추천이 있는지 확인
+        if (live(latest(linkId))) {
+            throw new Problem(
+                409,
+                "이미 검토 중인 추천이 있습니다. 재매칭하려면 현재 추천을 먼저 종료해 주세요."
+            );
+        }
+
+        // 기업 승인 및 계정 활성 상태 확인
+        var company = one(
+            """
+            SELECT c.user_id
+            FROM companies c
+            JOIN users u ON u.user_id = c.user_id
+            WHERE c.company_id = ?
+              AND c.approval_status = 'APPROVED'
+              AND u.status = 'ACTIVE'
+            """,
+            link.get("companyId")
+        );
+
+        // 담당 관리자 활성 상태 확인
+        one(
+            """
+            SELECT user_id
+            FROM users
+            WHERE user_id = ?
+              AND role = 'ADMIN'
+              AND status = 'ACTIVE'
+            """,
+            link.get("managerUserId")
+        );
+
+        // 채용공고를 선택한 경우에만 유효성 검사
+        if (link.get("jobId") != null) {
+            one(
+                """
+                SELECT job_id
+                FROM job_postings
+                WHERE job_id = ?
+                  AND company_id = ?
+                  AND status = 'PUBLISHED'
+                  AND end_date >= ?
+                """,
+                link.get("jobId"),
+                link.get("companyId"),
+                EmploymentService.today()
+            );
+        }
+
+        // 공개 이력서 조회
+        var resumes = db.list(
+            """
+            SELECT
+                resume_id,
+                title,
+                education,
+                career_description,
+                skills,
+                portfolio_url,
+                details_json,
+                updated_at
+            FROM resumes
+            WHERE job_seeker_id = ?
+              AND is_public = TRUE
+            ORDER BY is_default DESC, updated_at DESC, resume_id DESC
+            LIMIT 1
+            """,
+            link.get("jobSeekerId")
+        );
+
+        if (resumes.isEmpty()) {
+            throw new Problem(
+                409,
+                "신청자의 공개 이력서가 없습니다. 공개 설정 후 추천을 전달해 주세요."
+            );
+        }
+
         var resume = resumes.get(0);
         Object details = resume.remove("detailsJson");
-        var applicant = one("SELECT u.user_id,u.name FROM users u JOIN job_seekers s ON s.user_id=u.user_id WHERE s.job_seeker_id=?", link.get("jobSeekerId"));
+
+        var applicant = one(
+            """
+            SELECT u.user_id, u.name
+            FROM users u
+            JOIN job_seekers s ON s.user_id = u.user_id
+            WHERE s.job_seeker_id = ?
+            """,
+            link.get("jobSeekerId")
+        );
+
         String snapshot;
-        try { resume.put("details", details == null ? null : json.readTree(details.toString())); snapshot = json.writeValueAsString(fields("resume",resume,"name",applicant.get("name"))); }
-        catch (Exception ex) { throw new IllegalStateException(ex); }
-        long id = db.insert("employment_referrals", fields("employment_link_id",linkId,"company_id",link.get("companyId"),"job_id",link.get("jobId"),"resume_snapshot",snapshot));
-        db.update("UPDATE employment_links SET status='MATCHING' WHERE employment_link_id=?",linkId);
-        notify(number(company,"userId"),linkId,"취업연계 추천이 도착했습니다.","전달된 이력서를 확인하고 면접 희망 여부를 알려 주세요.");
-        notify(number(applicant,"userId"),linkId,"기업에 취업연계 추천을 전달했습니다.","기업 검토가 시작되었습니다. 취업연계 상세를 확인해 주세요.");
-        return fields("referralId",id);
+
+        try {
+            resume.put(
+                "details",
+                details == null ? null : json.readTree(details.toString())
+            );
+
+            snapshot = json.writeValueAsString(
+                fields(
+                    "resume", resume,
+                    "name", applicant.get("name")
+                )
+            );
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+
+        // 공고를 선택하지 않았다면 job_id는 NULL로 저장
+        long id = db.insert(
+            "employment_referrals",
+            fields(
+                "employment_link_id", linkId,
+                "company_id", link.get("companyId"),
+                "job_id", link.get("jobId"),
+                "resume_snapshot", snapshot
+            )
+        );
+
+        db.update(
+            "UPDATE employment_links SET status='MATCHING' WHERE employment_link_id=?",
+            linkId
+        );
+
+        notify(
+            number(company, "userId"),
+            linkId,
+            "취업연계 추천이 도착했습니다.",
+            "전달된 이력서를 확인하고 면접 희망 여부를 알려 주세요."
+        );
+
+        notify(
+            number(applicant, "userId"),
+            linkId,
+            "기업에 취업연계 추천을 전달했습니다.",
+            "기업 검토가 시작되었습니다. 취업연계 상세를 확인해 주세요."
+        );
+
+        return fields("referralId", id);
     }
+
     public void cancel(long linkId) {
         ensureReady();
         var link = one("SELECT * FROM employment_links WHERE employment_link_id=? FOR UPDATE",linkId);

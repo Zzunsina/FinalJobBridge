@@ -280,7 +280,6 @@ export function ApplicantDetail() {
 function ApplicantDetailContent({ id }) {
   const [editingInterview, setEditingInterview] = useState(null);
   const [interviewMessage, setInterviewMessage] = useState('');
-  const resource = useResource(`/company/applications/${id}`);
 
   const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
   const transitions = {

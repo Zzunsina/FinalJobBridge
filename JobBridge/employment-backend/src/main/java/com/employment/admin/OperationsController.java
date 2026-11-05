@@ -11,11 +11,13 @@ import java.time.Instant;
 import java.util.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import com.employment.auth.SmsService;
 
 @RestController
 @RequestMapping("/api")
 @Transactional
 public class OperationsController {
+
 
     private final Database db;
     private final com.employment.job.service.EmploymentReferrals referrals;
@@ -23,6 +25,7 @@ public class OperationsController {
     private final EmploymentService service;
     private final AdminDashboardService dashboardService;
     private final NoticeImages noticeImages;
+    private final SmsService smsService;
 
     public OperationsController(
         Database db,
@@ -30,6 +33,7 @@ public class OperationsController {
         EmploymentService service,
         AdminDashboardService dashboardService,
         NoticeImages noticeImages,
+        SmsService smsService,
         com.employment.job.service.EmploymentReferrals referrals
     ) {
         this.db = db;
@@ -38,7 +42,9 @@ public class OperationsController {
         this.service = service;
         this.dashboardService = dashboardService;
         this.noticeImages = noticeImages;
+        this.smsService = smsService;
     }
+
 
     private long member(HttpServletRequest req) {
         return number(auth.user(req), "userId");
@@ -307,7 +313,26 @@ public class OperationsController {
         return fields(
             "managers", db.list("SELECT user_id,name,login_id FROM users WHERE role='ADMIN' AND status='ACTIVE' ORDER BY name,user_id"),
             "companies", db.list("SELECT c.company_id,c.company_name,c.business_number FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_name,c.company_id"),
-            "jobs", db.list("SELECT j.job_id,j.company_id,j.title,j.status FROM job_postings j JOIN companies c ON c.company_id=j.company_id JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY j.title,j.job_id")
+            "jobs", db.list(
+                """
+                SELECT
+                    j.job_id,
+                    j.company_id,
+                    j.title,
+                    j.status,
+                    j.end_date
+                FROM job_postings j
+                JOIN companies c
+                    ON c.company_id = j.company_id
+                JOIN users u
+                    ON u.user_id = c.user_id
+                WHERE c.approval_status = 'APPROVED'
+                  AND u.status = 'ACTIVE'
+                  AND j.status = 'PUBLISHED'
+                  AND j.end_date >= CURRENT_DATE
+                ORDER BY j.title, j.job_id
+                """
+            )
         );
     }
 

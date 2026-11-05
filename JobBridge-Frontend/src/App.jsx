@@ -57,8 +57,6 @@ const companyLinks = [
 
   ['/company/advertising', '광고·결제'],
 
-  ['/company/payment/shop', '이용권 구매'], // 💡 [추가] 기업회원 메뉴바에 이용권 구매 링크 추가
-
   ['/mypage', '내 정보'],
 ];
 const adminLinks = [
@@ -362,9 +360,7 @@ export default function App() {
             <Route path="/admin/advertising" element={protectedPage('ADMIN', <AdminAdvertising />)} />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
 
-            {/* 💡 [추가] 기업회원 결제 상품 숍 및 결제 성공 처리 라우트 */}
-            <Route path="/company/payment/shop" element={protectedPage('COMPANY', <CompanyProductShop companyUser={user} />)} />
-            <Route path="/company/payment/success" element={protectedPage('COMPANY', <CompanyPaymentSuccess />)} />
+          
 
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />
             <Route path="/admin/home-promotions" element={protectedPage('ADMIN', <AdminHomePromotions />)} />

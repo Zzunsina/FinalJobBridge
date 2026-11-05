@@ -79,6 +79,29 @@ export default function RegionPicker({ value = '', onChange }) {
       </button>
       {open && (
         <section id={panelId} className="region-panel" role="dialog" aria-label="근무지역 선택">
+          <div className="region-panel-actions region-panel-actions-top">
+  <button
+    type="button"
+    className="plain region-reset"
+    onClick={() => {
+      setDraft([]);
+      setError('');
+    }}
+  >
+    ↻ 초기화
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      onChange(draft.join('|'));
+      setOpen(false);
+      trigger.current?.focus();
+    }}
+  >
+    적용하기
+  </button>
+</div>
           <div className="region-panel-heading">
             <strong>근무지역 선택</strong>
             <button
@@ -177,28 +200,7 @@ export default function RegionPicker({ value = '', onChange }) {
               {error}
             </p>
           )}
-          <footer className="region-panel-actions">
-            <button
-              type="button"
-              className="plain region-reset"
-              onClick={() => {
-                setDraft([]);
-                setError('');
-              }}
-            >
-              ↻ 초기화
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onChange(draft.join('|'));
-                setOpen(false);
-                trigger.current?.focus();
-              }}
-            >
-              적용하기
-            </button>
-          </footer>
+    
         </section>
       )}
     </div>

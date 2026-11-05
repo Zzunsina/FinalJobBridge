@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS interviews (
         application_id BIGINT NOT NULL, FOREIGN KEY (application_id) REFERENCES applications(application_id),
         interview_at TIMESTAMP NOT NULL, interview_type VARCHAR(20) NOT NULL,
         location VARCHAR(255), meeting_url VARCHAR(500), status VARCHAR(30) NOT NULL DEFAULT 'SCHEDULED',
-        result TEXT, memo TEXT, applicant_guidance VARCHAR(2000), request_key VARCHAR(100) NOT NULL, request_hash VARCHAR(64) NOT NULL,
+        result TEXT, memo TEXT, cancellation_reason VARCHAR(1000) NULL,applicant_guidance VARCHAR(2000), request_key VARCHAR(100) NOT NULL, request_hash VARCHAR(64) NOT NULL,
         UNIQUE(application_id,request_key),
     CONSTRAINT chk_interview_status CHECK (status IN ('SCHEDULED', 'COMPLETED', 'CANCELED')),
     CONSTRAINT chk_interview_type CHECK (interview_type IN ('ONLINE', 'OFFLINE'))
