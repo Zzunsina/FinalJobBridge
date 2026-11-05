@@ -19,6 +19,7 @@ public class HomePromotionService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final HomePromotionTargets targets;
+    @org.springframework.beans.factory.annotation.Autowired private SiteImageAssets imageAssets;
     public HomePromotionService(JdbcTemplate jdbc, ObjectMapper json,HomePromotionTargets targets) { this.jdbc=jdbc; this.json=json;this.targets=targets; }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -44,6 +45,7 @@ public class HomePromotionService {
             if (jdbc.queryForObject("SELECT COUNT(*) FROM home_promotions WHERE promotion_key=?",Long.class,row.get("key"))==0 && jdbc.queryForObject("SELECT COUNT(*) FROM home_promotion_deletions WHERE promotion_key=?",Long.class,row.get("key"))==0)
                 jdbc.update("INSERT INTO home_promotions(promotion_key,content_json,sort_order,is_published) VALUES(?,?,?,?)",row.get("key"),json.writeValueAsString(row),row.get("sortOrder"),row.get("isPublished"));
         }
+        imageAssets.migrateReferences();
     }
 
     @Transactional
@@ -106,7 +108,7 @@ public class HomePromotionService {
             if (jdbc.queryForObject("SELECT COUNT(*) FROM home_promotions WHERE promotion_key=? AND image_data IS NOT NULL",Long.class,key)==0) throw new Problem(400,"홍보 사진을 선택해 주세요.","imageUrl");
             data.put("imageUrl","");
         } else {
-            if(!image.matches("/images/[a-zA-Z0-9_./-]+")||image.contains("..")||image.contains("//"))throw new Problem(400,"기본 이미지 또는 업로드한 사진을 선택해 주세요.","imageUrl");
+            if(!image.matches("/(?:api/site-images/)?images/[a-zA-Z0-9_./-]+")||image.contains("..")||image.contains("//"))throw new Problem(400,"기본 이미지 또는 업로드한 사진을 선택해 주세요.","imageUrl");
             data.put("imageUrl",image);replaceImage=true;
         }
         var priorRows=jdbc.query("SELECT content_json FROM home_promotions WHERE promotion_key=?",(rs,n)->rs.getString(1),key);

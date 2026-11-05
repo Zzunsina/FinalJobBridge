@@ -22,7 +22,7 @@ public class CompanyImageController {
         return Database.number(db.one("SELECT company_id FROM companies WHERE user_id=?", user), "companyId");
     }
     private ResponseEntity<byte[]> image(long company) {
-        var rows = jdbc.query("SELECT image_data FROM company_images WHERE company_id=?", (rs, index) -> rs.getBytes(1), company);
+        var rows = jdbc.query("SELECT image_data FROM company_images WHERE company_id=? UNION ALL SELECT p.image_data FROM user_profile_photos p JOIN companies c ON c.user_id=p.user_id WHERE c.company_id=? AND NOT EXISTS(SELECT 1 FROM company_images WHERE company_id=?) LIMIT 1", (rs, index) -> rs.getBytes(1), company,company,company);
         if (rows.isEmpty()) return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(MediaType.IMAGE_JPEG).body(rows.get(0));
     }
@@ -50,8 +50,11 @@ public class CompanyImageController {
         return ResponseEntity.noContent().build();
     }
     @DeleteMapping("/company/image")
+    @Transactional
     ResponseEntity<Void> remove(HttpServletRequest request) {
-        jdbc.update("DELETE FROM company_images WHERE company_id=?", owner(request));
+        long company=owner(request);
+        jdbc.update("DELETE FROM company_images WHERE company_id=?",company);
+        jdbc.update("DELETE FROM user_profile_photos WHERE user_id=(SELECT user_id FROM companies WHERE company_id=?)",company);
         return ResponseEntity.noContent().build();
     }
 }

@@ -290,7 +290,7 @@ function AdminRow({ name, row: r, reload }) {
         {!company && status === 'PENDING' && (
           <div className="stack">
             <p className="callout">기업의 심사 요청이 접수되었습니다. 내용을 확인한 후 게시 승인하거나, 사유를 입력해 반려해 주세요.</p>
-            <Action method="patch" url={url} body={{ status: 'PUBLISHED' }} onDone={reload} confirm="이 공고를 게시 승인할까요? 승인하면 채용공고에 공개됩니다.">게시 승인</Action>
+            <div className="admin-job-approval-bar"><p>승인하면 채용공고가 바로 게시됩니다.</p><Action className="admin-job-approve-button" method="patch" url={url} body={{ status: 'PUBLISHED' }} onDone={reload} confirm="이 공고를 게시 승인할까요? 승인하면 채용공고에 공개됩니다."><span aria-hidden="true">✓</span> 승인하고 게시하기</Action></div>
             <Form
               fields={[{ name: 'reason', label: '반려 사유', type: 'textarea', required: true }]}
               onSubmit={async (body) => { await client.patch(url, { ...body, status: 'REJECTED' }); await reload(); }}
@@ -326,14 +326,16 @@ function AdminRow({ name, row: r, reload }) {
           </Action>
         )}
         {!company && (
-          <Action
-            method="delete"
-            url={`/admin/jobs/${r.jobId}`}
-            onDone={reload}
-            confirm="이 공고를 삭제할까요? 지원·연계 이력이 있는 공고는 삭제할 수 없습니다."
-          >
-            공고 삭제
-          </Action>
+          <details className="admin-job-delete">
+            <summary>공고 삭제</summary>
+            <p>삭제 사유가 기업에 알림으로 전달됩니다. 지원·취업연계 이력이 있는 공고는 삭제할 수 없습니다.</p>
+            <Form
+              fields={[{name:'reason',label:'삭제 사유',type:'textarea',required:true,maxLength:1000}]}
+              onSubmit={async body=>{await client.delete(`/admin/jobs/${r.jobId}`,{data:body});await reload();}}
+              submit="사유 전달 후 공고 삭제"
+              successMessage="공고를 삭제하고 기업에 사유를 알렸습니다."
+            />
+          </details>
         )}
       </>
     );

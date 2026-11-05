@@ -183,6 +183,8 @@ export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false })
           <h3>기업 내부 메모 (구직자에게 비공개)</h3>
           <p className="prose">{i.memo || '등록된 내부 메모가 없습니다.'}</p>
         </section>}
+        {showInternalMemo && i.status==='SCHEDULED' && Date.parse(i.interviewAt)<=Date.now() && <Action method="patch" url={'/company/interviews/'+i.interviewId+'/status'} body={{status:'COMPLETED'}} onDone={onDelete} confirm="실제로 진행한 면접이 맞나요? 완료 확인 후 지원자가 익명 후기를 작성할 수 있습니다.">면접 완료 확인</Action>}
+        {!showInternalMemo && i.status==='COMPLETED' && <Link className="button secondary" to="/interview-reviews">면접 후기 작성</Link>}
         {onEdit && i.status === 'SCHEDULED' && (
           <button type="button" className="secondary" onClick={() => onEdit(i)}>면접 일정 수정</button>
         )}
@@ -290,22 +292,25 @@ export function Employment() {
 }
 
 export function MyPage() {
+  return <><Title>내 정보</Title><div className="panel narrow"><AccountSettings /></div></>;
+}
+
+export function AccountSettings({ company = false }) {
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const navigate = useNavigate();
 
   return (
     <>
-      <Title>내 정보</Title>
-      <div className="panel narrow">
-        <ProfilePhoto key={user.userId} user={user} />
-        <h2>기본 정보</h2>
+
+        {!company && <ProfilePhoto key={user.userId} user={user} />}
+        <h2>{company ? '계정 정보' : '기본 정보'}</h2>
         <p>아이디: {user.loginId}</p>
         <p>{user.email}</p>
         <Form
           initial={user}
           fields={[
-            { name: 'name', label: '이름', required: true, maxLength: 100 },
+            { name: 'name', label: company ? '담당자 이름' : '이름', required: true, maxLength: 100 },
             { name: 'phone', label: '휴대폰번호', type: 'tel', required: true },
           ]}
           onSubmit={async (body) => {
@@ -359,7 +364,6 @@ export function MyPage() {
           submit="변경하기"
         />
         <WithdrawAccount />
-      </div>
     </>
   );
 }

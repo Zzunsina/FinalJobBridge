@@ -35,10 +35,12 @@ public class ProfilePhotoController {
         return Database.number(auth.user(request), "userId");
     }
 
+    private boolean company(HttpServletRequest request){return "COMPANY".equals(auth.user(request).get("role"));}
+
     @GetMapping
     ResponseEntity<byte[]> photo(HttpServletRequest request) {
         var photos = jdbc.query(
-            "SELECT image_data FROM user_profile_photos WHERE user_id=?",
+            company(request)?"SELECT image_data FROM company_images WHERE company_id=(SELECT company_id FROM companies WHERE user_id=?)":"SELECT image_data FROM user_profile_photos WHERE user_id=?",
             (rs, index) -> rs.getBytes(1),
             owner(request)
         );
@@ -56,6 +58,12 @@ public class ProfilePhotoController {
     ResponseEntity<Void> save(@RequestBody Map<String, Object> body, HttpServletRequest request) {
         long id = owner(request);
         byte[] photo = normalize(body.get("image"));
+        if(company(request)){
+            jdbc.queryForObject("SELECT user_id FROM users WHERE user_id=? FOR UPDATE",Long.class,id);
+            Long companyId=jdbc.queryForObject("SELECT company_id FROM companies WHERE user_id=?",Long.class,id);
+            if(jdbc.update("UPDATE company_images SET image_data=? WHERE company_id=?",photo,companyId)==0)jdbc.update("INSERT INTO company_images(company_id,image_data) VALUES(?,?)",companyId,photo);
+            return ResponseEntity.noContent().build();
+        }
         // Serialize changes for this user, including two first uploads arriving together.
         jdbc.queryForObject("SELECT user_id FROM users WHERE user_id=? FOR UPDATE", Long.class, id);
         if (
@@ -73,7 +81,8 @@ public class ProfilePhotoController {
 
     @DeleteMapping
     ResponseEntity<Void> remove(HttpServletRequest request) {
-        jdbc.update("DELETE FROM user_profile_photos WHERE user_id=?", owner(request));
+        if(company(request))jdbc.update("DELETE FROM company_images WHERE company_id=(SELECT company_id FROM companies WHERE user_id=?)",owner(request));
+        else jdbc.update("DELETE FROM user_profile_photos WHERE user_id=?", owner(request));
         return ResponseEntity.noContent().build();
     }
 

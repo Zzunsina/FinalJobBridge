@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef } from 'react';
+import { useId } from 'react';
 
-export const AGREEMENT_VERSION = '2026-10-21';
-export const emptyAgreements = () => ({ termsAccepted: false, privacyAccepted: false, marketingAccepted: false });
+export const AGREEMENT_VERSION = '2026-11-05';
+export const emptyAgreements = () => ({ termsAccepted: false, privacyAccepted: false, marketingAccepted: false, recommendationsAccepted: false, newsletterAccepted: false });
 
 const agreements = [
   {
@@ -16,7 +16,7 @@ const agreements = [
   {
     key: 'privacyAccepted', title: '개인정보 수집·이용 동의', required: true,
     sections: [
-      ['수집 항목', '가입 시 아이디, 비밀번호, 이름, 생년월일, 성별, 이메일, 휴대폰번호를 수집합니다. 기업회원은 기업명과 사업자등록번호도 입력합니다. 프로필 사진과 이력서 등 추가 정보는 회원이 등록하는 경우 저장됩니다.'],
+      ['수집 항목', '공통으로 아이디, 비밀번호, 이름(기업은 담당자 이름), 이메일, 휴대폰번호를 수집합니다. 개인회원은 생년월일·성별을, 기업회원은 기업명·사업자등록번호와 등록한 기업 상세 정보를 저장합니다. 사진과 이력서 등 추가 정보는 회원이 등록하는 경우 저장됩니다.'],
       ['이용 목적', '회원 식별과 로그인, 본인 계정 관리, 입사지원 및 기업의 지원자 검토, 면접 안내, 취업연계 상담과 고객 문의 처리를 위해 사용합니다. 비밀번호는 암호화된 해시로 저장됩니다.'],
       ['보관 및 탈퇴 처리', '서비스 이용 중 계정 정보와 등록·제출한 활동 기록이 저장됩니다. 현재 탈퇴 처리에서는 프로필 사진이 삭제되고 계정 이용이 차단되며, 계정 정보·이력서·제출된 지원 및 면접 기록 등은 남습니다.'],
       ['동의 거부', '필수 개인정보 수집·이용에 동의하지 않으면 회원가입을 진행할 수 없습니다.'],
@@ -29,19 +29,31 @@ const agreements = [
       ['동의 거부', '동의하지 않아도 회원가입과 기본 서비스 이용에 제한이 없습니다. 입사지원 상태·면접 등 서비스 이용에 필요한 안내와는 별개의 선택 항목입니다.'],
     ],
   },
+  {
+    key: 'recommendationsAccepted', title: '맞춤 채용·인재 소식 수신 동의', required: false,
+    sections: [
+      ['안내 내용', '등록한 관심 직무·지역 또는 기업 업종을 바탕으로 개인회원에게는 채용 소식, 기업회원에게는 채용 지원 서비스 소식을 이메일로 안내하는 데 동의합니다.'],
+      ['선택 사항', '동의하지 않아도 채용공고 검색·입사지원·기업 채용 관리를 이용할 수 있습니다. 지원 결과나 면접 등 필수 서비스 안내와는 별개입니다.'],
+    ],
+  },
+  {
+    key: 'newsletterAccepted', title: '취업·채용 뉴스레터 수신 동의', required: false,
+    sections: [
+      ['안내 내용', '이력서 작성·면접 준비·채용 운영 팁 등 취업·채용 콘텐츠를 이메일로 받는 데 동의합니다.'],
+      ['선택 사항', '동의하지 않아도 회원가입과 기본 서비스를 이용할 수 있습니다. 실제 발송 기능이 운영되는 경우 동의한 회원에게만 해당 소식을 안내합니다.'],
+    ],
+  },
 ];
 
 export default function SignupAgreements({ value, onChange }) {
   const id = useId();
-  const allInput = useRef(null);
   const count = agreements.filter((item) => value[item.key]).length;
-  useEffect(() => { if (allInput.current) allInput.current.indeterminate = count > 0 && count < agreements.length; }, [count]);
   return (
     <fieldset className="signup-agreements">
       <legend>약관 및 개인정보 동의</legend>
       <label className="agreement-all">
-        <input ref={allInput} type="checkbox" checked={count === agreements.length} onChange={(e) => onChange(Object.fromEntries(agreements.map((item) => [item.key, e.target.checked])))} />
-        <span>전체 동의<small>필수 항목과 선택 광고성 정보 수신에 모두 동의합니다.</small></span>
+        <input type="checkbox" checked={count === agreements.length} onChange={(e) => onChange(Object.fromEntries(agreements.map((item) => [item.key, e.target.checked])))} />
+        <span>전체 동의</span>
       </label>
       {agreements.map((item) => (
         <div className="agreement-item" key={item.key}>

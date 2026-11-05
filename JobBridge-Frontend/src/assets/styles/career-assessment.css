@@ -100,3 +100,73 @@
 .assessment-ranking li{padding:6px 0;color:#5476aa}.assessment-ranking li>a{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-radius:8px;background:#f5f8fe;color:#284767}
 .assessment-ranking li>a:hover{background:#eaf1ff;color:#215ed8}.assessment-ranking li span{font-weight:700;white-space:nowrap}.assessment-ranking li strong{font-weight:600}
 @media(max-width:650px){.assessment-ranking ol{grid-template-columns:1fr}}
+
+/* Finished artwork sets its own height at every viewport width. */
+.home-content-container .home-career-hero{grid-template-rows:auto auto}
+.home-content-container .home-promotion-column>.hero.promo-carousel.promo-banner-carousel{height:auto;min-height:0;align-self:start;padding:0;border:0;border-radius:20px;overflow:hidden;display:block}
+.home-content-container .home-promotion-column>.hero.promo-banner-carousel>div[role="group"]{height:auto;min-height:0;display:block}
+.home-content-container .home-promotion-column .promotion-complete-banner{height:auto;min-height:0;display:block;width:100%;border-radius:inherit}
+.home-content-container .home-promotion-column .promotion-complete-image{display:block;width:100%;height:auto;max-height:none;aspect-ratio:auto;object-fit:contain;background:transparent}
+.home-content-container .home-promotion-column .promo-controls{position:absolute;left:auto;right:12px;bottom:10px;max-width:calc(100% - 24px);margin:0;z-index:3}
+.admin-banner-preview .promotion-complete-image{height:auto;aspect-ratio:auto}
+@media(max-width:480px){
+ .home-content-container .home-promotion-column>.hero.promo-carousel.promo-banner-carousel{border-radius:14px}
+ .home-content-container .home-promotion-column .promo-controls{right:6px;bottom:6px;left:auto;width:auto;padding:3px 5px;gap:4px;max-width:calc(100% - 12px)}
+ .home-content-container .home-promotion-column .promo-controls .promo-dots{display:none}
+ .home-content-container .home-promotion-column .promo-controls .promo-control{width:24px;height:24px;min-width:24px;min-height:24px;flex-basis:24px}
+}
+@media(max-width:1100px){
+ .home-content-container .home-career-hero{grid-template-columns:minmax(0,1fr);grid-template-areas:"promotion" "support" "tools";grid-template-rows:auto;gap:14px}
+ .home-content-container .home-promotion-column{display:contents}
+ .home-content-container .home-promotion-column>.hero.promo-carousel{grid-area:promotion}
+ .home-content-container .home-promotion-column .home-hero-support{grid-area:support}
+ .home-content-container .home-career-hero>.career-home-tools{grid-area:tools;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;height:auto;align-self:start;gap:12px;padding:18px}
+ .home-content-container .career-home-tools>.career-card-eyebrow,.home-content-container .career-home-tools>h2,.home-content-container .career-home-tools>.career-card-links,.home-content-container .career-home-tools>.career-card-note{grid-column:1/-1;margin:0}
+ .home-content-container .home-career-hero>.career-home-tools .career-tool-card{min-height:160px;margin:0}
+}
+@media(max-width:480px){.home-content-container .home-career-hero>.career-home-tools{grid-template-columns:minmax(0,1fr)}}
+
+/* Clear response status and persistent guidance while questions remain freely navigable. */
+.career-answer-summary{position:sticky;top:100px;z-index:6;display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid #bbd0ef;border-radius:12px;padding:13px 17px;background:#f0f6ff;box-shadow:0 4px 14px #183c6b12;margin:0 0 12px}.career-answer-summary strong{color:#1c4f91;font-size:15px}.career-answer-summary p{margin:4px 0 0;font-size:12px;line-height:1.6;color:#365471}.career-answer-summary button{white-space:nowrap;font-size:12px;padding:9px 12px}.career-timeout-policy{font-size:12px;line-height:1.8;color:#566a83;margin:0 0 22px}.career-question-nav button.answered{background:#2463d9;color:#fff;border-color:#2463d9;font-weight:700}.career-question-nav button:not(.answered){background:#fff;color:#526078;border-color:#cbd5e1}.career-question-nav button.current{outline:2px solid #f59e0b;outline-offset:1px;border-color:#d08a12}.career-nav-legend{display:flex;flex-wrap:wrap;gap:7px 10px;font-size:10px;line-height:1.7;color:#425876;margin-top:12px}.career-nav-legend span{display:flex;align-items:center;gap:5px}.career-nav-legend i{display:inline-block;width:11px;height:11px;border:1px solid #bdc9da;border-radius:2px;background:#fff}.career-nav-legend i.answered{background:#2463d9;border-color:#2463d9}.career-nav-legend i.current{border:2px solid #ef9f1d}.career-question.is-missing-target{border:2px solid #e4a027;background:#fffcf4;outline:0;scroll-margin-top:220px}.submitted-assessment-status{display:flex;flex-wrap:wrap;gap:8px 16px;background:#edf4ff;border:1px solid #ccdcf3;border-radius:9px;padding:12px 14px;color:#284d7b;font-size:13px}.submitted-assessment-grid small{display:block;font-size:11px;margin:4px 0;color:#6b7c92}
+@media(max-width:760px){.career-answer-summary{top:135px;gap:10px;flex-wrap:wrap;padding:11px 13px}.career-answer-summary button{margin-left:auto}.career-nav-legend{margin:0;font-size:11px}.career-question-nav .career-nav-legend{display:flex}.career-question-nav button{padding:10px 0}.career-question-nav button.current{outline-offset:0}}
+
+.career-mode-start{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.career-mode-start section{padding:24px;border:1px solid #d6e2ff;border-radius:16px;background:#f7faff}.career-mode-start h3{margin:0 0 10px}.career-mode-start button{width:100%}.career-test-sections{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:700px){.career-mode-start,.career-test-sections{grid-template-columns:1fr}}
+
+/* Charcoal answer navigation: completion uses fill; current page uses one group outline. */
+.career-run-layout{grid-template-columns:minmax(0,1fr) 280px}
+.career-question-nav{padding:20px 18px;border-color:#d7dce6;border-radius:16px;background:#fff;box-shadow:0 4px 18px #23314906}
+.career-question-nav h3{font-size:18px;color:#26364e;margin:0 0 18px}
+.career-question-nav>.career-nav-summary{display:flex;flex-direction:column;gap:6px;margin:0 0 18px;color:#27364c}
+.career-nav-summary strong{font-size:20px;line-height:1.4;font-variant-numeric:tabular-nums}
+.career-nav-summary span{font-size:13px;color:#626d7e}
+.career-question-nav .career-nav-summary progress{margin-top:6px;height:7px;background:#e9ecf1}
+.career-question-nav progress::-webkit-progress-bar{background:#e9ecf1}
+.career-question-nav progress::-webkit-progress-value{background:#4b5e7d}
+.career-question-nav progress::-moz-progress-bar{background:#4b5e7d}
+.career-question-nav .career-nav-legend{gap:12px;font-size:12px;color:#4f5d70;margin:0 0 10px}
+.career-question-nav .career-nav-legend i{width:12px;height:12px;border-color:#bac2cf;border-radius:3px}
+.career-question-nav .career-nav-legend i.answered{background:#4b5e7d;border-color:#4b5e7d}
+.career-question-nav .career-nav-description{font-size:12px;line-height:1.6;color:#6b7687;margin:0 0 12px}
+.career-question-nav>.career-question-groups{display:grid;grid-template-columns:1fr;gap:4px;margin:0 -5px 12px}
+.career-question-group{display:grid;grid-template-columns:repeat(var(--question-columns),minmax(0,1fr));gap:6px;padding:4px;border:2px solid transparent;border-radius:10px}
+.career-question-group.is-current{border-color:#7584b1;background:#eef0fa}
+.career-question-nav .career-question-group button{min-width:0;min-height:40px;padding:0;font-size:14px;font-weight:600;line-height:1;background:#fff;color:#586374;border:1px solid #cbd1dc;border-radius:7px;outline:0;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.career-question-nav .career-question-group button.answered{background:#4b5e7d;color:#fff;border-color:#4b5e7d}
+.career-question-nav .career-question-group button:hover{border-color:#7584b1;box-shadow:0 0 0 2px #dce1f1}
+.career-question-nav .career-question-group button:focus-visible{outline:3px solid #8e9ac1;outline-offset:2px}
+.career-question-nav .career-current-range{font-size:13px;color:#586374;text-align:center;margin:0 0 16px}
+.career-question-nav .career-current-range strong{color:#34445e}
+.career-question-nav>.career-nav-missing{width:100%;min-height:42px;padding:10px 8px;background:#fff;color:#34445e;border:1px solid #7584a6;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer}
+.career-question-nav>.career-nav-missing:hover:not(:disabled){background:#eef0f7}
+.career-question-nav>.career-nav-missing:disabled{opacity:.45;cursor:default}
+.career-question-nav>a{display:block;text-align:center;font-size:12px;color:#65728a;margin-top:15px;text-underline-offset:3px}
+@media(max-width:1000px) and (min-width:761px){.career-run-layout{gap:18px}}
+@media(max-width:760px){.career-run-layout{grid-template-columns:1fr}.career-question-nav h3,.career-question-nav p,.career-question-nav>a{display:block}.career-question-nav>.career-question-groups{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.career-question-nav{padding:18px}.career-question-nav h3{font-size:18px}.career-question-nav>.career-nav-summary{margin-bottom:14px}}
+
+.career-question-nav .career-nav-feedback{font-size:12px;line-height:1.7;color:#34445e;margin:12px 0 0}.career-question-nav .career-nav-feedback:empty{display:none}
+
+.career-question-nav>.career-nav-timer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;padding:0 0 16px;border-bottom:1px solid #e4e8f0}
+.career-nav-timer>span:first-child{font-size:13px;font-weight:650;color:#586374}
+.career-nav-timer .career-timer{display:inline-block;background:#eef0f6;color:#34445e;font-size:25px;line-height:1.2;padding:9px 12px;font-weight:650;letter-spacing:.02em}
+.career-nav-timer .career-timer.urgent{background:#fff0ed;color:#b83e32}
+@media(max-width:760px){.career-question-nav>.career-nav-timer{position:fixed;right:16px;bottom:16px;z-index:20;background:#fff;padding:8px 10px;margin:0;border:1px solid #d7dce6;border-radius:12px;box-shadow:0 4px 18px #23314918;gap:10px}.career-nav-timer .career-timer{font-size:21px;padding:7px 10px}}

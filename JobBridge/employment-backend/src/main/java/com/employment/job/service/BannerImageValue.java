@@ -12,6 +12,7 @@ final class BannerImageValue {
     static String validate(Map<String,Object> body) {
         String value = Input.text(body, "bannerImageUrl", 5600000, false);
         if (value.isEmpty()) return value;
+        if (value.startsWith("/api/site-images/") && com.employment.global.common.SiteImageAssets.valid(value.substring("/api/site-images".length()))) return value;
         if (!value.startsWith("data:")) return Input.url(body, "bannerImageUrl");
         if (!(value.startsWith("data:image/jpeg;base64,") || value.startsWith("data:image/png;base64,")))
             throw invalid();

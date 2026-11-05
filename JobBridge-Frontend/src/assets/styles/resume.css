@@ -641,3 +641,5 @@ img.resume-profile-avatar {
   outline-offset: 2px;
 }
 
+
+.resume-save-section .resume-save-note{display:flex;align-items:flex-start;gap:12px;padding:18px;background:#edf5ff;border:1px solid #bdd5fa;border-radius:12px;color:#254e7c;font-size:14px;line-height:1.65;margin:20px 0}.resume-save-note strong{display:block;font-weight:700;color:#174a87}.resume-save-note p{margin:4px 0 0;font-size:13px;color:#476486}.resume-save-info-icon{display:grid;place-items:center;width:23px;height:23px;flex:0 0 23px;border-radius:50%;background:#2869dc;color:#fff;font-weight:700;font-style:normal}.form-no-changes{padding:12px 15px;background:#f1f5fa;color:#35506d;border:1px solid #dae4ef;border-radius:9px;font-size:14px;line-height:1.6}

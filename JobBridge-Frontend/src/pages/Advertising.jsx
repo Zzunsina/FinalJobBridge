@@ -1,3 +1,4 @@
+import { hasFormChanges, NO_CHANGES } from '../utils/formChanges';
 import AdAvailability from '../components/common/AdAvailability';
 import { useAdAvailability } from '../hooks/useAdAvailability';
 import { ordersForAdminTab } from '../utils/advertisingOrders';
@@ -28,6 +29,8 @@ const labels = {
   APPROVED: '승인',
   PAUSED: '노출 중지',
   STOPPED: '종료',
+  JOB_CLOSED: '공고 마감·변경으로 신청 취소',
+  JOB_STOPPED: '공고 마감·변경으로 노출 중단',
   NONE: '없음',
   REQUESTED: '환불 요청',
   COMPLETED: '환불 완료',
@@ -719,6 +722,7 @@ function ProductEditor({ product: p, reload, onSaved }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (busy) return;
+        if (!hasFormChanges(p,draft,['name','description','price','durationDays','isActive'].map(name=>({name,type:name==='isActive'?'checkbox':'text'})))) { setNotice(NO_CHANGES); return; }
         setBusy(true);
         setNotice('');
         try {

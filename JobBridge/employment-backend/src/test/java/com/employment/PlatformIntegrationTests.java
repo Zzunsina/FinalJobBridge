@@ -37,6 +37,9 @@ class PlatformIntegrationTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.employment.auth.SmsService smsService;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    org.springframework.mail.javamail.JavaMailSender recoveryMailSender;
+
     @Autowired
     MockMvc mvc;
 
@@ -57,6 +60,9 @@ class PlatformIntegrationTests {
 
     @Autowired
     com.employment.job.service.EmploymentOnboarding onboarding;
+
+    @Autowired
+    com.employment.job.service.InterviewReviews interviewReviews;
 
     @Autowired
     ObjectMapper json;
@@ -559,7 +565,7 @@ class PlatformIntegrationTests {
         body.put("label","관리자가 바꾼 배너 이름");body.put("imageAlt","새 배너 안내 문구");body.put("sortOrder",1);
         var session=login(admin);
         mvc.perform(put("/api/admin/home-promotions/team").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isForbidden());
-        mvc.perform(put("/api/admin/home-promotions/team").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+        mvc.perform(put("/api/admin/home-promotions/team").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(((Number)body.get("version")).intValue()+1));
         var first=promotion("career");first.put("sortOrder",99);homePromotions.save("career",first);
         mvc.perform(get("/api/home-promotions")).andExpect(status().isOk()).andExpect(jsonPath("$[0].key").value("team")).andExpect(jsonPath("$[0].label").value("관리자가 바꾼 배너 이름")).andExpect(jsonPath("$[0].imageAlt").value("새 배너 안내 문구"));
         // A second editor cannot overwrite the saved version with an old form.
@@ -610,7 +616,7 @@ class PlatformIntegrationTests {
 
     @Test
     void adminCanAddAndDeletePromotionsWithVersionAndRoleChecks() throws Exception {
-        var body=promotion("team");body.put("label","추가한 홍보");body.put("isPublished",false);body.put("sortOrder",7);
+        var body=promotion("team");body.put("imageUrl","data:image/png;base64,"+java.util.Base64.getEncoder().encodeToString(homePromotions.image("team",true).getBody()));body.put("label","추가한 홍보");body.put("isPublished",false);body.put("sortOrder",7);
         long before=homePromotions.list(true).size();
         mvc.perform(post("/api/admin/home-promotions").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isForbidden());
         var session=login(admin);
@@ -799,7 +805,7 @@ class PlatformIntegrationTests {
         );
         body.put("termsAccepted", true);
         body.put("privacyAccepted", true);
-        body.put("agreementVersion", "2026-10-21");
+        body.put("agreementVersion", "2026-11-05");
         body.put("smsVerificationToken", "platform-test-verification");
         if (company) {
             body.put("companyName", "테스트 기업");
@@ -941,7 +947,7 @@ class PlatformIntegrationTests {
         );
         signup.put("termsAccepted", true);
         signup.put("privacyAccepted", true);
-        signup.put("agreementVersion", "2026-10-21");
+        signup.put("agreementVersion", "2026-11-05");
         signup.put("smsVerificationToken", "platform-test-verification");
         assertThatThrownBy(() -> auth.signup(signup, false)).isInstanceOfSatisfying(
             Problem.class,
@@ -1117,7 +1123,7 @@ class PlatformIntegrationTests {
                 "password", password, "name", "필수 정보 검증", "email", UUID.randomUUID() + "@test.local",
                 "phone", nextPhone(), "birthDate", "20000123", "gender", "FEMALE",
                 "companyName", "필수 기업", "businessNumber", "1234509876",
-                "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-10-21", "smsVerificationToken", "platform-test-verification");
+                "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-11-05", "smsVerificationToken", "platform-test-verification");
             var required = new ArrayList<>(List.of("loginId", "password", "name", "email", "phone", "birthDate", "gender"));
             if (isCompany) required.addAll(List.of("companyName", "businessNumber"));
             for (String field : required) {
@@ -1167,7 +1173,7 @@ class PlatformIntegrationTests {
         var body = fields("loginId", "phone" + UUID.randomUUID().toString().replace("-", "").substring(0,12),
             "email", UUID.randomUUID() + "@test.local", "name", "번호 검증", "phone", formatted,
             "password", password, "birthDate", "20000123", "gender", "MALE",
-            "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-10-21", "smsVerificationToken", "platform-test-verification");
+            "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-11-05", "smsVerificationToken", "platform-test-verification");
         mvc.perform(post("/api/auth/signup/job-seeker").with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
             .andExpect(status().isConflict()).andExpect(jsonPath("message").value("이미 사용 중인 휴대폰번호입니다. 다른 번호를 입력해 주세요."));
         body.put("companyName", "번호 검증 기업"); body.put("businessNumber", "1234509876");
@@ -1212,7 +1218,7 @@ class PlatformIntegrationTests {
         );
         body.put("termsAccepted", true);
         body.put("privacyAccepted", true);
-        body.put("agreementVersion", "2026-10-21");
+        body.put("agreementVersion", "2026-11-05");
         body.put("smsVerificationToken", "platform-test-verification");
         for (String invalid : List.of("test_id", "test-id", "한글아이디", "abc")) {
             var changed = new LinkedHashMap<>(body);
@@ -1620,7 +1626,7 @@ class PlatformIntegrationTests {
             .perform(delete("/api/company/jobs/" + job).cookie(login(companyUser)).with(csrf()))
             .andExpect(status().isConflict());
         mvc
-            .perform(delete("/api/admin/jobs/" + job).cookie(login(admin)).with(csrf()))
+            .perform(delete("/api/admin/jobs/" + job).cookie(login(admin)).with(csrf()).contentType("application/json").content("{\"reason\":\"등록 내용 확인\"}"))
             .andExpect(status().isConflict());
         assertThat(service.application(seeker, app).get("applicationId")).isEqualTo(app);
     }
@@ -1995,7 +2001,7 @@ class PlatformIntegrationTests {
                 "companyName", "동의 기업", "businessNumber", String.format("%010d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 10000000000L)));
             for (Object invalid : new Object[]{false, "true"}) {
                 body.put("termsAccepted", invalid); body.put("privacyAccepted", true);
-                body.put("agreementVersion", "2026-10-21");
+                body.put("agreementVersion", "2026-11-05");
         body.put("smsVerificationToken", "platform-test-verification");
                 mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
                     .andExpect(status().isBadRequest());
@@ -2007,7 +2013,7 @@ class PlatformIntegrationTests {
             mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
                 .andExpect(status().isConflict());
             assertThat(db.list("SELECT user_id FROM users WHERE login_id=?", body.get("loginId"))).isEmpty();
-            body.put("agreementVersion", "2026-10-21");
+            body.put("agreementVersion", "2026-11-05");
         body.put("smsVerificationToken", "platform-test-verification");
             body.put("marketingAccepted", kind.equals("company"));
             var response = mvc.perform(post("/api/auth/signup/" + kind).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
@@ -2017,7 +2023,7 @@ class PlatformIntegrationTests {
             assertThat(consent.get("termsAccepted")).isEqualTo(true);
             assertThat(consent.get("privacyAccepted")).isEqualTo(true);
             assertThat(consent.get("marketingAccepted")).isEqualTo(kind.equals("company"));
-            assertThat(consent.get("termsVersion")).isEqualTo("2026-10-21");
+            assertThat(consent.get("termsVersion")).isEqualTo("2026-11-05");
             assertThat(consent.get("recordedAt")).isNotNull();
         }
     }
@@ -2723,7 +2729,7 @@ class PlatformIntegrationTests {
     @Test
     void careerAssessmentScoresOnServerAndKeepsResultsPrivate() throws Exception {
         Cookie session=login(seeker);
-        var first=mvc.perform(post("/api/career-assessments").cookie(session).with(csrf())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var first=json.writeValueAsString(careerAssessments.start(seeker));
         var started=json.readTree(first);long id=started.path("attemptId").asLong();
         assertThat(started.path("questions").size()).isEqualTo(55);
         assertThat(first).doesNotContain("\"correct\"","explanation","reverse");
@@ -2775,22 +2781,22 @@ class PlatformIntegrationTests {
     }
 
     @Test
-    void applicationsAutomaticallyAttachLatestFullAssessmentAndFreezeIt() throws Exception {
+    void applicationsAutomaticallyAttachLatestAssessmentIncludingTimeoutAndFreezeIt() throws Exception {
         assertThat(careerAssessments.latestSubmission(seeker)).isNull();
         var first=finishCareerAssessment(seeker,2,true);
-        // Even when a new attempt times out incomplete, the last complete result is selected.
+        // A newer timed-out attempt is the latest submitted result, including zero answers.
         var incomplete=careerAssessments.start(seeker);long partial=number(incomplete,"attemptId");
         db.update("UPDATE career_assessment_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),partial);
         careerAssessments.get(seeker,partial);
         var exploration=careerExplorations.start(seeker);
         careerExplorations.save(seeker,number(exploration,"attemptId"),fields("revision",0,"answers",Collections.nCopies(36,4)),true);
         var preview=mvc.perform(get("/api/career-assessments/submission").cookie(login(seeker))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(json.readTree(preview).path("assessment").path("attemptId").asLong()).isEqualTo(number(first,"attemptId"));
+        assertThat(json.readTree(preview).path("assessment").path("attemptId").asLong()).isEqualTo(partial);
         var application=service.apply(seeker,job,fields("resumeId",resume,"careerAssessment",fields("score",999),"assessmentId",partial));
         long app=number(application,"applicationId");
         var snapshot=json.valueToTree(application.get("snapshot"));
-        assertThat(snapshot.path("careerAssessment").path("report").path("aptitudeScore").asInt()).isEqualTo(100);
-        assertThat(snapshot.path("careerAssessment").path("attemptId").asLong()).isEqualTo(number(first,"attemptId"));
+        assertThat(snapshot.path("careerAssessment").path("report").path("aptitudeScore").asInt()).isZero();
+        assertThat(snapshot.path("careerAssessment").path("attemptId").asLong()).isEqualTo(partial);
         assertThat(snapshot.path("careerAssessment").toString()).doesNotContain("answers","review","explanation");
         assertThat(snapshot.has("exploration")).isFalse();
         var before=json.valueToTree(service.companyApplication(companyUser,app).get("snapshot")).path("careerAssessment");
@@ -3098,4 +3104,389 @@ class PlatformIntegrationTests {
         body.put("detailImageUrl","data:image/svg+xml;base64,PHN2Zz4=");assertThatThrownBy(()->service.saveJob(companyUser,id,body)).isInstanceOf(Problem.class);
         body.put("detailImageUrl",image);service.saveJob(companyUser,id,body);service.deleteJob(companyUser,id);assertThat(db.list("SELECT * FROM job_detail_images WHERE job_id=?",id)).isEmpty();
     }
+
+    @Test void timedOutAssessmentAutomaticallyFinalizesAndSubmitsSavedScoreAndResponseMetadata() throws Exception {
+        var start=careerAssessments.start(seeker);long id=number(start,"attemptId");
+        var bank=json.readTree(new org.springframework.core.io.ClassPathResource("db/career-questions-v1.json").getInputStream());
+        var answers=new ArrayList<Integer>(Collections.nCopies(55,null));answers.set(0,4);answers.set(1,0);answers.set(40,bank.path("questions").get(40).path("correct").asInt());answers.set(41,(bank.path("questions").get(41).path("correct").asInt()+1)%4);
+        careerAssessments.save(seeker,id,fields("revision",start.get("revision"),"answers",answers),false);
+        db.update("UPDATE career_assessment_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),id);
+        // Submission lookup itself finalizes expiry even when the test tab was closed.
+        var submission=json.valueToTree(careerAssessments.latestSubmission(seeker));var report=submission.path("report");
+        assertThat(report.path("timedOut").asBoolean()).isTrue();assertThat(report.path("answeredCount").asInt()).isEqualTo(4);assertThat(report.path("correctCount").asInt()).isEqualTo(1);assertThat(report.path("aptitudeScore").asInt()).isEqualTo(7);
+        assertThat(report.path("traits").findValues("score").stream().anyMatch(com.fasterxml.jackson.databind.JsonNode::isNull)).isTrue();assertThat(submission.toString()).doesNotContain("answersJson","explanation","review");
+        mvc.perform(get("/api/career-assessments/submission").cookie(login(seeker))).andExpect(status().isOk()).andExpect(jsonPath("$.assessment.report.timedOut").value(true)).andExpect(jsonPath("$.assessment.report.answeredCount").value(4));
+        var late=careerAssessments.save(seeker,id,fields("revision",1,"answers",Collections.nCopies(55,0)),true);var lateReport=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(late.get("report"));lateReport.remove("review");assertThat(lateReport).isEqualTo(report);
+        var application=service.apply(seeker,job,fields("resumeId",resume));long app=number(application,"applicationId");var before=json.valueToTree(service.companyApplication(companyUser,app).get("snapshot")).path("careerAssessment");assertThat(before.path("report")).isEqualTo(report);
+        var newest=finishCareerAssessment(seeker,2,true);assertThat(json.valueToTree(service.companyApplication(companyUser,app).get("snapshot")).path("careerAssessment")).isEqualTo(before);
+        long nextJob=number(service.saveJob(companyUser,null,regressionJobBody()),"jobId");db.update("UPDATE job_postings SET status='PUBLISHED' WHERE job_id=?",nextJob);var next=service.apply(seeker,nextJob,fields("resumeId",resume));var nextResult=json.valueToTree(next.get("snapshot")).path("careerAssessment");assertThat(nextResult.path("attemptId").asLong()).isEqualTo(number(newest,"attemptId"));assertThat(nextResult.path("report").path("aptitudeScore").asInt()).isEqualTo(100);
+    }
+
+    @Test void assessmentModesSeparateQuestionsTimingAndPrivatePractice() throws Exception {
+        var response=mvc.perform(post("/api/career-assessments").cookie(login(seeker)).with(csrf())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var personality=json.readTree(response);
+        assertThat(personality.path("mode").asText()).isEqualTo("personality");
+        assertThat(personality.path("questions").size()).isEqualTo(40);
+        assertThat(personality.path("durationSeconds").asInt()).isEqualTo(600);
+        var practice=careerAssessments.start(seeker,"practice");
+        var mock=careerAssessments.start(seeker,"mock");
+        assertThat(number(practice,"questionCount")).isEqualTo(30);
+        assertThat(number(mock,"questionCount")).isEqualTo(20);
+        assertThat(number(practice,"durationSeconds")).isEqualTo(1800);
+        assertThat(number(mock,"durationSeconds")).isEqualTo(900);
+        assertThat(json.writeValueAsString(mock)).doesNotContain("correct","explanation");
+        var modes=json.readTree(new org.springframework.core.io.ClassPathResource("db/career-modes-v2.json").getInputStream());
+        var prompts=new java.util.HashSet<String>();
+        for(var q:modes.get(1).path("questions"))prompts.add(q.path("prompt").asText());
+        for(var q:modes.get(2).path("questions"))assertThat(prompts).doesNotContain(q.path("prompt").asText());
+        var practiceAnswers=new java.util.ArrayList<Integer>();for(var q:modes.get(1).path("questions"))practiceAnswers.add(q.path("correct").asInt());
+        careerAssessments.save(seeker,number(practice,"attemptId"),fields("revision",0,"answers",practiceAnswers),true);
+        assertThat(careerAssessments.latestSubmission(seeker)).isNull();
+        var pa=new java.util.ArrayList<Integer>(java.util.Collections.nCopies(40,3));
+        careerAssessments.save(seeker,personality.path("attemptId").asLong(),fields("revision",0,"answers",pa),true);
+        var only=careerAssessments.latestSubmission(seeker);assertThat(only.get("aptitude")).isNull();
+        var mockAnswers=new java.util.ArrayList<Integer>();for(var q:modes.get(2).path("questions"))mockAnswers.add(q.path("correct").asInt());
+        var completed=careerAssessments.save(seeker,number(mock,"attemptId"),fields("revision",0,"answers",mockAnswers),true);
+        assertThat(json.valueToTree(completed).path("report").path("aptitudeScore").asInt()).isEqualTo(100);
+        var submitted=careerAssessments.latestSubmission(seeker);
+        var shared=json.valueToTree(submitted);assertThat(shared.path("aptitude").path("mode").asText()).isEqualTo("mock");
+        assertThat(shared.path("personality").path("mode").asText()).isEqualTo("personality");
+        assertThat(shared.path("report").path("aptitudeCount").asInt()).isEqualTo(20);
+        assertThat(json.writeValueAsString(submitted)).doesNotContain("practice-v2","review","explanation","answers");
+        var application=service.apply(seeker,job,fields("resumeId",resume,"coverLetter","지원합니다."));
+        String frozen=db.one("SELECT snapshot_json FROM application_snapshots WHERE application_id=?",number(application,"applicationId")).get("snapshotJson").toString();
+        var next=careerAssessments.start(seeker,"mock");
+        var wrong=new java.util.ArrayList<Integer>();for(var q:modes.get(2).path("questions"))wrong.add((q.path("correct").asInt()+1)%4);
+        careerAssessments.save(seeker,number(next,"attemptId"),fields("revision",0,"answers",wrong),true);
+        assertThat(json.valueToTree(careerAssessments.latestSubmission(seeker)).path("report").path("aptitudeScore").asInt()).isZero();
+        assertThat(db.one("SELECT snapshot_json FROM application_snapshots WHERE application_id=?",number(application,"applicationId")).get("snapshotJson").toString()).isEqualTo(frozen);
+    }
+    @Test void mockTimeoutCountsUnansweredWrongAndPracticeRemainsPrivate() throws Exception {
+        var mode=json.readTree(new org.springframework.core.io.ClassPathResource("db/career-modes-v2.json").getInputStream()).get(2);
+        var attempt=careerAssessments.start(seeker,"mock");long id=number(attempt,"attemptId");
+        var answers=new java.util.ArrayList<Integer>(java.util.Collections.nCopies(20,null));answers.set(0,mode.path("questions").get(0).path("correct").asInt());
+        careerAssessments.save(seeker,id,fields("revision",0,"answers",answers),false);
+        db.update("UPDATE career_assessment_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),id);
+        var submitted=json.valueToTree(careerAssessments.latestSubmission(seeker));
+        assertThat(submitted.path("report").path("aptitudeScore").asInt()).isEqualTo(5);
+        assertThat(submitted.path("report").path("answeredCount").asInt()).isEqualTo(1);
+        assertThat(submitted.path("report").path("timedOut").asBoolean()).isTrue();
+        var practice=careerAssessments.start(seeker,"practice");
+        db.update("UPDATE career_assessment_attempts SET deadline_at=? WHERE attempt_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),number(practice,"attemptId"));
+        careerAssessments.history(seeker);
+        assertThat(json.valueToTree(careerAssessments.latestSubmission(seeker)).path("aptitude").path("attemptId").asLong()).isEqualTo(id);
+    }
+
+    @Test void adminJobDeletionRequiresReasonAndNotifiesOnlyOwner() throws Exception {
+        var session=login(admin);
+        mvc.perform(delete("/api/admin/jobs/"+job).cookie(session).with(csrf())).andExpect(status().isBadRequest());
+        mvc.perform(delete("/api/admin/jobs/"+job).cookie(session).with(csrf()).contentType("application/json").content("{\"reason\":\"   \"}")).andExpect(status().isBadRequest());
+        assertThat(db.one("SELECT job_id FROM job_postings WHERE job_id=?",job)).isNotNull();
+        String title=db.one("SELECT title FROM job_postings WHERE job_id=?",job).get("title").toString();
+        service.notify(companyUser,"심사 결과","공고를 확인해 주세요.","JOB",job);
+        mvc.perform(delete("/api/admin/jobs/"+job).cookie(session).with(csrf()).contentType("application/json").content("{\"reason\":\"동일한 공고가 중복 등록되었습니다.\"}")).andExpect(status().isNoContent());
+        assertThat(db.one("SELECT job_id FROM job_postings WHERE job_id=?",job)).isNull();
+        var notification=db.one("SELECT * FROM notifications WHERE user_id=? AND title='관리자가 공고를 삭제했습니다.'",companyUser);
+        assertThat(notification).isNotNull();assertThat(notification.get("notificationType")).isEqualTo("JOB_DELETED");
+        assertThat(notification.get("content").toString()).contains(title,"동일한 공고가 중복 등록되었습니다.");
+        assertThat(db.list("SELECT * FROM notifications WHERE notification_type='JOB_DELETED' AND user_id<>?",companyUser)).isEmpty();
+        assertThat(db.list("SELECT * FROM notifications WHERE notification_type='JOB' AND related_id=?",job)).isEmpty();
+        mvc.perform(get("/api/notifications").cookie(login(companyUser))).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("동일한 공고가 중복 등록되었습니다.")));
+    }
+    @Test void blockedAdminDeletionDoesNotSendDeletionNotification() throws Exception {
+        service.apply(seeker,job,fields("resumeId",resume));
+        mvc.perform(delete("/api/admin/jobs/"+job).cookie(login(admin)).with(csrf()).contentType("application/json").content("{\"reason\":\"등록 내용 확인\"}")).andExpect(status().isConflict());
+        assertThat(db.one("SELECT job_id FROM job_postings WHERE job_id=?",job)).isNotNull();
+        assertThat(db.list("SELECT * FROM notifications WHERE notification_type='JOB_DELETED' AND related_id=?",job)).isEmpty();
+    }
+
+    private String companyAccountTestImage() throws Exception {
+        var image=new java.awt.image.BufferedImage(30,20,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var output=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",output);
+        return "data:image/png;base64,"+Base64.getEncoder().encodeToString(output.toByteArray());
+    }
+    @Test void companyProfileAndAccountPhotoShareOneStoredImage() throws Exception {
+        var cookie=login(companyUser);String image=companyAccountTestImage();
+        mvc.perform(put("/api/company/image").cookie(cookie).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("image",image)))).andExpect(status().isNoContent());
+        byte[] companyPhoto=mvc.perform(get("/api/company/image").cookie(cookie)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        mvc.perform(get("/api/me/photo").cookie(cookie)).andExpect(status().isOk()).andExpect(content().bytes(companyPhoto));
+        mvc.perform(put("/api/me/photo").cookie(cookie).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("image",image)))).andExpect(status().isNoContent());
+        assertThat(number(db.one("SELECT COUNT(*) AS total FROM company_images WHERE company_id=?",company),"total")).isEqualTo(1);
+        assertThat(db.list("SELECT * FROM user_profile_photos WHERE user_id=?",companyUser)).isEmpty();
+        mvc.perform(delete("/api/me/photo").cookie(cookie).with(csrf())).andExpect(status().isNoContent());
+        mvc.perform(get("/api/company/image").cookie(cookie)).andExpect(status().isNoContent());
+        mvc.perform(get("/api/me/photo").cookie(cookie)).andExpect(status().isNoContent());
+    }
+    private Map<String,Object> companyImageSignupBody() {
+        String name="brand"+UUID.randomUUID().toString().replace("-","").substring(0,10);
+        return fields("loginId",name,"birthDate","20000123","gender","MALE","email",name+"@test.local","password",password,"name","김서준","phone",nextPhone(),"companyName","새빛컴퍼니","businessNumber",String.format("%010d",Math.abs(UUID.randomUUID().getMostSignificantBits()%10000000000L)),"termsAccepted",true,"privacyAccepted",true,"agreementVersion","2026-11-05","smsVerificationToken","platform-test-verification");
+    }
+    @Test void companySignupStoresOptionalImageInCompanyTableOnly() throws Exception {
+        var body=companyImageSignupBody();body.put("companyImage",companyAccountTestImage());
+        long user=number(auth.signup(body,true),"userId");long companyId=number(db.one("SELECT company_id FROM companies WHERE user_id=?",user),"companyId");
+        assertThat(db.one("SELECT image_data FROM company_images WHERE company_id=?",companyId)).isNotNull();
+        assertThat(db.list("SELECT * FROM user_profile_photos WHERE user_id=?",user)).isEmpty();
+        var cookie=login(user);var image=mvc.perform(get("/api/company/image").cookie(cookie)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        mvc.perform(get("/api/me/photo").cookie(cookie)).andExpect(status().isOk()).andExpect(content().bytes(image));
+        var without=companyImageSignupBody();long otherUser=number(auth.signup(without,true),"userId");
+        assertThat(db.list("SELECT image_data FROM company_images WHERE company_id=(SELECT company_id FROM companies WHERE user_id=?)",otherUser)).isEmpty();
+    }
+    @Test void invalidCompanySignupImageRollsBackAccountCreation() {
+        var body=companyImageSignupBody();body.put("companyImage","invalid");
+        assertThatThrownBy(()->auth.signup(body,true)).isInstanceOf(Problem.class);
+        assertThat(db.list("SELECT user_id FROM users WHERE login_id=?",body.get("loginId"))).isEmpty();
+    }
+
+    @Test void companySignupDoesNotRequirePersonalDemographicsAndKeepsCompanyFields() throws Exception {
+        var body=companyImageSignupBody();body.remove("birthDate");body.remove("gender");
+        body.putAll(fields("ceoName","박지훈","industry","소프트웨어","companySize","10~49명","address","서울 강남구 테헤란로 1","website","https://example.com","description","업무용 소프트웨어를 만드는 기업입니다.","companyImage",companyAccountTestImage()));
+        long id=number(auth.signup(body,true),"userId");
+        var user=db.one("SELECT birth_date,gender FROM users WHERE user_id=?",id);assertThat(user.get("birthDate")).isNull();assertThat(user.get("gender")).isNull();
+        var company=db.one("SELECT * FROM companies WHERE user_id=?",id);
+        for(String key:List.of("ceoName","industry","companySize","address","website","description"))assertThat(company.get(key)).isEqualTo(body.get(key));
+        mvc.perform(get("/api/company/profile").cookie(login(id))).andExpect(status().isOk()).andExpect(jsonPath("$.ceoName").value("박지훈"));
+        mvc.perform(get("/api/company/image").cookie(login(id))).andExpect(status().isOk());
+        var personal=companyImageSignupBody();personal.remove("birthDate");personal.remove("gender");
+        assertThatThrownBy(()->auth.signup(personal,false)).isInstanceOf(Problem.class);
+    }
+    @Test void legacyCompanyAccountPhotoIsVisibleAndCanBeRemoved() throws Exception {
+        var bytes=com.employment.auth.ProfilePhotoController.normalize(companyAccountTestImage());
+        db.update("DELETE FROM company_images WHERE company_id=?",company);
+        db.update("INSERT INTO user_profile_photos(user_id,image_data) VALUES(?,?)",companyUser,bytes);
+        var cookie=login(companyUser);mvc.perform(get("/api/company/image").cookie(cookie)).andExpect(status().isOk()).andExpect(content().bytes(bytes));
+        mvc.perform(delete("/api/company/image").cookie(cookie).with(csrf())).andExpect(status().isNoContent());
+        mvc.perform(get("/api/company/image").cookie(cookie)).andExpect(status().isNoContent());
+    }
+
+    @Test void withdrawnSeekerCanRejoinWithContactButNotOldLoginAndHistoryStaysSeparate() throws Exception {
+        var original=db.one("SELECT * FROM users WHERE user_id=?",seeker);
+        long application=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");
+        auth.withdraw(seeker,fields("currentPassword",password));
+        assertThat(auth.emailAvailability(original.get("email").toString()).get("available")).isEqualTo(true);
+        assertThat(auth.loginIdAvailability(original.get("loginId").toString()).get("available")).isEqualTo(false);
+        var body=companyImageSignupBody();body.put("email",original.get("email"));body.put("phone",original.get("phone"));
+        long joined=number(auth.signup(body,false),"userId");assertThat(joined).isNotEqualTo(seeker);
+        assertThat(db.one("SELECT email,phone,status FROM users WHERE user_id=?",seeker)).containsEntry("email",original.get("email")).containsEntry("phone",original.get("phone")).containsEntry("status","WITHDRAWN");
+        assertThat(number(service.seekerActivity(joined),"applicationCount")).isZero();assertThat(number(service.seekerActivity(joined),"resumeCount")).isZero();
+        assertThat(number(db.one("SELECT s.user_id FROM applications a JOIN job_seekers s ON s.job_seeker_id=a.job_seeker_id WHERE a.application_id=?",application),"userId")).isEqualTo(seeker);
+        var oldId=companyImageSignupBody();oldId.put("loginId",original.get("loginId"));assertThatThrownBy(()->auth.signup(oldId,false)).isInstanceOf(Problem.class);
+    }
+    @Test void withdrawnCompanyCanRejoinWithBusinessNumberAndMustBeReviewedAgain() {
+        var original=db.one("SELECT * FROM users WHERE user_id=?",companyUser);var business=db.one("SELECT business_number FROM companies WHERE company_id=?",company).get("businessNumber");
+        auth.withdraw(companyUser,fields("currentPassword",password));
+        var body=companyImageSignupBody();body.put("email",original.get("email"));body.put("phone",original.get("phone"));body.put("businessNumber",business);
+        long joined=number(auth.signup(body,true),"userId");var newCompany=db.one("SELECT * FROM companies WHERE user_id=?",joined);
+        assertThat(number(newCompany,"companyId")).isNotEqualTo(company);assertThat(newCompany.get("approvalStatus")).isEqualTo("PENDING");
+        assertThat(db.one("SELECT business_number FROM companies WHERE company_id=?",company).get("businessNumber")).isEqualTo(business);
+        assertThat(number(db.one("SELECT company_id FROM job_postings WHERE job_id=?",job),"companyId")).isEqualTo(company);
+        assertThat(number(service.companyOverview(joined),"jobs")).isZero();
+        assertThat(db.list("SELECT order_id FROM ad_orders WHERE company_id=?",newCompany.get("companyId"))).isEmpty();
+    }
+    @Test void activeAndSuspendedIdentifiersRemainUniqueForRejoiningPolicy() {
+        var original=db.one("SELECT * FROM users WHERE user_id=?",companyUser);db.update("UPDATE users SET status='SUSPENDED' WHERE user_id=?",companyUser);
+        assertThat(auth.emailAvailability(original.get("email").toString()).get("available")).isEqualTo(false);
+        assertThatThrownBy(()->auth.requireAvailablePhone(original.get("phone").toString(),null)).isInstanceOf(Problem.class);
+        var body=companyImageSignupBody();body.put("businessNumber",db.one("SELECT business_number FROM companies WHERE company_id=?",company).get("businessNumber"));
+        assertThatThrownBy(()->auth.signup(body,true)).isInstanceOf(Problem.class);
+        assertThatThrownBy(()->db.update("UPDATE users SET email=? WHERE user_id=?",original.get("email"),other)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(()->db.update("UPDATE users SET phone=? WHERE user_id=?",original.get("phone"),other)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test void optionalSignupConsentsAreIndependentAndNeverRequired() {
+        for(int mask=0;mask<8;mask++){
+            var body=companyImageSignupBody();body.put("marketingAccepted",(mask&1)!=0);body.put("recommendationsAccepted",(mask&2)!=0);body.put("newsletterAccepted",(mask&4)!=0);
+            long user=number(auth.signup(body,false),"userId");var consent=db.one("SELECT * FROM user_signup_consents WHERE user_id=?",user);
+            assertThat(consent.get("marketingAccepted")).isEqualTo((mask&1)!=0);assertThat(consent.get("recommendationsAccepted")).isEqualTo((mask&2)!=0);assertThat(consent.get("newsletterAccepted")).isEqualTo((mask&4)!=0);
+            assertThat(consent.get("termsVersion")).isEqualTo("2026-11-05");
+        }
+        var omitted=companyImageSignupBody();long user=number(auth.signup(omitted,true),"userId");var consent=db.one("SELECT * FROM user_signup_consents WHERE user_id=?",user);
+        for(String key:List.of("marketingAccepted","recommendationsAccepted","newsletterAccepted"))assertThat(consent.get(key)).isEqualTo(false);
+    }
+    @Test void optionalSignupConsentsRejectNonBooleansAndMissingRequiredStillFails() {
+        for(String key:List.of("marketingAccepted","recommendationsAccepted","newsletterAccepted")){
+            var body=companyImageSignupBody();body.put(key,"true");assertThatThrownBy(()->auth.signup(body,false)).isInstanceOf(Problem.class);
+            assertThat(db.list("SELECT user_id FROM users WHERE login_id=?",body.get("loginId"))).isEmpty();
+        }
+        var body=companyImageSignupBody();body.put("privacyAccepted",false);body.put("marketingAccepted",true);body.put("recommendationsAccepted",true);body.put("newsletterAccepted",true);
+        assertThatThrownBy(()->auth.signup(body,false)).isInstanceOf(Problem.class);
+    }
+
+    @Test void withdrawnAccountsCannotUseRecoveryOrExistingResetLink() {
+        var original=db.one("SELECT name,email,login_id,password FROM users WHERE user_id=?",seeker);
+        String token=UUID.randomUUID().toString();db.update("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)",seeker,AuthService.hash(token),java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(1800)));
+        for(String state:List.of("WITHDRAWN")){
+            db.update("UPDATE users SET status=? WHERE user_id=?",state,seeker);
+            assertThatThrownBy(()->auth.findId(fields("name",original.get("name"),"email",original.get("email")))).isInstanceOf(Problem.class);
+            assertThatThrownBy(()->auth.forgotPassword(fields("loginId",original.get("loginId"),"email",original.get("email")))).isInstanceOf(Problem.class);
+            assertThatThrownBy(()->auth.resetPassword(fields("token",token,"newPassword","ChangedPass123!"))).isInstanceOf(Problem.class);
+            assertThat(db.one("SELECT password FROM users WHERE user_id=?",seeker).get("password")).isEqualTo(original.get("password"));
+        }
+        db.update("UPDATE users SET status='ACTIVE' WHERE user_id=?",seeker);
+        assertThat(auth.findId(fields("name",original.get("name"),"email",original.get("email"))).get("loginId")).isEqualTo(original.get("loginId"));
+        auth.resetPassword(fields("token",token,"newPassword","ChangedPass123!"));
+        assertThat(db.one("SELECT password FROM users WHERE user_id=?",seeker).get("password")).isNotEqualTo(original.get("password"));
+        assertThatThrownBy(()->auth.resetPassword(fields("token",token,"newPassword","AnotherPass123!"))).isInstanceOf(Problem.class);
+    }
+
+    @Test void suspendedAccountCanRecoverPasswordButSuspensionAndDuplicateProtectionRemain() throws Exception {
+        var original=db.one("SELECT name,email,login_id,phone FROM users WHERE user_id=?",seeker);
+        auth.accountStatus(seeker,"SUSPENDED","이용 정책 위반",admin);
+        var found=auth.findId(fields("name",original.get("name"),"email",original.get("email")));
+        assertThat(found).containsEntry("loginId",original.get("loginId")).containsEntry("status","SUSPENDED");
+        var mail=new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new java.util.Properties()));
+        org.mockito.Mockito.when(recoveryMailSender.createMimeMessage()).thenReturn(mail);
+        auth.forgotPassword(fields("loginId",original.get("loginId"),"email",original.get("email")));
+        org.mockito.Mockito.verify(recoveryMailSender).send(mail);
+        var matcher=java.util.regex.Pattern.compile("token=([a-f0-9-]+)").matcher(mail.getContent().toString());assertThat(matcher.find()).isTrue();
+        auth.resetPassword(fields("token",matcher.group(1),"newPassword","ChangedPass123!"));
+        assertThat(auth.publicUser(seeker).get("status")).isEqualTo("SUSPENDED");
+        assertThatThrownBy(()->auth.login(fields("loginId",original.get("loginId"),"password","ChangedPass123!","memberType","JOB_SEEKER"),new MockHttpServletResponse())).isInstanceOf(Problem.class).hasMessageContaining("이용 정책 위반");
+        assertThat(auth.emailAvailability(original.get("email").toString()).get("available")).isEqualTo(false);
+        assertThatThrownBy(()->auth.requireAvailablePhone(original.get("phone").toString(),null)).isInstanceOf(Problem.class);
+    }
+
+    @Test void businessNumberAvailabilityMatchesActiveSuspendedAndWithdrawnSignupPolicy() throws Exception {
+        String business=db.one("SELECT business_number FROM companies WHERE company_id=?",company).get("businessNumber").toString();
+        mvc.perform(get("/api/auth/business-number/availability").param("businessNumber",business)).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.available").value(false));
+        db.update("UPDATE users SET status='SUSPENDED' WHERE user_id=?",companyUser);
+        assertThat(auth.businessNumberAvailability(business).get("available")).isEqualTo(false);
+        db.update("UPDATE users SET status='ACTIVE' WHERE user_id=?",companyUser);auth.withdraw(companyUser,fields("currentPassword",password));
+        mvc.perform(get("/api/auth/business-number/availability").param("businessNumber",business)).andExpect(status().isOk()).andExpect(jsonPath("$.available").value(true));
+        var body=companyImageSignupBody();body.put("businessNumber",business);auth.signup(body,true);
+        assertThat(auth.businessNumberAvailability(business).get("available")).isEqualTo(false);
+        for(String invalid:List.of("123","abcdefghij","12345678901"))mvc.perform(get("/api/auth/business-number/availability").param("businessNumber",invalid)).andExpect(status().isBadRequest());
+    }
+
+    private long reviewInterview(boolean past,boolean completed) {
+        long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");db.update("UPDATE applications SET status='DOCUMENT_PASSED' WHERE application_id=?",app);
+        long id=number(service.interview(companyUser,app,UUID.randomUUID().toString(),fields("interviewAt",java.time.OffsetDateTime.now().plusDays(2).toString(),"interviewType","OFFLINE","location","서울 강남구")),"interviewId");
+        if(past)db.update("UPDATE interviews SET interview_at=? WHERE interview_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(86400)),id);
+        if(completed)service.updateInterview(companyUser,id,fields("status","COMPLETED"),true);return id;
+    }
+    private Map<String,Object> reviewBody(){return fields("rating",4,"difficulty",3,"process","직무 면접 1회","questions","직무 경험과 협업 방식","content","직무 경험을 중심으로 차분히 면접이 진행되었습니다.");}
+    private Map<String,Object> attendanceProof(){return fields("name","면접안내.pdf","dataUrl","data:application/pdf;base64,"+Base64.getEncoder().encodeToString("%PDF-1.4\n면접 안내".getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
+    @Test void reviewRequiresOwnedPastCompletedInterviewAndIsAnonymousAndUnique() throws Exception {
+        long id=reviewInterview(false,false);
+        assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+        assertThatThrownBy(()->service.updateInterview(companyUser,id,fields("status","COMPLETED"),true)).isInstanceOf(Problem.class);
+        db.update("UPDATE interviews SET interview_at=? WHERE interview_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),id);
+        assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+        db.update("UPDATE interviews SET status='CANCELED' WHERE interview_id=?",id);assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+        db.update("UPDATE interviews SET status='SCHEDULED' WHERE interview_id=?",id);service.updateInterview(companyUser,id,fields("status","COMPLETED"),true);
+        assertThatThrownBy(()->interviewReviews.write(other,id,reviewBody())).isInstanceOf(Problem.class);
+        long review=number(interviewReviews.write(seeker,id,reviewBody()),"reviewId");
+        assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+        assertThat(interviewReviews.published(company)).isEmpty();approveReview(review);
+        String publicData=mvc.perform(get("/api/companies/"+company+"/interview-reviews")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(publicData).contains("직무 경험").doesNotContain("authorUserId","userId","interviewId",auth.publicUser(seeker).get("name").toString(),auth.publicUser(seeker).get("email").toString());
+        mvc.perform(put("/api/interview-reviews/"+review).cookie(login(other)).with(csrf()).contentType("application/json").content(json.writeValueAsString(reviewBody()))).andExpect(status().isNotFound());
+        mvc.perform(post("/api/interviews/"+id+"/review").cookie(login(companyUser)).with(csrf()).contentType("application/json").content(json.writeValueAsString(reviewBody()))).andExpect(status().isForbidden());
+        var edited=reviewBody();edited.put("content","수정한 면접 경험입니다.");interviewReviews.edit(seeker,review,edited);assertThat(interviewReviews.published(company)).isEmpty();approveReview(review);assertThat(interviewReviews.published(company).get(0).get("content")).isEqualTo(edited.get("content"));
+        assertThatThrownBy(()->service.deleteInterview(companyUser,id)).isInstanceOf(Problem.class);
+        interviewReviews.delete(seeker,review);assertThat(interviewReviews.published(company)).isEmpty();assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+    }
+    @Test void attendanceTimeoutNeedsEvidenceAndAdminApprovalNeverAutomaticallyVerifies() throws Exception {
+        long id=reviewInterview(true,false);long request=number(interviewReviews.request(seeker,id,fields("message","면접에 참석했습니다.")),"requestId");
+        assertThatThrownBy(()->interviewReviews.request(seeker,id,fields("message","중복 요청"))).isInstanceOf(Problem.class);
+        assertThatThrownBy(()->interviewReviews.escalate(seeker,request,fields("reason","미응답","evidence",attendanceProof()))).isInstanceOf(Problem.class);
+        db.update("UPDATE interview_attendance_requests SET company_due_at=? WHERE request_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),request);
+        assertThatThrownBy(()->interviewReviews.escalate(seeker,request,fields("reason","기업 답변이 없습니다."))).isInstanceOf(Problem.class);
+        interviewReviews.escalate(seeker,request,fields("reason","기업 답변이 없습니다.","evidence",attendanceProof()));
+        assertThat(db.one("SELECT status FROM interviews WHERE interview_id=?",id).get("status")).isEqualTo("SCHEDULED");assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+        assertThatThrownBy(()->interviewReviews.companyRespond(companyUser,request,fields("decision","CONFIRMED","reason","확인"))).isInstanceOf(Problem.class);
+        mvc.perform(get("/api/attendance-requests/"+request+"/evidence").cookie(login(other))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/attendance-requests/"+request+"/evidence").cookie(login(companyUser))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/attendance-requests/"+request+"/evidence").cookie(login(admin))).andExpect(status().isOk()).andExpect(header().string("X-Content-Type-Options","nosniff"));
+        interviewReviews.adminRespond(admin,request,fields("decision","ADMIN_CONFIRMED","reason","증빙 확인으로 면접 참석을 확인했습니다."));
+        assertThat(db.one("SELECT status FROM interviews WHERE interview_id=?",id).get("status")).isEqualTo("COMPLETED");assertThat(number(interviewReviews.write(seeker,id,reviewBody()),"reviewId")).isPositive();
+    }
+    @Test void declinedAttendanceCanBeDisputedImmediatelyAndOtherCompanyCannotDecide() {
+        long id=reviewInterview(true,false),request=number(interviewReviews.request(seeker,id,fields("message","참석 확인 요청")),"requestId");
+        long foreign=signup("reviewco"+UUID.randomUUID().toString().replace("-","").substring(0,9),true);
+        assertThatThrownBy(()->interviewReviews.companyRespond(foreign,request,fields("decision","CONFIRMED","reason","확인"))).isInstanceOf(Problem.class);
+        interviewReviews.companyRespond(companyUser,request,fields("decision","DECLINED","reason","명단에서 확인되지 않습니다."));
+        interviewReviews.escalate(seeker,request,fields("reason","참석 증빙을 제출합니다.","evidence",attendanceProof()));
+        interviewReviews.adminRespond(admin,request,fields("decision","ADMIN_DECLINED","reason","참석을 확인할 수 없습니다."));
+        assertThatThrownBy(()->interviewReviews.write(seeker,id,reviewBody())).isInstanceOf(Problem.class);
+    }
+    @Test void companyCanConfirmAttendanceAndDeadlineSkipsWeekendsAndConfiguredHolidays() {
+        long id=reviewInterview(true,false),request=number(interviewReviews.request(seeker,id,fields("message","참석했습니다.")),"requestId");
+        interviewReviews.companyRespond(companyUser,request,fields("decision","CONFIRMED","reason","참석을 확인했습니다."));
+        assertThat(number(interviewReviews.write(seeker,id,reviewBody()),"reviewId")).isPositive();
+        var friday=java.time.Instant.parse("2030-11-01T01:00:00Z");
+        assertThat(interviewReviews.due(friday)).isEqualTo(java.time.Instant.parse("2030-11-06T01:00:00Z"));
+        db.update("INSERT INTO review_business_holidays(holiday_date) VALUES(?)",java.time.LocalDate.of(2030,11,4));
+        assertThat(interviewReviews.due(friday)).isEqualTo(java.time.Instant.parse("2030-11-07T01:00:00Z"));
+    }
+    @Test void reviewReportsPreserveAnonymityAndOnlyAdminCanModerate() throws Exception {
+        long id=reviewInterview(true,true),review=number(interviewReviews.write(seeker,id,reviewBody()),"reviewId");approveReview(review);
+        long report=number(interviewReviews.report(companyUser,fields("targetType","REVIEW","targetId",review,"reason","PRIVACY","details","개인정보가 노출된 부분을 확인해 주세요.")),"reportId");
+        assertThat(interviewReviews.published(company)).hasSize(1);
+        String ownReports=json.writeValueAsString(interviewReviews.reports(companyUser,false));assertThat(ownReports).doesNotContain("targetUserId","targetName","targetSnapshot","authorUserId",auth.publicUser(seeker).get("name").toString());
+        assertThatThrownBy(()->interviewReviews.report(companyUser,fields("targetType","REVIEW","targetId",review,"reason","OTHER","details","중복"))).isInstanceOf(Problem.class);
+        mvc.perform(post("/api/admin/reports/"+report+"/resolve").cookie(login(companyUser)).with(csrf()).contentType("application/json").content("{\"action\":\"HIDE_REVIEW\",\"reason\":\"숨기기\"}")).andExpect(status().isForbidden());
+        interviewReviews.resolve(admin,report,fields("action","HIDE_REVIEW","reason","개인정보 포함 내용을 확인했습니다."));
+        assertThat(interviewReviews.published(company)).isEmpty();assertThat(auth.publicUser(seeker).get("status")).isEqualTo("ACTIVE");
+        assertThatThrownBy(()->interviewReviews.edit(seeker,review,reviewBody())).isInstanceOf(Problem.class);
+        assertThatThrownBy(()->interviewReviews.resolve(admin,report,fields("action","DISMISS","reason","중복 처리"))).isInstanceOf(Problem.class);
+    }
+    @Test void applicantReportIsRestrictedToReceivingCompanyAndWarningsDoNotSuspend() throws Exception {
+        long app=number(service.apply(seeker,job,fields("resumeId",resume)),"applicationId");long foreign=signup("reportco"+UUID.randomUUID().toString().replace("-","").substring(0,8),true);
+        assertThatThrownBy(()->interviewReviews.report(foreign,fields("targetType","APPLICANT","targetId",app,"reason","ABUSE","details","확인 요청"))).isInstanceOf(Problem.class);
+        long report=number(interviewReviews.report(companyUser,fields("targetType","APPLICANT","targetId",app,"reason","ABUSE","details","부적절한 메시지를 확인해 주세요.")),"reportId");
+        assertThat(interviewReviews.reports(foreign,false)).isEmpty();
+        assertThatThrownBy(()->interviewReviews.resolve(admin,report,fields("action","HIDE_REVIEW","reason","잘못된 처리"))).isInstanceOf(Problem.class);
+        interviewReviews.resolve(admin,report,fields("action","WARN_MEMBER","reason","서비스 이용 시 예의를 지켜 주세요."));assertThat(auth.publicUser(seeker).get("status")).isEqualTo("ACTIVE");
+    }
+
+ @Test void advertisingClosedJobCancelsUnpaidWithoutPaymentAndDoesNotRepeat() throws Exception {
+  advertisingGateway();String id=advertising.create(companyUser,advertisingBody("JOB")).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));
+  db.update("UPDATE job_postings SET status='CLOSED' WHERE job_id=?",job);advertising.refreshInvalidOrders();
+  var row=db.one("SELECT * FROM ad_orders WHERE order_id=?",id);assertThat(row.get("reviewStatus")).isEqualTo("JOB_CLOSED");assertThat(row.get("paymentStatus")).isEqualTo("READY");
+  assertThatThrownBy(()->advertising.checkout(companyUser,id)).isInstanceOf(Problem.class);
+  long count=number(db.one("SELECT COUNT(*) AS n FROM notifications WHERE user_id=?",companyUser),"n");advertising.refreshInvalidOrders();assertThat(number(db.one("SELECT COUNT(*) AS n FROM notifications WHERE user_id=?",companyUser),"n")).isEqualTo(count);
+ }
+ @Test void advertisingClosedPaidJobStopsWithoutFabricatingRefund() throws Exception {
+  advertisingGateway();String id=advertising.create(companyUser,advertisingBody("JOB")).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));db.update("UPDATE ad_orders SET payment_status='PAID' WHERE order_id=?",id);
+  db.update("UPDATE job_postings SET start_date=?,end_date=? WHERE job_id=?",EmploymentService.today().minusDays(10),EmploymentService.today().minusDays(1),job);advertising.refreshInvalidOrders();var row=db.one("SELECT * FROM ad_orders WHERE order_id=?",id);assertThat(row.get("reviewStatus")).isEqualTo("JOB_STOPPED");assertThat(row.get("paymentStatus")).isEqualTo("PAID");assertThat(row.get("refundStatus")).isEqualTo("NONE");
+ }
+ @Test void advertisingPeriodPreventsShorteningLinkedJobDates() throws Exception {
+  advertisingGateway();String id=advertising.create(companyUser,advertisingBody("JOB")).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));
+  assertThatThrownBy(()->com.employment.ads.AdvertisingLifecycle.validateDates(db,job,EmploymentService.today(),EmploymentService.today().plusDays(2))).isInstanceOf(Problem.class);
+  com.employment.ads.AdvertisingLifecycle.validateDates(db,job,EmploymentService.today(),EmploymentService.today().plusDays(30));
+ }
+
+ @Test void advertisingLatePaymentAfterJobClosureStillRequiresRefundReview() throws Exception {
+  advertisingGateway();String id=advertising.create(companyUser,advertisingBody("JOB")).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));db.update("UPDATE job_postings SET status='CLOSED' WHERE job_id=?",job);advertising.refreshInvalidOrders();
+  db.update("UPDATE ad_orders SET payment_status='PAID' WHERE order_id=?",id);advertising.refreshInvalidOrders();assertThat(db.one("SELECT review_status FROM ad_orders WHERE order_id=?",id).get("reviewStatus")).isEqualTo("JOB_STOPPED");
+ }
+
+ private void approveReview(long review){var row=db.one("SELECT revision FROM interview_review_moderation WHERE review_id=?",review);interviewReviews.moderate(admin,review,fields("revision",row.get("revision"),"decision","APPROVED","reason","개인정보와 공개 기준을 확인했습니다."));}
+ @Test void reviewPrivacyBlocksContactInformationInEveryPublicTextField() {
+  long id=reviewInterview(true,true);
+  for(String field:List.of("process","questions","content"))for(String text:List.of("연락처 010-1234-5678입니다.","문의 test.person@example.com", "연락처 ０１０－１２３４－５６７８", "02 123 4567", "+82 10 1234 5678", "010.1234.5678", "test @ example . com")){
+   var body=reviewBody();body.put(field,text);assertThatThrownBy(()->interviewReviews.write(seeker,id,body)).isInstanceOf(Problem.class);
+  }
+  var body=reviewBody();body.put("content","2026년 11월에 면접을 봤고 30분 정도 진행했습니다. 아쉬운 점도 있었습니다.");assertThat(number(interviewReviews.write(seeker,id,body),"reviewId")).isPositive();
+ }
+ @Test void reviewModerationRejectEditAndApprovalUseLatestRevision() throws Exception {
+  long id=reviewInterview(true,true),review=number(interviewReviews.write(seeker,id,reviewBody()),"reviewId");assertThat(interviewReviews.published(company)).isEmpty();
+  assertThat(interviewReviews.own(seeker).stream().filter(row->Objects.equals(row.get("reviewId"),review)).findFirst().orElseThrow().get("moderationStatus")).isEqualTo("PENDING");
+  mvc.perform(get("/api/admin/interview-reviews").cookie(login(companyUser))).andExpect(status().isForbidden());
+  mvc.perform(post("/api/admin/interview-reviews/"+review+"/moderate").cookie(login(seeker)).with(csrf()).contentType("application/json").content("{\"revision\":1,\"decision\":\"APPROVED\",\"reason\":\"직접승인\"}")).andExpect(status().isForbidden());
+  interviewReviews.moderate(admin,review,fields("revision",1,"decision","REJECTED","reason","본문의 개인 이름을 삭제해 주세요."));assertThat(interviewReviews.published(company)).isEmpty();
+  var changed=reviewBody();changed.put("content","면접 진행이 다소 지연되어 아쉬웠습니다.");interviewReviews.edit(seeker,review,changed);
+  assertThatThrownBy(()->interviewReviews.moderate(admin,review,fields("revision",1,"decision","APPROVED","reason","오래된 화면"))).isInstanceOf(Problem.class);
+  approveReview(review);assertThat(interviewReviews.published(company).get(0).get("content")).isEqualTo(changed.get("content"));
+  assertThatThrownBy(()->interviewReviews.moderate(admin,review,fields("revision",2,"decision","REJECTED","reason","중복 처리"))).isInstanceOf(Problem.class);
+  interviewReviews.edit(seeker,review,reviewBody());assertThat(interviewReviews.published(company)).isEmpty();interviewReviews.delete(seeker,review);assertThatThrownBy(()->approveReview(review)).isInstanceOf(Problem.class);
+ }
+ @Test void reviewApprovalRechecksLegacyContactsAndUnapprovedReviewsCannotBeReported() {
+  long id=reviewInterview(true,true),review=number(interviewReviews.write(seeker,id,reviewBody()),"reviewId");
+  assertThatThrownBy(()->interviewReviews.report(companyUser,fields("targetType","REVIEW","targetId",review,"reason","OTHER","details","비공개 후기"))).isInstanceOf(Problem.class);
+  db.update("UPDATE interview_reviews SET content='연락처 010-1234-5678' WHERE review_id=?",review);assertThatThrownBy(()->approveReview(review)).isInstanceOf(Problem.class);assertThat(interviewReviews.published(company)).isEmpty();
+ }
 }
+
+
+

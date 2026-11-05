@@ -1,12 +1,30 @@
- spring:
-    mail:
-      host: smtp.gmail.com
-      port: 587
-      username: bluejjy1220@gmail.com
-      password: qfja zoll iiqj groh
-      properties:
-        mail:
-          smtp:
-            auth: true
-            starttls:
-              enable: true
+  coolsms:
+    api-key: ${COOLSMS_API_KEY:${COOLSMS_APIKEY:}}
+    api-secret: ${COOLSMS_API_SECRET:${COOLSMS_APISECRET:}}
+    sender-number: ${COOLSMS_SENDER_NUMBER:${COOLSMS_SENDERNUMBER:}}
+
+  portone:
+    imp-code: ${PORTONE_IMP_CODE:}
+    api-key: ${PORTONE_API_KEY:}
+    channel-key: ${PORTONE_CHANNEL_KEY:}
+    api-secret: ${PORTONE_API_SECRET:}
+
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID:${KAKAO_CLIENTID:}}
+    restapi-key: ${KAKAO_RESTAPI_KEY:${KAKAO_RESTAPIKEY:}}
+    client-secret: ${KAKAO_SECRET_KEY:${KAKAO_CLIENTSECRET:}}
+    redirect-uri: ${KAKAO_REDIRECT_URI:${KAKAO_REDIRECTURI:}}
+
+  toss:
+    secret-key: ${TOSS_SECRET_KEY:}
+    client-key: ${TOSS_CLIENT_KEY:}
+
+  spring:
+    datasource:
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+
+  app:
+    jwt-secret: ${JWT_SECRET}
+    seed-password: ${DEV_SEED_PASSWORD:}

@@ -1,6 +1,7 @@
+import { hasFormChanges, isExistingRecord, NO_CHANGES } from '../../utils/formChanges';
 import CompanyCover, { companyTheme } from './CompanyCover';
 import '../../assets/styles/job-card-scenes.css';
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../stores/auth';
 import client, { message } from '../../api/client';
@@ -87,48 +88,19 @@ export function Pagination({ page, totalPages, total, onChange }) {
     }
   }, [page]);
   if (total <= 0 || totalPages <= 1) return null;
-  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
-  return (
-    <nav className="pagination" aria-label="페이지 이동">
-      <button type="button" className="secondary" disabled={page <= 0} onClick={() => onChange(0)}>처음</button>
-      <button
-        type="button"
-        className="secondary"
-        disabled={page <= 0}
-        onClick={() => onChange(page - 1)}
-      >
-        이전
-      </button>
-      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => start + i).map((p) => (
-        <button
-          type="button"
-          key={p}
-          className={p === page ? '' : 'secondary'}
-          aria-current={p === page ? 'page' : undefined}
-          onClick={() => onChange(p)}
-        >
-          {p + 1}
-        </button>
-      ))}
-      <label className="pagination-jump">
-        <span>바로 이동</span>
-        <select aria-label="이동할 페이지" value={page} onChange={(e) => onChange(Number(e.target.value))}>
-          {Array.from({ length: totalPages }, (_, p) => <option key={p} value={p}>{p + 1}페이지</option>)}
-        </select>
-        <span>/ {totalPages}</span>
-      </label>
-      <button
-        type="button"
-        className="secondary"
-        disabled={page >= totalPages - 1}
-        onClick={() => onChange(page + 1)}
-      >
-        다음
-      </button>
-      <button type="button" className="secondary" disabled={page >= totalPages - 1} onClick={() => onChange(totalPages - 1)}>마지막</button>
-    </nav>
-  );
+  const count = totalPages <= 7 ? totalPages : 5;
+  const start = Math.max(0, Math.min(page - 2, totalPages - count));
+  const icon = (last,reverse) => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true" style={reverse?{transform:'rotate(180deg)'}:undefined}><path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>{last&&<path d="M16 5v10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>}</svg>;
+  return <nav className="pagination pagination-quiet" aria-label="페이지 이동">
+    <button type="button" className="pagination-control" aria-label="처음 페이지" title="처음 페이지" disabled={page<=0} onClick={()=>onChange(0)}>{icon(true,true)}</button>
+    <button type="button" className="pagination-control" aria-label="이전 페이지" title="이전 페이지" disabled={page<=0} onClick={()=>onChange(page-1)}>{icon(false,true)}</button>
+    {Array.from({length:count},(_,i)=>start+i).map(p=><button type="button" key={p} className="pagination-number" aria-label={(p+1)+'페이지'} aria-current={p===page?'page':undefined} onClick={()=>onChange(p)}>{p+1}</button>)}
+    <button type="button" className="pagination-control" aria-label="다음 페이지" title="다음 페이지" disabled={page>=totalPages-1} onClick={()=>onChange(page+1)}>{icon(false,false)}</button>
+    <button type="button" className="pagination-control" aria-label="마지막 페이지" title="마지막 페이지" disabled={page>=totalPages-1} onClick={()=>onChange(totalPages-1)}>{icon(true,false)}</button>
+    {totalPages>7&&<label className="pagination-jump"><select aria-label="이동할 페이지" title="페이지 바로 이동" value={page} onChange={e=>onChange(Number(e.target.value))}>{Array.from({length:totalPages},(_,p)=><option key={p} value={p}>{p+1} / {totalPages}</option>)}</select></label>}
+  </nav>;
 }
+
 export function PagedRows({ rows, children, focusId, idKey }) {
   const focusIndex =
     focusId && idKey ? rows.findIndex((r) => String(r[idKey]) === String(focusId)) : -1;
@@ -220,17 +192,21 @@ export function Form({
   children,
   resetOnSuccess = false,
   successMessage = '저장되었습니다.',
+  detectChanges = isExistingRecord(initial),
 }) {
   const formId = useId();
   const submitting = useRef(false);
+  const baseline = useRef(initial);
   const [values, setValues] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  useEffect(() => { setSuccess(current => current === NO_CHANGES ? '' : current); }, [values]);
   const [fieldErrors, setFieldErrors] = useState({});
   async function save(event) {
     event.preventDefault();
     if (submitting.current || submitDisabled) return;
+    if (detectChanges && !hasFormChanges(baseline.current, values, fields)) { setError(''); setFieldErrors({}); setSuccess(NO_CHANGES); return; }
     submitting.current = true;
     setBusy(true);
     setError('');
@@ -248,6 +224,7 @@ export function Form({
     }
     try {
       await onSubmit(values);
+      baseline.current = values;
       if (resetOnSuccess) setValues({});
       setSuccess(successMessage);
     } catch (error) {
@@ -458,3 +435,4 @@ export function JobCard({ job, onBookmarkChange }) {
     </article>
   );
 }
+

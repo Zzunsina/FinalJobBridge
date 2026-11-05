@@ -1,3 +1,4 @@
+import { ReportForm } from './ReviewFeatures';
 
 import { useState } from 'react';
 import CompanyInterviewForm from '../components/common/CompanyInterviewForm';
@@ -19,8 +20,7 @@ import {
   Resource,
   Title,
 } from '../components/common/UI';
-import { Interviews, Snapshot } from './Seeker';
-import WithdrawAccount from '../components/common/WithdrawAccount';
+import { AccountSettings, Interviews, Snapshot } from './Seeker';
 import CompanyImageUpload from '../components/common/CompanyImageUpload';
 import AssessmentRanking from '../components/common/AssessmentRanking';
 import CompanyCover from '../components/common/CompanyCover';
@@ -227,7 +227,7 @@ export function JobForm() {
               }}
               submit="초안 저장"
             />
-            <p className="muted">예시 검사 기준 점수는 구직자에게 공개되지 않습니다. 기준 미달자는 최초 열람 48시간 후 담당자 검토 대상으로 알립니다. 자동 불합격 처리하지 않습니다.</p>
+
             <CompanyImageUpload />
           </div>
         )}
@@ -280,7 +280,6 @@ export function ApplicantDetail() {
 function ApplicantDetailContent({ id }) {
   const [editingInterview, setEditingInterview] = useState(null);
   const [interviewMessage, setInterviewMessage] = useState('');
-  const resource = useResource(`/company/applications/${id}`);
 
   const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
   const transitions = {
@@ -298,10 +297,11 @@ function ApplicantDetailContent({ id }) {
             <Badge value={a.status} />
             <Snapshot data={a.snapshot} />
             <SubmittedAssessment data={a.snapshot?.careerAssessment} />
+            <ReportForm targetType="APPLICANT" targetId={Number(id)} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
-            <div className="actions">
+            <div className="actions applicant-status-actions">
               {(transitions[a.status] || []).map((status) => (
                 <Action
                   key={status}
@@ -323,7 +323,7 @@ function ApplicantDetailContent({ id }) {
                 </Action>
               ))}
             </div>
-            <h2>면접 일정</h2>
+            <h2 className="applicant-interview-heading">면접 일정</h2>
             {interviewMessage && <p className="form-success" role="status">{interviewMessage}</p>}
             <Interviews rows={a.interviews} onDelete={resource.reload} showInternalMemo
               onEdit={a.status === 'INTERVIEW' ? (interview) => {
@@ -358,11 +358,11 @@ export function CompanyProfile() {
   const resource = useResource('/company/profile');
   return (
     <>
-      <Title>기업 정보</Title>
+      <Title>기업·계정 정보</Title>
       <Resource resource={resource}>
         {(data) => (
           <div className="panel narrow">
-            <p className="muted">예시 검사 기준 점수는 구직자에게 공개되지 않습니다. 기준 미달자는 최초 열람 48시간 후 담당자 검토 대상으로 알립니다. 자동 불합격 처리하지 않습니다.</p>
+
             <CompanyImageUpload />
             <Badge value={data.approvalStatus} />
             <p className="callout">
@@ -427,7 +427,8 @@ export function CompanyProfile() {
           </div>
         )}
       </Resource>
-      <div className="panel narrow"><WithdrawAccount /></div>
+      <div className="panel narrow"><AccountSettings company /></div>
     </>
   );
 }
+

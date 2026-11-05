@@ -3,7 +3,7 @@ import { useAuth } from '../../stores/auth';
 import client, { message } from '../../api/client';
 import '../../assets/styles/profile-photo.css';
 
-async function preparePhoto(file) {
+export async function prepareCompanyImage(file) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     throw new Error('JPG, PNG, WEBP 사진을 선택해 주세요.');
   }
@@ -66,7 +66,7 @@ export default function CompanyImageUpload() {
     setNotice('');
     setBusy(true);
     try {
-      setDraft(await preparePhoto(file));
+      setDraft(await prepareCompanyImage(file));
     } catch (ex) {
       setError(
         ex.message === 'The source image could not be decoded.'
@@ -86,7 +86,8 @@ export default function CompanyImageUpload() {
       await client.put('/company/image', { image: draft });
       setSaved(draft);
       setDraft('');
-      setNotice('기업 이미지을 저장했습니다.');
+      setNotice('기업 이미지를 저장했습니다.');
+      window.dispatchEvent(new Event('company-image-updated'));
     } catch (ex) {
       setError(message(ex));
     } finally {
@@ -102,7 +103,8 @@ export default function CompanyImageUpload() {
       await client.delete('/company/image');
       setSaved('');
       setDraft('');
-      setNotice('기업 이미지을 삭제했습니다.');
+      setNotice('기업 이미지를 삭제했습니다.');
+      window.dispatchEvent(new Event('company-image-updated'));
     } catch (ex) {
       setError(message(ex));
     } finally {
@@ -121,7 +123,7 @@ export default function CompanyImageUpload() {
       </div>
       <div className="profile-photo-content">
         <h2 id="company-image-heading">기업 이미지</h2>
-        <p>공고 목록·상세와 공개 기업 정보에 표시되는 대표 이미지입니다. 이미지 저장을 눌러 등록해 주세요.</p>
+        <p>기업 프로필·공고 목록·상세와 공개 기업 정보에서 함께 사용하는 대표 이미지입니다. 이미지 저장을 눌러 등록해 주세요.</p>
         <input
           ref={input}
           type="file"
