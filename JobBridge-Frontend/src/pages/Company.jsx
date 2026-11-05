@@ -280,15 +280,15 @@ export function ApplicantDetail() {
 function ApplicantDetailContent({ id }) {
   const [editingInterview, setEditingInterview] = useState(null);
   const [interviewMessage, setInterviewMessage] = useState('');
-  const resource = useResource(`/company/applications/${id}`);
 
   const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
   const transitions = {
-    APPLIED: ['UNDER_REVIEW', 'REJECTED'],
-    UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'],
-    DOCUMENT_PASSED: ['INTERVIEW', 'REJECTED'],
-    INTERVIEW: ['FINAL_PASSED', 'REJECTED'],
-  };
+  // ... 이전 필드들 ...
+  APPLIED: ['UNDER_REVIEW', 'REJECTED'],
+  UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'], // 288 라인
+  DOCUMENT_PASSED: ['INTERVIEW', 'REJECTED'], // 289 라인
+  INTERVIEW: ['FINAL_PASSED', 'REJECTED'], // 290 라인
+};
   return (
     <Resource resource={resource}>
       {(a) => (
@@ -301,7 +301,7 @@ function ApplicantDetailContent({ id }) {
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
             <h3>자기소개서</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
-            <div className="actions">
+            <div className="actions applicant-status-actions">
               {(transitions[a.status] || []).map((status) => (
                 <Action
                   key={status}
