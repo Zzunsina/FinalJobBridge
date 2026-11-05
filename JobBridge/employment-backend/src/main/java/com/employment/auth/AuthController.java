@@ -45,6 +45,12 @@ public class AuthController {
         return auth.emailAvailability(email);
     }
 
+    @GetMapping("/auth/business-number/availability")
+    Map<String,Object> businessNumberAvailability(@RequestParam String businessNumber,HttpServletResponse response){
+        response.setHeader("Cache-Control","no-store");
+        return auth.businessNumberAvailability(businessNumber);
+    }
+
     @PostMapping("/auth/signup/{kind}")
     @ResponseStatus(HttpStatus.CREATED)
     Map<String, Object> signup(@PathVariable String kind, @RequestBody Map<String, Object> body) {

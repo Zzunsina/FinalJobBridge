@@ -1,3 +1,4 @@
+import { NO_CHANGES } from '../../utils/formChanges';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useBlocker } from 'react-router-dom';
 import { message } from '../../api/client';
@@ -147,6 +148,9 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
   const [preview, setPreview] = useState(false);
   const [attachmentChanged, setAttachmentChanged] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [saveNotice, setSaveNotice] = useState('');
+  useEffect(() => { setSaveNotice(''); }, [values]);
+  const saving = useRef(false);
   const [error, setError] = useState('');
   const dirty = JSON.stringify(values) !== baseline.current;
   const blocker = useBlocker(() => dirty && !saved.current);
@@ -204,6 +208,10 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
   }
   async function save(event) {
     event.preventDefault();
+    if (saving.current) return;
+    if (initial.resumeId && !dirty) { setError(''); setSaveNotice(NO_CHANGES); return; }
+    saving.current = true;
+    setSaveNotice('');
     setBusy(true);
     setError('');
     try {
@@ -236,6 +244,7 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
       setError(message(e));
       setPreview(false);
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
@@ -571,15 +580,13 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
                     </small>
                   </span>
                 </label>
-                <p className="resume-save-note">
-                  지원할 때 제출한 이력서는 별도로 보관됩니다. 이후 수정해도 기존 제출 내용은
-                  유지됩니다.
-                </p>
+                <div className="resume-save-note" role="note"><span className="resume-save-info-icon" aria-hidden="true">i</span><div><strong>수정한 내용은 앞으로 지원할 때 적용됩니다.</strong><p>이미 지원한 기업에는 지원 당시 이력서가 유지됩니다.</p></div></div>
                 {error && (
                   <p role="alert" className="error">
                     {error}
                   </p>
                 )}
+                {saveNotice && <p className="form-no-changes" role="status" aria-live="polite">{saveNotice}</p>}
                 <div className="resume-save-actions">
                   <Link className="button secondary" to="/resumes">
                     목록으로
@@ -631,3 +638,4 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
     </div>
   );
 }
+

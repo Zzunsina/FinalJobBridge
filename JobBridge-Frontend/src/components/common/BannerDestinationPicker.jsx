@@ -40,18 +40,18 @@ export default function BannerDestinationPicker({ value, onChange, id }) {
   const selected = result.rows.find((row) => row.to === value);
   const base = pages.find(([path]) => path === (value || '').split('?')[0]);
   return <div className="banner-target-picker">
-    <label htmlFor={uid + '-kind'}>이동 대상 종류</label>
+    <label htmlFor={uid + '-kind'}>연결 방식</label>
     <select id={uid + '-kind'} value={kind} onChange={(event) => {
       const next=event.target.value; setKind(next); setQuery(''); setResult({ rows:[], loading:true, error:'' });
       onChange(next === 'page' ? '/jobs' : '');
     }}>
-      <option value="page">기본 화면</option>
+      <option value="page">사이트 내 메뉴</option>
       {Object.entries(kinds).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
     </select>
     {kind === 'page' ? <>
-      <label htmlFor={id}>이동할 화면</label>
+      <label htmlFor={id}>연결할 메뉴</label>
       <select id={id} required value={value || ''} onChange={(event) => onChange(event.target.value)}>
-        <option value="">화면을 선택해 주세요</option>
+        <option value="">메뉴를 선택해 주세요</option>
         {base && !pages.some(([path]) => path === value) && <option value={value}>{base[1]} · 기존 검색 조건</option>}
         {pages.map(([path, label]) => <option key={path} value={path}>{label}</option>)}
       </select>

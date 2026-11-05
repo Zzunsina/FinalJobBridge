@@ -383,7 +383,7 @@ public class OperationsController {
                 " ORDER BY " +
                 (resource.equals("inquiries")
                     ? "CASE WHEN status='OPEN' THEN 0 ELSE 1 END, created_at DESC, inquiry_id DESC"
-                    : IDS.get(resource) + " DESC")
+                    : resource.equals("employment-links") ? "CASE status WHEN 'REQUESTED' THEN 0 WHEN 'COUNSELING' THEN 1 WHEN 'MATCHING' THEN 2 WHEN 'INTERVIEW' THEN 3 WHEN 'EMPLOYED' THEN 4 WHEN 'CLOSED' THEN 5 ELSE 6 END, requested_at DESC, employment_link_id DESC" : IDS.get(resource) + " DESC")
         );
         if (resource.equals("employment-links")) rows.forEach(service::decorateEmploymentPreferences);
         return rows;
@@ -548,9 +548,14 @@ public class OperationsController {
 
     @DeleteMapping("/admin/jobs/{id}")
     @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
-    void deleteJob(@PathVariable long id, HttpServletRequest req) {
+    void deleteJob(@PathVariable long id, @RequestBody(required=false) Map<String,Object> body, HttpServletRequest req) {
         admin(req);
+        String reason=Input.text(body==null?Map.of():body,"reason",1000,true);
+        var job=db.one("SELECT j.title,c.user_id FROM job_postings j JOIN companies c ON c.company_id=j.company_id WHERE j.job_id=? FOR UPDATE",id);
+        if(job==null)throw new Problem(404,"공고를 찾을 수 없습니다.");
         service.removeJob(id);
+        db.update("UPDATE notifications SET notification_type='JOB_DELETED' WHERE notification_type='JOB' AND related_id=?",id);
+        service.notify(number(job,"userId"),"관리자가 공고를 삭제했습니다.","공고: "+job.get("title")+"\n삭제 사유: "+reason,"JOB_DELETED",id);
     }
 
     @PostMapping("/admin/notices")

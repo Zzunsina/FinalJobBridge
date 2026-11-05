@@ -1,3 +1,4 @@
+import { CompanyReviews } from './ReviewFeatures';
 import TieredJobAds from '../components/common/TieredJobAds';
 import JobDeadline, { useJobDeadline } from '../components/common/JobDeadline';
 import { CareerTestCard } from './CareerAssessment';
@@ -617,6 +618,7 @@ export function CompanyDetail() {
               </a>
             )}
           </article>
+          <CompanyReviews companyId={c.companyId} />
         </>
       )}
     </Resource>

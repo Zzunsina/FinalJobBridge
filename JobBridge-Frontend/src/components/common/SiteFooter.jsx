@@ -9,7 +9,7 @@ export default function SiteFooter() {
     </nav></div>
     <div className="container">
       <div className="jb-footer-body"><section className="jb-footer-brand" aria-label="잡브릿지 운영 정보">
-        <Link to="/" className="jb-footer-logo"><img src="/images/jobbridge-logo.jpg" alt="" />잡브릿지</Link>
+        <Link to="/" className="jb-footer-logo"><img src="/api/site-images/images/jobbridge-logo.jpg" alt="" />잡브릿지</Link>
         <p className="jb-footer-slogan">가능성과 기회를 잇습니다.</p>
         <p>잡브릿지 프로젝트팀 · 취업연계 플랫폼</p>
         <p>문의는 고객센터의 1:1 온라인 문의를 이용해 주세요.</p>

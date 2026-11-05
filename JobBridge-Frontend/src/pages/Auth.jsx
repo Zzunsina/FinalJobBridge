@@ -3,6 +3,10 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import client from '../api/client';
 import { useAuth } from '../stores/auth';
 import { Form } from '../components/common/UI';
+import CompanyIndustryInput from '../components/common/CompanyIndustryInput';
+import { companySizes } from '../data/companySizes';
+import SignupBusinessNumber from '../components/common/SignupBusinessNumber';
+import SignupCompanyImage from '../components/common/SignupCompanyImage';
 import SmsPhoneInput from '../components/common/SmsPhoneInput';
 import SignupAgreements, { AGREEMENT_VERSION, emptyAgreements } from '../components/common/SignupAgreements';
 
@@ -35,7 +39,7 @@ export function Login({ adminOnly = false }) {
         </div>
       )}
       <div className="auth-brand">
-        <img src="/images/jobbridge-logo.jpg" alt="잡브릿지 로고" />
+        <img src="/api/site-images/images/jobbridge-logo.jpg" alt="잡브릿지 로고" />
       </div>
       <p className="eyebrow">{adminOnly ? 'ADMINISTRATOR LOGIN' : 'JOBBRIDGE LOGIN'}</p>
       <h1>{adminOnly ? '관리자 로그인' : '새로운 기회를 연결하세요.'}</h1>
@@ -214,15 +218,32 @@ export function Signup() {
         onVerified={(smsVerificationToken) => { clearError(); setValues((old) => ({ ...old, smsVerificationToken })); }} />,
     },
   ];
-  if (kind === 'company')
+  if (kind === 'company') {
+    for(let index=fields.length-1;index>=0;index--)if(['birthDate','gender'].includes(fields[index].name))fields.splice(index,1);
+    fields.find(field=>field.name==='name').label='담당자 이름';
+    fields.find(field=>field.name==='email').label='담당자 이메일';
+    fields.find(field=>field.name==='phone').label='담당자 휴대폰번호';
     fields.push(
       { name: 'companyName', label: '기업명', required: true, maxLength: 200 },
+      {name:'companyImage',label:'기업 대표 이미지 (선택)',validate:(_value,values)=>values.companyImageBusy?'이미지 처리가 끝난 후 가입해 주세요.':'',
+       render:({id,values,setValues})=><SignupCompanyImage id={id} value={values.companyImage||''} onChange={companyImage=>setValues(old=>({...old,companyImage}))} onBusy={companyImageBusy=>setValues(old=>({...old,companyImageBusy}))}/>},
       {
         name: 'businessNumber',
         label: '사업자등록번호 (10자리)',
+        render:({id,values,setValues,error,clearError})=><SignupBusinessNumber id={id} value={values.businessNumber||''} required serverError={error} onChange={businessNumber=>{clearError();setValues(old=>({...old,businessNumber}));}}/>,
         required: true,
+        maxLength: 10,
+        pattern: '[0-9]{10}',
+        sanitize: 'digits',
       },
+      {name:'ceoName',label:'대표자명',maxLength:100},
+      {name:'industry',label:'업종',maxLength:100,render:({id,values,setValues})=><CompanyIndustryInput id={id} value={values.industry||''} onChange={industry=>setValues(old=>({...old,industry}))}/>},
+      {name:'companySize',label:'기업 규모 (직원 수)',options:companySizes},
+      {name:'address',label:'주소',type:'address',maxLength:255},
+      {name:'website',label:'홈페이지',type:'url',maxLength:500},
+      {name:'description',label:'기업 소개',type:'textarea',maxLength:10000},
     );
+  }
   return (
     <div className="auth-shell">
       <p className="eyebrow">JOIN JOBBRIDGE</p>
@@ -283,8 +304,8 @@ export function FindId() {
       {foundId ? (
         <div className="signup-complete" role="status" style={{ marginBottom: '1.5rem' }}>
           <div>
-            <strong>회원님의 아이디는 {foundId} 입니다.</strong>
-            <p>가입된 아이디로 로그인해 주세요.</p>
+            <strong>회원님의 아이디는 {foundId.loginId} 입니다.</strong>
+            <p>{foundId.status==='SUSPENDED'?'이 계정은 이용정지 상태입니다. 비밀번호 재설정은 가능하며, 정지 관련 사항은 고객센터로 문의해 주세요.':'가입된 아이디로 로그인해 주세요.'}</p>
           </div>
         </div>
       ) : (
@@ -292,7 +313,7 @@ export function FindId() {
           fields={fields}
           onSubmit={async (body) => {
             const { data } = await client.post('/auth/find-id', body);
-            setFoundId(data.loginId);
+            setFoundId(data);
           }}
           submit="아이디 찾기"
         />
@@ -325,7 +346,7 @@ export function FindPassword() {
       ) : (
         <>
           <p className="muted" style={{ marginBottom: '1.5rem' }}>
-            가입하신 아이디와 이메일을 입력하시면 비밀번호를 재설정할 수 있는 링크를 보내드립니다.
+            가입하신 아이디와 이메일을 입력하시면 비밀번호를 재설정할 수 있는 링크를 보내드립니다. 정지 계정도 재설정할 수 있지만, 비밀번호를 바꿔도 이용정지는 해제되지 않습니다.
           </p>
           <Form
             fields={fields}

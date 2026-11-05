@@ -1,3 +1,4 @@
+import { MyInterviewReviews, CompanyReviewCenter, AdminReviewReports } from './pages/ReviewFeatures';
 
 import CompanyAdvertising, { AdminAdvertising } from './pages/Advertising';
 
@@ -43,9 +44,6 @@ import CompanyEmployment from './pages/CompanyEmployment';
 import CompanyEmploymentDetail from './pages/CompanyEmploymentDetail';
 import { BookmarkNotice } from './components/common/BookmarkButton';
 
-// 💡 [추가] 앞서 만든 결제 상품 숍 컴포넌트와 결제 성공 페이지 컴포넌트 임포트
-import CompanyProductShop from './components/common/CompanyProductShop';
-import CompanyPaymentSuccess from './components/common/CompanyPaymentSuccess';
 
 const companyLinks = [
   ['/company', '대시보드'],
@@ -53,11 +51,20 @@ const companyLinks = [
   ['/company/applicants', '지원자 관리'],
   ['/company/employment', '취업연계'],
   ['/company/interviews', '면접 일정'],
-  ['/company/profile', '기업 정보'],
+  ['/company/reviews', '면접 후기·신고'],
+  ['/company/profile', '기업·계정 정보'],
 
   ['/company/advertising', '광고·결제'],
 
+
   ['/mypage', '내 정보'],
+
+
+  
+
+
+
+
 ];
 const adminLinks = [
   ['/admin', '대시보드'],
@@ -69,12 +76,14 @@ const adminLinks = [
   ['/admin/home-promotions', '홈 홍보 관리'],
   ['/admin/advertising', '광고·결제 관리'],
   ['/admin/inquiries', '문의 관리'],
+  ['/admin/reports', '후기·신고 관리'],
 ];
 const seekerLinks = [
   ['/resumes', '이력서 관리'],
   ['/career-test', '인적성검사'],
   ['/career-exploration', '진로 탐색'],
   ['/applications', '지원 내역'],
+  ['/interview-reviews', '면접 후기'],
   ['/bookmarks', '관심 공고'],
   ['/employment', '취업연계'],
   ['/mypage', '내 정보'],
@@ -135,7 +144,7 @@ export default function App() {
         <div className="header-inner">
           <Link className="logo" to="/">
             <span className="brand-image">
-              <img src="/images/jobbridge-logo.jpg" alt="" />
+              <img src="/api/site-images/images/jobbridge-logo.jpg" alt="" />
             </span>
             잡브릿지<span className="logo-en">JOBBRIDGE</span>
           </Link>
@@ -277,7 +286,6 @@ export default function App() {
                 {label}
               </NavLink>
             ))}
-            {user.role !== 'ADMIN' && <NavLink to="/inquiries">고객센터</NavLink>}
           </nav>
         </div>
       )}
@@ -335,7 +343,10 @@ export default function App() {
             <Route path="/bookmarks" element={protectedPage('JOB_SEEKER', <Bookmarks />)} />
             <Route path="/employment" element={user?.role === 'ADMIN' ? protectedPage('ADMIN', <Navigate to="/admin/employment" replace />) : protectedPage('JOB_SEEKER', <Employment />)} />
             <Route path="/employment/:id" element={protectedPage('JOB_SEEKER', <EmploymentDetail />)} />
-            <Route path="/mypage" element={protectedPage(null, <MyPage />)} />
+            <Route path="/mypage" element={protectedPage(null, user?.role === 'COMPANY' ? <Navigate to="/company/profile" replace /> : <MyPage />)} />
+            <Route path="/interview-reviews" element={protectedPage('JOB_SEEKER', <MyInterviewReviews />)} />
+            <Route path="/company/reviews" element={protectedPage('COMPANY', <CompanyReviewCenter />)} />
+            <Route path="/admin/reports" element={protectedPage('ADMIN', <AdminReviewReports />)} />
             <Route path="/notifications" element={protectedPage(null, <Notifications />)} />
             <Route path="/inquiries" element={<CustomerCenter />} />
 
@@ -360,7 +371,9 @@ export default function App() {
             <Route path="/admin/advertising" element={protectedPage('ADMIN', <AdminAdvertising />)} />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
 
+
           
+
 
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />
             <Route path="/admin/home-promotions" element={protectedPage('ADMIN', <AdminHomePromotions />)} />

@@ -256,8 +256,13 @@ public class JobController {
 
     @DeleteMapping("/company/interviews/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void deleteInterview(@PathVariable long id, HttpServletRequest req) {
-        service.deleteInterview(auth.require(req, "COMPANY"), id);
+    void deleteInterview(
+        @PathVariable long id,
+        @RequestBody(required = false) Map<String, Object> body, // 💡 취소 사유를 받기 위한 RequestBody 추가
+        HttpServletRequest req
+    ) {
+        String cancelReason = body != null ? Input.text(body, "cancelReason", 2000, false) : "";
+        service.deleteInterview(auth.require(req, "COMPANY"), id, cancelReason); // 💡 서비스 레이어로 사유 전달
     }
 
     @PostMapping("/company/applications/{id}/interviews")
