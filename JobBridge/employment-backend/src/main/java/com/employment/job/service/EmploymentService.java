@@ -212,6 +212,7 @@ public class EmploymentService {
     }
 
     private void addResumeDetails(Map<String, Object> row) {
+        if (row == null) throw new Problem(404, "이력서를 찾을 수 없습니다.");
         row.put("attachment", files.current(number(row, "resumeId")));
         row.put("assessment", assessments.result(number(row, "resumeId")));
         Object details = row.remove("detailsJson");
@@ -472,12 +473,24 @@ public class EmploymentService {
 
 
     private void addDetails(Map<String, Object> row, boolean internal) {
-        if (row == null) {
-            throw new Problem(404, "지원 내역을 찾을 수 없습니다.");
-        }
-
+        if (row == null) throw new Problem(404, "지원 내역을 찾을 수 없습니다.");
         long id = number(row, "applicationId");
-
+        var snapshots = db.list(
+            "SELECT snapshot_json FROM application_snapshots WHERE application_id=?",
+            id
+        );
+        try {
+            row.put(
+                "snapshot",
+                snapshots.isEmpty()
+                    ? null
+                    : json.readTree(
+                          snapshots.get(0).get("snapshotJson").toString()
+                      )
+            );
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException(ex);
+        }
         row.put(
             "interviews",
             db.list(
@@ -488,7 +501,6 @@ public class EmploymentService {
             )
         );
     }
-
 
     public void cancel(
         long user,
@@ -898,6 +910,10 @@ public class EmploymentService {
             appId
         );
         return fields("interviewId", id);
+    }
+
+    public void deleteInterview(long user, long id) {
+        deleteInterview(user, id, null);
     }
 
     public void deleteInterview(long user, long id, String cancelReason) {

@@ -57,7 +57,6 @@ const companyLinks = [
   ['/company/advertising', '광고·결제'],
 
 
-  ['/mypage', '내 정보'],
 
 
   

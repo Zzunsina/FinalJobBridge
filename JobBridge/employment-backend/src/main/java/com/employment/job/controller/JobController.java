@@ -179,6 +179,15 @@ public class JobController {
 
 
 
+    @PutMapping("/company/interviews/{id}")
+    void editInterview(
+        @PathVariable long id,
+        @RequestBody Map<String, Object> body,
+        HttpServletRequest req
+    ) {
+        service.updateInterview(auth.require(req, "COMPANY"), id, body, false);
+    }
+
     @PatchMapping("/company/interviews/{id}/status")
     void interviewStatus(
         @PathVariable long id,
