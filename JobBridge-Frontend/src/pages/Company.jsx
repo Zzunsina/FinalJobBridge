@@ -283,11 +283,12 @@ function ApplicantDetailContent({ id }) {
 
   const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
   const transitions = {
-    APPLIED: ['UNDER_REVIEW', 'REJECTED'],
-    UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'],
-    DOCUMENT_PASSED: ['INTERVIEW', 'REJECTED'],
-    INTERVIEW: ['FINAL_PASSED', 'REJECTED'],
-  };
+  // ... 이전 필드들 ...
+  APPLIED: ['UNDER_REVIEW', 'REJECTED'],
+  UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'], // 288 라인
+  DOCUMENT_PASSED: ['INTERVIEW', 'REJECTED'], // 289 라인
+  INTERVIEW: ['FINAL_PASSED', 'REJECTED'], // 290 라인
+};
   return (
     <Resource resource={resource}>
       {(a) => (

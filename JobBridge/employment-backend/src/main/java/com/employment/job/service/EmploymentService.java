@@ -579,7 +579,7 @@ public class EmploymentService {
         ) {
             throw new Problem(
                 409,
-                "지원·취업연계 이력이 있는 공고는 삭제할 수 없습니다. 공고를 마감해 주세요."
+                "지원·취업연계 이력이 있는 공고는 삭제할 수 없습니다."
             );
         }
         db.update("DELETE FROM job_bookmarks WHERE job_id=?", id);
@@ -853,16 +853,25 @@ public class EmploymentService {
         return fields("interviewId", id);
     }
 
-    public void deleteInterview(long user, long id) {
+    public void deleteInterview(long user, long id, String cancelReason) {
         var existing = db.one("SELECT application_id FROM interviews WHERE interview_id=?", id);
         var app = companyApplication(user, number(existing, "applicationId"));
         db.one("SELECT interview_id FROM interviews WHERE interview_id=? FOR UPDATE", id);
         if(!db.list("SELECT review_id FROM interview_reviews WHERE interview_id=?",id).isEmpty()||!db.list("SELECT request_id FROM interview_attendance_requests WHERE interview_id=?",id).isEmpty())throw new Problem(409,"후기 또는 참석 확인 기록이 있는 면접 일정은 삭제할 수 없습니다.");
         db.update("DELETE FROM interviews WHERE interview_id=?", id);
+
+        // 💡 취소 사유가 존재하면 알림 본문에 추가
+        String messageContent = app.get("title") + " · 기업에서 면접 일정을 삭제했습니다.";
+        if (cancelReason != null && !cancelReason.trim().isEmpty()) {
+            messageContent += "\n취소 사유: " + cancelReason.trim();
+        } else {
+            messageContent += " 지원 상세에서 확인해 주세요.";
+        }
+
         notify(
             number(app, "userId"),
             "면접 일정이 삭제되었습니다.",
-            app.get("title") + " · 기업에서 면접 일정을 삭제했습니다. 지원 상세에서 확인해 주세요.",
+            messageContent,
             "INTERVIEW",
             number(app, "applicationId")
         );

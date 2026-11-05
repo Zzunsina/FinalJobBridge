@@ -44,9 +44,6 @@ import CompanyEmployment from './pages/CompanyEmployment';
 import CompanyEmploymentDetail from './pages/CompanyEmploymentDetail';
 import { BookmarkNotice } from './components/common/BookmarkButton';
 
-// 💡 [추가] 앞서 만든 결제 상품 숍 컴포넌트와 결제 성공 페이지 컴포넌트 임포트
-import CompanyProductShop from './components/common/CompanyProductShop';
-import CompanyPaymentSuccess from './components/common/CompanyPaymentSuccess';
 
 const companyLinks = [
   ['/company', '대시보드'],
@@ -59,7 +56,10 @@ const companyLinks = [
 
   ['/company/advertising', '광고·결제'],
 
+
   
+
+
 
 ];
 const adminLinks = [
@@ -367,7 +367,10 @@ export default function App() {
             <Route path="/admin/advertising" element={protectedPage('ADMIN', <AdminAdvertising />)} />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
 
+
   
+
+
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />
             <Route path="/admin/home-promotions" element={protectedPage('ADMIN', <AdminHomePromotions />)} />
             {[
