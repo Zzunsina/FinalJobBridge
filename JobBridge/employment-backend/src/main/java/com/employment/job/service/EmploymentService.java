@@ -119,6 +119,7 @@ public class EmploymentService {
                 " AND j.job_id=? AND j.status IN ('PUBLISHED','CLOSED')",
             id
         );
+        if(row==null)throw new Problem(404,"공고를 찾을 수 없습니다.");
         sanitizeJob(row);
         row.put("detailImageUrl",detailImage(id));
         row.put(
@@ -629,6 +630,7 @@ public class EmploymentService {
         LocalDate start = Input.date(body, "startDate");
         LocalDate end = Input.date(body, "endDate");
         JobDatePolicy.validate(start, end, originalStart, today());
+        if(id!=null) com.employment.ads.AdvertisingLifecycle.validateDates(db,id,start,end);
         values.put("headcount", headcount);
         values.put("start_date", start);
         values.put("end_date", end);
@@ -675,9 +677,10 @@ public class EmploymentService {
             }
         } else if (action.equals("close") && status.equals("PUBLISHED")) {
             db.update(
-                "UPDATE job_postings SET status='CLOSED' WHERE job_id=?",
+                "UPDATE job_postings SET status='CLOSED',updated_at=CURRENT_TIMESTAMP WHERE job_id=?",
                 id
             );
+            com.employment.ads.AdvertisingLifecycle.refresh(db);
         } else throw new Problem(409, "허용되지 않은 상태 변경입니다.");
     }
 
@@ -854,6 +857,7 @@ public class EmploymentService {
         var existing = db.one("SELECT application_id FROM interviews WHERE interview_id=?", id);
         var app = companyApplication(user, number(existing, "applicationId"));
         db.one("SELECT interview_id FROM interviews WHERE interview_id=? FOR UPDATE", id);
+        if(!db.list("SELECT review_id FROM interview_reviews WHERE interview_id=?",id).isEmpty()||!db.list("SELECT request_id FROM interview_attendance_requests WHERE interview_id=?",id).isEmpty())throw new Problem(409,"후기 또는 참석 확인 기록이 있는 면접 일정은 삭제할 수 없습니다.");
         db.update("DELETE FROM interviews WHERE interview_id=?", id);
 
         // 💡 취소 사유가 존재하면 알림 본문에 추가
@@ -897,6 +901,7 @@ public class EmploymentService {
             if (
                 !Set.of("COMPLETED", "CANCELED").contains(next)
             ) throw new Problem(400, "면접 상태를 확인해 주세요.");
+            if(next.equals("COMPLETED")&&Instant.now().isBefore(Instant.parse(interview.get("interviewAt").toString())))throw new Problem(409,"면접일이 지난 후 완료 확인할 수 있습니다.");
             db.update(
                 "UPDATE interviews SET status=?,result=?,memo=? WHERE interview_id=?",
                 next,
@@ -952,9 +957,9 @@ public class EmploymentService {
         }
         notify(
             number(app, "userId"),
-            "면접 일정이 변경되었습니다.",
-            "지원 상세에서 안내를 확인해 주세요.",
-            "INTERVIEW",
+            "COMPLETED".equals(body.get("status")) ? "면접 완료가 확인되었습니다." : "면접 일정이 변경되었습니다.",
+            "COMPLETED".equals(body.get("status")) ? "나의 면접 후기에서 경험을 남겨 주세요." : "지원 상세에서 안내를 확인해 주세요.",
+            "COMPLETED".equals(body.get("status")) ? "INTERVIEW_REVIEW" : "INTERVIEW",
             number(app, "applicationId")
         );
     }
@@ -1134,3 +1139,4 @@ public class EmploymentService {
         return LocalDate.now(ZoneId.of("Asia/Seoul"));
     }
 }
+

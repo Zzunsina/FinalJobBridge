@@ -22,5 +22,6 @@ public class JobExpirationService {
     @Transactional
     public void closeExpiredJobs() {
         db.update("UPDATE job_postings SET status='CLOSED',updated_at=CURRENT_TIMESTAMP WHERE status='PUBLISHED' AND end_date<?", EmploymentService.today());
+        com.employment.ads.AdvertisingLifecycle.refresh(db);
     }
 }

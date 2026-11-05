@@ -2,15 +2,18 @@
 -- Normal application startup does not run SQL initialization.
 
 CREATE TABLE IF NOT EXISTS users (
-    user_id BIGINT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE,
+    user_id BIGINT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL,
         password VARCHAR(100) NOT NULL, name VARCHAR(100) NOT NULL, phone VARCHAR(30) NOT NULL,
         role VARCHAR(20) NOT NULL CHECK (role IN ('JOB_SEEKER','COMPANY','ADMIN')),
         status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','WITHDRAWN')),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     login_id VARCHAR(30) NOT NULL, CONSTRAINT uq_users_login_id UNIQUE(login_id),
-    birth_date DATE NOT NULL, gender VARCHAR(10) NOT NULL CHECK (gender IN ('MALE','FEMALE')),
-    CONSTRAINT uq_users_phone UNIQUE(phone),
+    birth_date DATE, gender VARCHAR(10) CHECK (gender IN ('MALE','FEMALE')),
+    current_email VARCHAR(255) GENERATED ALWAYS AS (CASE WHEN status <> 'WITHDRAWN' THEN LOWER(email) ELSE NULL END),
+    current_phone VARCHAR(30) GENERATED ALWAYS AS (CASE WHEN status <> 'WITHDRAWN' THEN phone ELSE NULL END),
+    CONSTRAINT uq_users_current_email UNIQUE(current_email),
+    CONSTRAINT uq_users_current_phone UNIQUE(current_phone),
     CONSTRAINT chk_users_login_id_required CHECK (CHAR_LENGTH(TRIM(login_id)) > 0),
     CONSTRAINT chk_users_password_required CHECK (CHAR_LENGTH(TRIM(password)) > 0),
     CONSTRAINT chk_users_name_required CHECK (CHAR_LENGTH(TRIM(name)) > 0),
@@ -28,10 +31,13 @@ CREATE TABLE IF NOT EXISTS job_seekers (
 CREATE TABLE IF NOT EXISTS companies (
     company_id BIGINT AUTO_INCREMENT PRIMARY KEY,
         user_id BIGINT NOT NULL UNIQUE, FOREIGN KEY (user_id) REFERENCES users(user_id), company_name VARCHAR(200) NOT NULL,
-        business_number VARCHAR(20) NOT NULL UNIQUE, ceo_name VARCHAR(100), industry VARCHAR(100),
+        business_number VARCHAR(20) NOT NULL, ceo_name VARCHAR(100), industry VARCHAR(100),
         company_size VARCHAR(100), address VARCHAR(255), latitude DECIMAL(10,7), longitude DECIMAL(10,7), website VARCHAR(500), description TEXT,
         approval_status VARCHAR(20) NOT NULL DEFAULT 'PENDING', review_reason TEXT,
         reviewed_by BIGINT, FOREIGN KEY (reviewed_by) REFERENCES users(user_id), reviewed_at TIMESTAMP,
+    registration_closed BOOLEAN NOT NULL DEFAULT FALSE,
+    current_business_number VARCHAR(20) GENERATED ALWAYS AS (CASE WHEN registration_closed=FALSE THEN business_number ELSE NULL END),
+    CONSTRAINT uq_companies_current_business UNIQUE(current_business_number),
     CONSTRAINT chk_company_name_required CHECK (CHAR_LENGTH(TRIM(company_name)) > 0),
     CONSTRAINT chk_business_number_required CHECK (CHAR_LENGTH(TRIM(business_number)) > 0),
     CONSTRAINT chk_company_approval CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'))
@@ -165,6 +171,8 @@ CREATE TABLE IF NOT EXISTS user_signup_consents (
     terms_accepted BOOLEAN NOT NULL,
     privacy_accepted BOOLEAN NOT NULL,
     marketing_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+    recommendations_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+    newsletter_accepted BOOLEAN NOT NULL DEFAULT FALSE,
     recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     CONSTRAINT chk_required_signup_consents CHECK (terms_accepted=TRUE AND privacy_accepted=TRUE)
@@ -331,4 +339,65 @@ CREATE TABLE IF NOT EXISTS account_suspensions (
     lifted_at TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (suspended_by) REFERENCES users(user_id)
+);
+
+CREATE TABLE IF NOT EXISTS interview_attendance_requests (
+ request_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ interview_id BIGINT NOT NULL UNIQUE,
+ requester_user_id BIGINT NOT NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+ message VARCHAR(3000) NOT NULL,
+ evidence_data MEDIUMBLOB, evidence_type VARCHAR(80), evidence_name VARCHAR(200),
+ requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ company_due_at TIMESTAMP NOT NULL,
+ company_reason VARCHAR(3000), company_responded_at TIMESTAMP NULL,
+ escalation_reason VARCHAR(3000), escalated_at TIMESTAMP NULL,
+ admin_reason VARCHAR(3000), reviewed_by BIGINT, reviewed_at TIMESTAMP NULL,
+ FOREIGN KEY(interview_id) REFERENCES interviews(interview_id),
+ FOREIGN KEY(requester_user_id) REFERENCES users(user_id),
+ FOREIGN KEY(reviewed_by) REFERENCES users(user_id),
+ CHECK(status IN ('PENDING','CONFIRMED','DECLINED','ESCALATED','ADMIN_CONFIRMED','ADMIN_DECLINED'))
+);
+CREATE TABLE IF NOT EXISTS interview_reviews (
+ review_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ interview_id BIGINT NOT NULL UNIQUE,
+ author_user_id BIGINT NOT NULL,
+ company_id BIGINT NOT NULL,
+ rating INT NOT NULL, difficulty INT NOT NULL,
+ process VARCHAR(200) NOT NULL, questions TEXT NOT NULL, content TEXT NOT NULL,
+ visibility VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED',
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(interview_id) REFERENCES interviews(interview_id),
+ FOREIGN KEY(author_user_id) REFERENCES users(user_id),
+ FOREIGN KEY(company_id) REFERENCES companies(company_id),
+ CHECK(rating BETWEEN 1 AND 5), CHECK(difficulty BETWEEN 1 AND 5),
+ CHECK(visibility IN ('PUBLISHED','HIDDEN','DELETED'))
+);
+CREATE TABLE IF NOT EXISTS member_reports (
+ report_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ reporter_user_id BIGINT NOT NULL,
+ target_type VARCHAR(20) NOT NULL, target_id BIGINT NOT NULL,
+ target_user_id BIGINT NOT NULL,
+ reason VARCHAR(40) NOT NULL, details TEXT NOT NULL, target_snapshot MEDIUMTEXT NOT NULL,
+ status VARCHAR(20) NOT NULL DEFAULT 'PENDING', resolution VARCHAR(30), resolution_reason TEXT,
+ reviewed_by BIGINT, reviewed_at TIMESTAMP NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(reporter_user_id,target_type,target_id),
+ FOREIGN KEY(reporter_user_id) REFERENCES users(user_id),
+ FOREIGN KEY(target_user_id) REFERENCES users(user_id),
+ FOREIGN KEY(reviewed_by) REFERENCES users(user_id),
+ CHECK(target_type IN ('APPLICANT','REVIEW')), CHECK(status IN ('PENDING','RESOLVED'))
+);
+CREATE TABLE IF NOT EXISTS review_business_holidays (holiday_date DATE PRIMARY KEY);
+
+CREATE TABLE IF NOT EXISTS interview_review_moderation (
+ review_id BIGINT PRIMARY KEY,
+ status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+ revision INT NOT NULL DEFAULT 1,
+ reason VARCHAR(3000), reviewed_by BIGINT, reviewed_at TIMESTAMP NULL,
+ submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(review_id) REFERENCES interview_reviews(review_id),
+ FOREIGN KEY(reviewed_by) REFERENCES users(user_id),
+ CHECK(status IN ('PENDING','APPROVED','REJECTED'))
 );

@@ -137,7 +137,12 @@ public class AdvertisingService {
     );
   }
 
+  @org.springframework.scheduling.annotation.Scheduled(initialDelay=60000,fixedDelay=60000)
+  @Transactional
+  public void refreshInvalidOrders() { AdvertisingLifecycle.refresh(db); }
+
   public List<Map<String, Object>> orders(Long company) {
+    refreshInvalidOrders();
     var rows = db.list(
       "SELECT o.order_id,CASE WHEN EXISTS(SELECT 1 FROM ad_order_simulations sim WHERE sim.order_id=o.order_id) THEN 'SIMULATION' ELSE 'PORTONE' END AS payment_source,o.company_id,c.company_name,o.product_code,o.product_name,o.price,o.vat,o.total_amount,o.duration_days,o.start_date,o.end_date,o.job_id,o.link_type,o.link_url,o.payment_status,o.review_status,o.refund_status,o.refund_reason,o.review_memo,o.created_at,o.updated_at,o.paid_at,o.reviewed_at,o.image_data IS NOT NULL AS has_image FROM ad_orders o JOIN companies c ON c.company_id=o.company_id" +
         (company == null
@@ -277,8 +282,10 @@ public class AdvertisingService {
   }
 
   public Map<String, Object> checkout(long user, String id) {
+    refreshInvalidOrders();
     var c = company(user);
     var o = owned(number(c, "companyId"), id, false);
+    if ("JOB_CLOSED".equals(o.get("reviewStatus"))) throw new Problem(409,"연결 공고가 마감되거나 변경되어 광고 신청이 취소되었습니다. 새 공고로 다시 신청해 주세요.");
     gateway.requireReady();
     if (
       !"APPROVED".equals(o.get("reviewStatus")) ||
@@ -369,6 +376,7 @@ public class AdvertisingService {
           id
         );
       }
+      refreshInvalidOrders();
     } else if (Set.of("CANCELLED", "PARTIAL_CANCELLED").contains(status)) {
       db.update(
         "UPDATE ad_orders SET payment_status=?,refund_status=?,review_status='STOPPED',updated_at=CURRENT_TIMESTAMP WHERE order_id=?",

@@ -8,7 +8,7 @@ function localDate(value) {
 }
 export default function CompanyOnboarding({ record, reload }) {
   return <section className="panel"><h2>최종 합격 · 입사 안내</h2><p>최종 합격 결과가 전달되었습니다. 첫 출근 안내를 등록해 주세요. 사용자가 실제 입사를 확인하면 취업 완료가 됩니다.</p>
-    {record.joinedAt ? <p className="form-success">실제 입사 확인 완료 · {formatDateTime(record.joinedAt)}</p> : <Form key={record.onboardingUpdatedAt || 'new'} initial={{ startAt: localDate(record.startAt), firstDayLocation: record.firstDayLocation || '', preparations: record.preparations || '', contact: record.contact || '', instructions: record.instructions || '' }} fields={[
+    {record.joinedAt ? <p className="form-success">실제 입사 확인 완료 · {formatDateTime(record.joinedAt)}</p> : <Form detectChanges={Boolean(record.onboardingUpdatedAt)} key={record.onboardingUpdatedAt || 'new'} initial={{ startAt: localDate(record.startAt), firstDayLocation: record.firstDayLocation || '', preparations: record.preparations || '', contact: record.contact || '', instructions: record.instructions || '' }} fields={[
       { name: 'startAt', label: '첫 출근 일시 (한국 시간)', type: 'confirmed-datetime', required: true },
       { name: 'firstDayLocation', label: '첫 출근 장소 또는 원격 근무 접속 안내', required: true, maxLength: 500 },
       { name: 'preparations', label: '준비물·제출서류', type: 'textarea', maxLength: 10000 },

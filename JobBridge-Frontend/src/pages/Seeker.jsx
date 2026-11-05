@@ -186,6 +186,48 @@ export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false })
   };
 
   return rows.length ? (
+
+    rows.map((i) => (
+      <div className="callout" key={i.interviewId}>
+        <Badge value={i.status} />
+        <p>
+          {formatDateTime(i.interviewAt)}{' '}
+          (한국 시간)
+        </p>
+        <p>
+          {i.interviewType === 'ONLINE' ? '온라인' : '오프라인'}{i.location ? ` · ${i.location}` : ''}
+        </p>
+        {i.interviewType === 'OFFLINE' && i.location?.trim() && (
+          <LocationMap address={i.location} label="면접 장소 지도" />
+        )}
+        {i.meetingUrl && (
+          <a href={i.meetingUrl} target="_blank" rel="noreferrer">
+            면접 참여 링크 ↗
+          </a>
+        )}
+        {i.result && <p>{i.result}</p>}
+        {i.applicantGuidance && <section aria-label="면접 안내사항">
+          <h3>면접 안내사항</h3>
+          <p className="prose">{i.applicantGuidance}</p>
+        </section>}
+        {showInternalMemo && <section aria-label="기업 내부 메모">
+          <h3>기업 내부 메모 (구직자에게 비공개)</h3>
+          <p className="prose">{i.memo || '등록된 내부 메모가 없습니다.'}</p>
+        </section>}
+        {showInternalMemo && i.status==='SCHEDULED' && Date.parse(i.interviewAt)<=Date.now() && <Action method="patch" url={'/company/interviews/'+i.interviewId+'/status'} body={{status:'COMPLETED'}} onDone={onDelete} confirm="실제로 진행한 면접이 맞나요? 완료 확인 후 지원자가 익명 후기를 작성할 수 있습니다.">면접 완료 확인</Action>}
+        {!showInternalMemo && i.status==='COMPLETED' && <Link className="button secondary" to="/interview-reviews">면접 후기 작성</Link>}
+        {onEdit && i.status === 'SCHEDULED' && (
+          <button type="button" className="secondary" onClick={() => onEdit(i)}>면접 일정 수정</button>
+        )}
+        {onDelete && (
+          <Action method="delete" url={`/company/interviews/${i.interviewId}`} onDone={onDelete}
+            confirm="이 면접 일정을 삭제할까요? 삭제한 일정은 복구할 수 없습니다.">
+            일정 삭제
+          </Action>
+        )}
+      </div>
+    ))
+
     <>
       {rows.map((i) => (
         <div className="callout" key={i.interviewId}>
@@ -283,6 +325,7 @@ export function Interviews({ rows, onDelete, onEdit, showInternalMemo = false })
         </div>
       )}
     </>
+
   ) : (
     <p className="muted">등록된 면접 일정이 없습니다.</p>
   );
@@ -379,20 +422,27 @@ export function Employment() {
 }
 
 export function MyPage() {
+  return <><Title>내 정보</Title><div className="panel narrow"><AccountSettings /></div></>;
+}
+
+export function AccountSettings({ company = false }) {
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const navigate = useNavigate();
 
   return (
     <>
-      <Title>내 정보</Title>
-      <div className="panel narrow">
-        <ProfilePhoto key={user.userId} user={user} />
-        <h2>기본 정보</h2>
+
+        {!company && <ProfilePhoto key={user.userId} user={user} />}
+        <h2>{company ? '계정 정보' : '기본 정보'}</h2>
         <p>아이디: {user.loginId}</p>
         <Form
           initial={user}
           fields={[
+
+            { name: 'name', label: company ? '담당자 이름' : '이름', required: true, maxLength: 100 },
+            { name: 'phone', label: '휴대폰번호', type: 'tel', required: true },
+
             { name: 'name', label: '이름', required: true, maxLength: 100 },
             {
               name: 'email',
@@ -431,6 +481,7 @@ export function MyPage() {
                 />
               ),
             },
+
           ]}
           onSubmit={async (body) => {
             // 서버 전송 시 smsVerificationToken 필드가 불필요하다면 제외하고 전송
@@ -484,7 +535,6 @@ export function MyPage() {
           submit="변경하기"
         />
         <WithdrawAccount />
-      </div>
     </>
   );
 }

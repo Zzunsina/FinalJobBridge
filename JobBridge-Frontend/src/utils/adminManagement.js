@@ -50,6 +50,10 @@ export function filterAdminRows(rows, name, query, status, role = '') {
       Number(b.inquiryId) - Number(a.inquiryId),
     );
   }
+  if (name === 'employment-links') {
+    const order={REQUESTED:0,COUNSELING:1,MATCHING:2,INTERVIEW:3,HIRED:4,EMPLOYED:5,CLOSED:6};
+    return filtered.sort((a,b)=>(order[recordStatus(name,a)]??7)-(order[recordStatus(name,b)]??7)||String(b.requestedAt||'').localeCompare(String(a.requestedAt||''))||Number(b.employmentLinkId)-Number(a.employmentLinkId));
+  }
   if (name !== 'jobs') return filtered;
   const priority = { PENDING: 0, DRAFT: 1, REJECTED: 2, PUBLISHED: 3, CLOSED: 4 };
   return filtered.sort((a, b) =>

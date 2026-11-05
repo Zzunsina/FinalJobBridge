@@ -108,14 +108,21 @@ public class AuthService {
 
     public Map<String, Object> emailAvailability(String value) {
         String email = Input.email(Map.of("email", value), "email");
-        boolean available = db.list("SELECT user_id FROM users WHERE LOWER(email)=?", email).isEmpty();
+        boolean available = db.list("SELECT user_id FROM users WHERE LOWER(email)=? AND status<>'WITHDRAWN'", email).isEmpty();
         return Map.of("available", available, "message", available ? "사용할 수 있는 이메일입니다." : "이미 사용 중인 이메일입니다.");
+    }
+
+    public Map<String,Object> businessNumberAvailability(String value){
+        String business=value.strip();
+        if(!business.matches("[0-9]{10}"))throw new Problem(400,"사업자등록번호는 숫자 10자리로 입력해 주세요.","businessNumber");
+        boolean available=db.list("SELECT c.company_id FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.business_number=? AND u.status<>'WITHDRAWN'",business).isEmpty();
+        return Map.of("available",available,"message",available?"사용할 수 있는 사업자등록번호입니다.":"이미 등록된 사업자등록번호입니다.");
     }
 
     public void requireAvailablePhone(String phone, Long currentUserId) {
         var rows = currentUserId == null
-            ? db.list("SELECT user_id FROM users WHERE phone=?", phone)
-            : db.list("SELECT user_id FROM users WHERE phone=? AND user_id<>?", phone, currentUserId);
+            ? db.list("SELECT user_id FROM users WHERE phone=? AND status<>'WITHDRAWN'", phone)
+            : db.list("SELECT user_id FROM users WHERE phone=? AND user_id<>? AND status<>'WITHDRAWN'", phone, currentUserId);
         if (!rows.isEmpty()) throw new Problem(409, "이미 사용 중인 휴대폰번호입니다. 다른 번호를 입력해 주세요.");
     }
 
@@ -132,10 +139,9 @@ public class AuthService {
         if (!Boolean.TRUE.equals(emailAvailability(email).get("available"))) {
             throw new Problem(409, "이미 사용 중인 이메일입니다.", "email");
         }
-        String birthText = Input.text(body, "birthDate", 8, true);
-        LocalDate birth = Input.birthDate(birthText);
-        String gender = Input.text(body, "gender", 10, true);
-        if (!Set.of("MALE", "FEMALE").contains(gender)) throw new Problem(
+        LocalDate birth = company ? null : Input.birthDate(Input.text(body, "birthDate", 8, true));
+        String gender = company ? null : Input.text(body, "gender", 10, true);
+        if (!company && !Set.of("MALE", "FEMALE").contains(gender)) throw new Problem(
             400,
             "성별을 선택해 주세요."
         );
@@ -148,13 +154,11 @@ public class AuthService {
         if (!Boolean.TRUE.equals(body.get("termsAccepted")) || !Boolean.TRUE.equals(body.get("privacyAccepted"))) {
             throw new Problem(400, "필수 이용약관 및 개인정보 수집·이용에 동의해 주세요.");
         }
-        String agreementVersion = "2026-10-21";
+        String agreementVersion = "2026-11-05";
         if (!agreementVersion.equals(body.get("agreementVersion"))) {
             throw new Problem(409, "약관이 변경되었습니다. 페이지를 새로고침하고 다시 확인해 주세요.");
         }
-        if (body.containsKey("marketingAccepted") && !(body.get("marketingAccepted") instanceof Boolean)) {
-            throw new Problem(400, "광고성 정보 수신 동의 여부를 확인해 주세요.");
-        }
+        for(String consent:List.of("marketingAccepted","recommendationsAccepted","newsletterAccepted"))if(body.containsKey(consent)&&!(body.get(consent) instanceof Boolean))throw new Problem(400,"선택 정보 수신 동의 여부를 확인해 주세요.",consent);
         String smsToken = Input.text(body, "smsVerificationToken", 36, true);
         smsService.requireVerified(phone, smsToken);
         long id = db.insert(
@@ -184,7 +188,8 @@ public class AuthService {
                 400,
                 "사업자번호는 10자리여야 합니다."
             );
-            db.insert(
+            if(!db.list("SELECT c.company_id FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.business_number=? AND u.status<>'WITHDRAWN'",business).isEmpty())throw new Problem(409,"이미 등록된 사업자등록번호입니다.","businessNumber");
+            long companyId=db.insert(
                 "companies",
                 fields(
                     "user_id",
@@ -192,13 +197,21 @@ public class AuthService {
                     "company_name",
                     Input.text(body, "companyName", 200, true),
                     "business_number",
-                    business
+                    business,
+                    "ceo_name", Input.text(body,"ceoName",100,false),
+                    "industry", Input.text(body,"industry",100,false),
+                    "company_size", Input.text(body,"companySize",100,false),
+                    "address", Input.text(body,"address",255,false),
+                    "website", Input.url(body,"website"),
+                    "description", Input.text(body,"description",10000,false)
                 )
             );
+            Object image=body.get("companyImage");
+            if(image!=null&&!"".equals(image))db.update("INSERT INTO company_images(company_id,image_data) VALUES(?,?)",companyId,ProfilePhotoController.normalize(image));
         } else db.insert("job_seekers", fields("user_id", id, "birth_date", birth));
         db.update(
-            "INSERT INTO user_signup_consents(user_id,terms_version,privacy_version,marketing_version,terms_accepted,privacy_accepted,marketing_accepted) VALUES(?,?,?,?,TRUE,TRUE,?)",
-            id, agreementVersion, agreementVersion, agreementVersion, Boolean.TRUE.equals(body.get("marketingAccepted"))
+            "INSERT INTO user_signup_consents(user_id,terms_version,privacy_version,marketing_version,terms_accepted,privacy_accepted,marketing_accepted,recommendations_accepted,newsletter_accepted) VALUES(?,?,?,?,TRUE,TRUE,?,?,?)",
+            id, agreementVersion, agreementVersion, agreementVersion, Boolean.TRUE.equals(body.get("marketingAccepted")), Boolean.TRUE.equals(body.get("recommendationsAccepted")), Boolean.TRUE.equals(body.get("newsletterAccepted"))
         );
         smsService.consumeAfterCommit(smsToken);
         return publicUser(id);
@@ -462,6 +475,7 @@ public class AuthService {
             ? "job_id IN (SELECT job_id FROM job_postings WHERE company_id IN (SELECT company_id FROM companies WHERE user_id=?))"
             : "job_seeker_id IN (SELECT job_seeker_id FROM job_seekers WHERE user_id=?)";
         db.update("UPDATE applications SET status='CANCELED',updated_at=CURRENT_TIMESTAMP WHERE " + ownership + " AND status IN ('APPLIED','UNDER_REVIEW','DOCUMENT_PASSED','INTERVIEW')", userId);
+        if("COMPANY".equals(user.get("role")))db.update("UPDATE companies SET registration_closed=TRUE WHERE user_id=?",userId);
         db.update("UPDATE users SET status='WITHDRAWN',updated_at=CURRENT_TIMESTAMP WHERE user_id=?", userId);
         db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
         db.update("DELETE FROM user_profile_photos WHERE user_id=?", userId);
@@ -506,7 +520,7 @@ public class AuthService {
         String email = Input.email(body, "email");
 
         var user = db.one(
-            "SELECT login_id FROM users WHERE name=? AND email=? AND status='ACTIVE'",
+            "SELECT login_id,status FROM users WHERE name=? AND email=? AND status IN ('ACTIVE','SUSPENDED')",
             name, email
         );
 
@@ -515,7 +529,7 @@ public class AuthService {
         }
 
         Object loginId = user.get("loginId") != null ? user.get("loginId") : user.get("login_id");
-        return Map.of("loginId", loginId);
+        return Map.of("loginId", loginId,"status",user.get("status"));
     }
 
     @Transactional
@@ -524,7 +538,7 @@ public class AuthService {
         String email = Input.email(body, "email");
 
         var user = db.one(
-            "SELECT user_id FROM users WHERE login_id=? AND email=? AND status='ACTIVE'",
+            "SELECT user_id FROM users WHERE login_id=? AND email=? AND status IN ('ACTIVE','SUSPENDED')",
             loginId, email
         );
 
@@ -578,7 +592,7 @@ public class AuthService {
         String tokenHash = hash(token);
 
         var tokenRow = db.one(
-            "SELECT * FROM password_reset_tokens WHERE token_hash=? AND expires_at > CURRENT_TIMESTAMP AND used_at IS NULL",
+            "SELECT * FROM password_reset_tokens WHERE token_hash=? AND expires_at > CURRENT_TIMESTAMP AND used_at IS NULL FOR UPDATE",
             tokenHash
         );
 
@@ -587,6 +601,8 @@ public class AuthService {
         }
 
         long userId = number(tokenRow, "userId");
+        var account=db.one("SELECT status FROM users WHERE user_id=? FOR UPDATE",userId);
+        if(account==null||!Set.of("ACTIVE","SUSPENDED").contains(account.get("status")))throw new Problem(400,"현재 계정 상태에서는 비밀번호를 재설정할 수 없습니다. 고객센터로 문의해 주세요.");
 
         db.update(
             "UPDATE users SET password=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?",

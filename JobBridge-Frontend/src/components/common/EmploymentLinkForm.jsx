@@ -1,3 +1,4 @@
+import { hasFormChanges, NO_CHANGES } from '../../utils/formChanges';
 import { formatDateTime } from "../../utils/dateTime";
 import { useId, useState } from 'react';
 import { useResource } from '../../hooks/useResource';
@@ -32,6 +33,7 @@ function SelectionForm({ record, referral, options, onDone }) {
   async function save(event) {
     event.preventDefault();
     if (busy) return;
+    if (!hasFormChanges(record,values,['status','companyId','jobId','publicMessage','memo'].map(name=>({name})))) { setError(''); setSuccess(NO_CHANGES); return; }
     setBusy(true); setError(''); setSuccess('');
     try {
       await client.patch('/admin/employment-links/' + record.employmentLinkId, { ...values, ...(values.interviewAt ? { interviewAt: values.interviewAt + ':00+09:00' } : {}) });

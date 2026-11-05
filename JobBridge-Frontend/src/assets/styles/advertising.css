@@ -559,3 +559,6 @@
 .ad-save-success{padding:15px 18px;margin:18px 0;border:1px solid #b7dfce;border-radius:10px;background:#effaf4;color:#166747;font-weight:600;font-size:14px}
 
 .ad-availability{min-width:0}.ad-availability select{width:100%}.ad-availability p{margin:9px 0;font-size:13px;line-height:1.6}.ad-space-ok{color:#15765d}.ad-space-full{color:#b94c37}.ad-availability small{display:block;color:#64748b;font-size:12px;line-height:1.6;margin-top:9px}.ad-availability .secondary{font-size:12px;padding:8px 10px}.ad-space-refresh{display:block!important;background:transparent!important;border:0!important;color:#3564b0!important;font-size:12px!important;padding:6px 0!important;margin-top:3px}
+
+.ad-form-grid{align-items:start}.ad-form-grid>label{align-self:start;align-content:start}.ad-form-grid>label>input[readonly]{height:46px;min-height:46px;align-self:start}
+
