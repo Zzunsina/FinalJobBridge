@@ -43,9 +43,6 @@ import CompanyEmployment from './pages/CompanyEmployment';
 import CompanyEmploymentDetail from './pages/CompanyEmploymentDetail';
 import { BookmarkNotice } from './components/common/BookmarkButton';
 
-// 💡 [추가] 앞서 만든 결제 상품 숍 컴포넌트와 결제 성공 페이지 컴포넌트 임포트
-import CompanyProductShop from './components/common/CompanyProductShop';
-import CompanyPaymentSuccess from './components/common/CompanyPaymentSuccess';
 
 const companyLinks = [
   ['/company', '대시보드'],
@@ -57,7 +54,6 @@ const companyLinks = [
 
   ['/company/advertising', '광고·결제'],
 
-  ['/company/payment/shop', '이용권 구매'], // 💡 [추가] 기업회원 메뉴바에 이용권 구매 링크 추가
 
   ['/mypage', '내 정보'],
 ];
@@ -361,10 +357,6 @@ export default function App() {
             <Route path="/company/advertising" element={protectedPage('COMPANY', <CompanyAdvertising />)} />
             <Route path="/admin/advertising" element={protectedPage('ADMIN', <AdminAdvertising />)} />
             <Route path="/company/profile" element={protectedPage('COMPANY', <CompanyProfile />)} />
-
-            {/* 💡 [추가] 기업회원 결제 상품 숍 및 결제 성공 처리 라우트 */}
-            <Route path="/company/payment/shop" element={protectedPage('COMPANY', <CompanyProductShop companyUser={user} />)} />
-            <Route path="/company/payment/success" element={protectedPage('COMPANY', <CompanyPaymentSuccess />)} />
 
             <Route path="/admin" element={protectedPage('ADMIN', <AdminDashboard />)} />
             <Route path="/admin/home-promotions" element={protectedPage('ADMIN', <AdminHomePromotions />)} />

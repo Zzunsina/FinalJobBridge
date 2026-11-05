@@ -4,6 +4,7 @@ dist/
 build/
 data/
 .env
+.env.*
 *.log
 backend.zip
 .tools/

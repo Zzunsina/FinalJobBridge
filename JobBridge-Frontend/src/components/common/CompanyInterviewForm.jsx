@@ -5,7 +5,8 @@ const fields = [
   { name: 'interviewType', label: '면접 방식', options: ['ONLINE', 'OFFLINE'], required: true },
   { name: 'location', label: '면접 장소', type: 'address', maxLength: 255, required: true,
     visibleWhen: (values) => values.interviewType === 'OFFLINE' },
-  { name: 'meetingUrl', label: '온라인 면접 주소', type: 'url', maxLength: 500, required: true,
+  { name: 'meetingUrl', label: '온라인 면접 주소', type: 'text', maxLength: 500, required: true,
+    placeholder: '예: https://zoom.us 또는 www.naver.com',
     visibleWhen: (values) => values.interviewType === 'ONLINE' },
   { name: 'applicantGuidance', label: '면접 안내사항 (지원자에게 공개)', type: 'textarea', maxLength: 2000,
     placeholder: '예: 면접 10분 전 도착해 주세요. 신분증을 지참해 주세요.' },
@@ -28,12 +29,23 @@ export default function CompanyInterviewForm({ interview, onSubmit, onCancel }) 
       <Form
         initial={interview ? { ...interview, interviewAt: koreanDateTime(interview.interviewAt) } : {}}
         fields={fields}
-        onSubmit={(body) => onSubmit({
-          ...body,
-          location: body.interviewType === 'OFFLINE' ? body.location : '',
-          meetingUrl: body.interviewType === 'ONLINE' ? body.meetingUrl : '',
-          interviewAt: body.interviewAt + ':00+09:00',
-        })}
+        onSubmit={(body) => {
+          // 💡 온라인 면접 주소에 프로토콜(http/https)이 없으면 자동으로 https:// 추가
+          let formattedMeetingUrl = body.meetingUrl;
+          if (body.interviewType === 'ONLINE' && formattedMeetingUrl) {
+            const trimmedUrl = formattedMeetingUrl.trim();
+            if (trimmedUrl && !/^https?:\/\//i.test(trimmedUrl)) {
+              formattedMeetingUrl = 'https://' + trimmedUrl;
+            }
+          }
+
+          return onSubmit({
+            ...body,
+            location: body.interviewType === 'OFFLINE' ? body.location : '',
+            meetingUrl: body.interviewType === 'ONLINE' ? formattedMeetingUrl : '',
+            interviewAt: body.interviewAt + ':00+09:00',
+          });
+        }}
         submit={interview ? '면접 변경사항 저장' : '면접 일정 등록'}
         resetOnSuccess={!interview}
         successMessage={interview ? '면접 일정을 수정했습니다.' : '면접 일정이 등록되었습니다.'}
