@@ -126,6 +126,10 @@ export default function App() {
     user?.role === 'ADMIN' ? adminLinks : user?.role === 'COMPANY' ? companyLinks : seekerLinks;
 
   if (!initialized) return <div className="empty">서비스를 준비하는 중입니다…</div>;
+  if (/^\/admin(?:\/|$)/i.test(location.pathname) && !/^\/admin\/login\/?$/i.test(location.pathname)) {
+    if (!user) return <Navigate to="/admin/login" replace />;
+    if (user.role !== 'ADMIN') return <Navigate to="/" replace />;
+  }
 
   return (
     <>

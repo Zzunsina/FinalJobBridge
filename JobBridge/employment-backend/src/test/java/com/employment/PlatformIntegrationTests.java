@@ -331,6 +331,25 @@ class PlatformIntegrationTests {
         var update = fields("status","COUNSELING","companyId",company,"jobId",job,"managerUserId",admin);
         mvc.perform(patch("/api/admin/employment-links/"+link).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isConflict());
         update.put("status","MATCHING");
+        Cookie adminSession = login(admin);
+        String optionsUrl = "/api/admin/employment-link-options";
+        db.update("UPDATE companies SET industry='소프트웨어 개발업' WHERE company_id=?", company);
+        db.update("UPDATE job_postings SET title='회계 담당자 모집' WHERE job_id=?", job);
+        mvc.perform(get(optionsUrl).param("employmentLinkId", Long.toString(link)).cookie(adminSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.companies[*].companyId", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) company))));
+        mvc.perform(patch("/api/admin/employment-links/"+link).cookie(adminSession).with(csrf()).contentType("application/json").content(json.writeValueAsString(update)))
+            .andExpect(status().isBadRequest());
+        db.update("UPDATE job_postings SET title='백엔드 개발 담당자 모집' WHERE job_id=?", job);
+        db.update("UPDATE companies SET industry='자동차 제조업' WHERE company_id=?", company);
+        mvc.perform(get(optionsUrl).param("employmentLinkId", Long.toString(link)).cookie(adminSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.companies[*].companyId", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) company))));
+        db.update("UPDATE companies SET industry='소프트웨어 개발업' WHERE company_id=?", company);
+        mvc.perform(get(optionsUrl).param("employmentLinkId", Long.toString(link)).cookie(adminSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.companies[*].companyId", org.hamcrest.Matchers.hasItem((int) company)))
+            .andExpect(jsonPath("$.jobs[*].jobId", org.hamcrest.Matchers.hasItem((int) job)));
         mvc.perform(patch("/api/admin/employment-links/"+link).cookie(login(admin)).with(csrf()).contentType("application/json").content(json.writeValueAsString(update))).andExpect(status().isOk());
         assertThat(number(referrals.send(link),"referralId")).isPositive();
     }
@@ -401,7 +420,7 @@ class PlatformIntegrationTests {
     }
 
     @Test
-    void scheduleChangeRequestRequiresNewProposalAndOldProposalCannotBeAccepted() {
+    void scheduleChangeRequestRequiresNewProposalAndOldProposalCannotBeAccepted() throws Exception {
         long link=number(service.requestLink(seeker,fields("preferredIndustry","IT","preferredOccupation","개발자")),"employmentLinkId");
         db.update("UPDATE employment_links SET status='MATCHING',company_id=?,job_id=?,manager_user_id=? WHERE employment_link_id=?",company,job,admin,link);
         long referral=number(referrals.send(link),"referralId");
@@ -409,6 +428,13 @@ class PlatformIntegrationTests {
         long first=number(proposals.propose(companyUser,referral,body),"proposalId");
         assertThatThrownBy(() -> proposals.respond(seeker,first,fields("response","CHANGE_REQUESTED"))).isInstanceOf(Problem.class);
         proposals.respond(seeker,first,fields("response","CHANGE_REQUESTED","requests","다음 주 오후로 변경 부탁드립니다."));
+        mvc.perform(get("/api/company/dashboard").cookie(login(companyUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.employmentRequests[0].referralId").value(referral))
+            .andExpect(jsonPath("$.employmentRequests[0].title").value("사용자가 면접 일정 변경을 요청했습니다."));
+        long unrelatedCompany = signup("request" + UUID.randomUUID().toString().substring(0, 8), true);
+        mvc.perform(get("/api/company/dashboard").cookie(login(unrelatedCompany)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.employmentRequests").isEmpty());
         body.put("interviewAt",java.time.OffsetDateTime.now().plusDays(5).toString());
         long second=number(proposals.propose(companyUser,referral,body),"proposalId");
         assertThat(second).isNotEqualTo(first);
@@ -463,12 +489,16 @@ class PlatformIntegrationTests {
     }
 
     @Test
-    void onboardingHelpCreatesInquiryAndNotJoiningStartsRematch() {
+    void onboardingHelpCreatesInquiryAndNotJoiningStartsRematch() throws Exception {
         long referral=hiredReferralForOnboarding();
         long link=number(referrals.companyDetail(companyUser,referral),"employmentLinkId");
         onboarding.userAction(seeker,referral,fields("action","HELP","message","입사 일정 확인이 필요합니다."));
         onboarding.userAction(seeker,referral,fields("action","HELP","message","입사 일정 확인이 필요합니다."));
         assertThat(db.list("SELECT inquiry_id FROM inquiries WHERE user_id=? AND content=?",seeker,"입사 일정 확인이 필요합니다.")).hasSize(1);
+        mvc.perform(get("/api/company/dashboard").cookie(login(companyUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.employmentRequests[0].referralId").value(referral))
+            .andExpect(jsonPath("$.employmentRequests[0].title").value("사용자가 입사 관련 도움을 요청했습니다."));
         assertThatThrownBy(() -> onboarding.userAction(seeker,referral,fields("action","NOT_JOINED","message",""))).isInstanceOf(Problem.class);
         onboarding.userAction(seeker,referral,fields("action","NOT_JOINED","message","개인 사정으로 입사하지 않습니다."));
         assertThat(service.linkDetail(seeker,link)).containsEntry("status","MATCHING").containsEntry("referralStatus","CANCELED");
@@ -1167,6 +1197,34 @@ class PlatformIntegrationTests {
     }
 
     @Test
+    void profileEmailChangeChecksUniquenessAndInvalidatesOldResetLink() throws Exception {
+        var account = auth.publicUser(seeker);
+        var profile = fields("name", account.get("name"), "phone", account.get("phone"));
+        Cookie session = login(seeker);
+        String oldToken = UUID.randomUUID().toString();
+        db.insert("password_reset_tokens", fields("user_id", seeker, "token_hash", AuthService.hash(oldToken),
+            "expires_at", java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(1800))));
+
+        profile.put("email", "invalid-email");
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isBadRequest());
+        profile.put("email", auth.publicUser(other).get("email"));
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isConflict());
+        assertThat(auth.publicUser(seeker).get("email")).isEqualTo(account.get("email"));
+
+        String email = UUID.randomUUID() + "@test.local";
+        profile.put("email", email.toUpperCase(Locale.ROOT));
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isOk())
+            .andExpect(jsonPath("email").value(email));
+        assertThat(auth.publicUser(seeker).get("email")).isEqualTo(email);
+        assertThatThrownBy(() -> auth.resetPassword(fields("token", oldToken, "newPassword", "NewPassword123!")))
+            .isInstanceOf(Problem.class);
+        assertThat(db.list("SELECT token_hash FROM password_reset_tokens WHERE user_id=?", seeker)).isEmpty();
+    }
+
+    @Test
     void phoneUniquenessCoversSignupProfileAndDatabase() throws Exception {
         String taken = auth.publicUser(seeker).get("phone").toString();
         String formatted = taken.substring(0,3) + "-" + taken.substring(3,7) + "-" + taken.substring(7);
@@ -1187,7 +1245,7 @@ class PlatformIntegrationTests {
         mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("name", "번호 검증", "phone", previous))))
             .andExpect(status().isOk());
         String fresh = nextPhone();
-        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("name", "번호 검증", "phone", fresh))))
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("name", "번호 검증", "phone", fresh, "smsVerificationToken", "platform-test-verification"))))
             .andExpect(status().isOk());
         assertThatThrownBy(() -> db.update("UPDATE users SET phone=? WHERE user_id=?", taken, other))
             .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
@@ -1991,6 +2049,20 @@ class PlatformIntegrationTests {
         assertThat(data.get("managers").get(0).has("password")).isFalse();
         assertThat(data.get("companies").toString()).contains("테스트 기업");
         assertThat(data.get("jobs").toString()).contains("companyId").contains("title");
+        Cookie adminSession = login(admin);
+        db.update("UPDATE job_postings SET status='CLOSED' WHERE job_id=?", job);
+        mvc.perform(get("/api/admin/employment-link-options").cookie(adminSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobs[*].jobId", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) job))));
+        var yesterday = EmploymentService.today().minusDays(1);
+        db.update("UPDATE job_postings SET status='PUBLISHED',start_date=?,end_date=? WHERE job_id=?", yesterday, yesterday, job);
+        mvc.perform(get("/api/admin/employment-link-options").cookie(adminSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobs[*].jobId", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) job))));
+        db.update("UPDATE job_postings SET end_date=? WHERE job_id=?", EmploymentService.today(), job);
+        mvc.perform(get("/api/admin/employment-link-options").cookie(adminSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobs[*].jobId", org.hamcrest.Matchers.hasItem((int) job)));
         db.update("UPDATE users SET status='WITHDRAWN' WHERE user_id=?", companyUser);
         var filtered = mvc.perform(get("/api/admin/employment-link-options").cookie(login(admin)))
             .andExpect(status().isOk()).andReturn().getResponse();
@@ -3016,7 +3088,12 @@ class PlatformIntegrationTests {
         assertThat(advertising.orders(company).stream().filter(r->id.equals(r.get("orderId"))).findFirst().orElseThrow().get("displayStatus")).isEqualTo("PAYMENT_PENDING");
         assertThat(advertising.active("SLIDE").stream().filter(r->id.equals(r.get("orderId")))).isEmpty();
         var checkout=advertising.checkout(companyUser,id);assertThat(number(checkout,"totalAmount")).isEqualTo(242000);
-        org.mockito.Mockito.when(portOne.payment(id)).thenReturn(advertisingPayment(id,"PAID",242000));advertising.confirm(companyUser,id);advertising.confirm(companyUser,id);
+        String impUid = "imp_123456789";
+        org.mockito.Mockito.when(portOne.paymentByProviderId(impUid))
+            .thenReturn(advertisingPayment("different-order", "PAID", 242000), advertisingPayment(id, "PAID", 242000));
+        assertThatThrownBy(() -> advertising.confirm(companyUser, id, impUid)).isInstanceOf(Problem.class);
+        assertThat(advertising.confirm(companyUser, id, impUid).get("paymentStatus")).isEqualTo("PAID");
+        org.mockito.Mockito.when(portOne.payment(id)).thenReturn(advertisingPayment(id,"PAID",242000));advertising.confirm(companyUser,id);
         assertThat(advertising.orders(company).stream().filter(r->id.equals(r.get("orderId"))).findFirst().orElseThrow().get("reviewStatus")).isEqualTo("APPROVED");
         assertThat(advertising.active("SLIDE").stream().filter(r->id.equals(r.get("orderId")))).hasSize(1);
         assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND title='광고 결제 완료'",admin)).hasSize(1);

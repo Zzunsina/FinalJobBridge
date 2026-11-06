@@ -158,12 +158,33 @@ public class OperationsController {
             "휴대폰번호를 확인해 주세요."
         );
         auth.requireAvailablePhone(phone, id);
+        var account = db.one("SELECT phone,email FROM users WHERE user_id=? FOR UPDATE", id);
+        String currentEmail = (String) account.get("email");
+        String email = currentEmail;
+        if (body.containsKey("email") && !Objects.equals(body.get("email"), currentEmail)) {
+            email = Input.email(body, "email");
+            if (!email.equalsIgnoreCase(currentEmail) && !Boolean.TRUE.equals(auth.emailAvailability(email).get("available"))) {
+                throw new Problem(409, "이미 사용 중인 이메일입니다.", "email");
+            }
+        }
+        String currentPhone = Objects.toString(account.get("phone"), "").replaceAll("[^0-9]", "");
+        String smsToken = null;
+        if (!phone.equals(currentPhone)) {
+            SmsService.normalize(phone);
+            smsToken = Input.text(body, "smsVerificationToken", 36, false);
+            smsService.requireVerified(phone, smsToken);
+        }
         db.update(
-            "UPDATE users SET name=?,phone=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
+            "UPDATE users SET name=?,phone=?,email=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
             Input.text(body, "name", 100, true),
             phone,
+            email,
             id
         );
+        if (!Objects.equals(currentEmail, email)) {
+            db.update("DELETE FROM password_reset_tokens WHERE user_id=?", id);
+        }
+        if (smsToken != null) smsService.consumeAfterCommit(smsToken);
         return auth.publicUser(id);
     }
 
@@ -308,12 +329,29 @@ public class OperationsController {
     }
 
     @GetMapping("/admin/employment-link-options")
-    Object employmentLinkOptions(HttpServletRequest req) {
+    Object employmentLinkOptions(@RequestParam(required = false) Long employmentLinkId, HttpServletRequest req) {
         admin(req);
+        var link = employmentLinkId == null ? Map.<String, Object>of() : db.one(
+            "SELECT employment_link_id FROM employment_links WHERE employment_link_id=?",
+            employmentLinkId
+        );
+        if (link == null) throw new Problem(404, "취업연계 내역을 찾을 수 없습니다.");
+        var options = employmentMatchOptions(link);
         return fields(
             "managers", db.list("SELECT user_id,name,login_id FROM users WHERE role='ADMIN' AND status='ACTIVE' ORDER BY name,user_id"),
-            "companies", db.list("SELECT c.company_id,c.company_name,c.business_number FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_name,c.company_id"),
-            "jobs", db.list(
+            "companies", options.companies(),
+            "jobs", options.jobs()
+        );
+    }
+
+    private record EmploymentMatchOptions(List<Map<String, Object>> companies, List<Map<String, Object>> jobs) {}
+
+    private EmploymentMatchOptions employmentMatchOptions(Map<String, Object> link) {
+        if (link.containsKey("employmentLinkId")) service.decorateEmploymentPreferences(link);
+        var companies = db.list(
+            "SELECT c.company_id,c.company_name,c.business_number,c.industry FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_name,c.company_id"
+        );
+        var jobs = db.list(
                 """
                 SELECT
                     j.job_id,
@@ -329,11 +367,27 @@ public class OperationsController {
                 WHERE c.approval_status = 'APPROVED'
                   AND u.status = 'ACTIVE'
                   AND j.status = 'PUBLISHED'
-                  AND j.end_date >= CURRENT_DATE
+                  AND j.end_date >= ?
                 ORDER BY j.title, j.job_id
-                """
-            )
+                """,
+                EmploymentService.today()
         );
+        Object industry = link.get("preferredIndustry");
+        Object occupation = link.get("preferredOccupation");
+        var matchingJobs = jobs.stream()
+            .filter(job -> EmploymentMatch.occupationMatches(occupation, job.get("title")))
+            .toList();
+        var companiesWithMatchingJobs = new HashSet<>();
+        matchingJobs.forEach(job -> companiesWithMatchingJobs.add(job.get("companyId")));
+        var matchingCompanies = companies.stream()
+            .filter(company -> EmploymentMatch.industryMatches(industry, company.get("industry")))
+            .filter(company -> companiesWithMatchingJobs.contains(company.get("companyId"))
+                || EmploymentMatch.occupationMatches(occupation, company.get("industry")))
+            .toList();
+        var companyIds = new HashSet<>();
+        matchingCompanies.forEach(company -> companyIds.add(company.get("companyId")));
+        return new EmploymentMatchOptions(matchingCompanies, matchingJobs.stream()
+            .filter(job -> companyIds.contains(job.get("companyId"))).toList());
     }
 
     private static final Map<String, String> ADMIN_TABLES = Map.of(
@@ -664,6 +718,18 @@ public class OperationsController {
         Long manager = nullableId(body, "managerUserId");
         Long company = nullableId(body, "companyId");
         Long job = nullableId(body, "jobId");
+        boolean companyChanged = !Objects.equals(company, nullableId(link, "companyId"));
+        boolean jobChanged = !Objects.equals(job, nullableId(link, "jobId"));
+        if (company != null && (companyChanged || (job != null && jobChanged))) {
+            var options = employmentMatchOptions(link);
+            if (options.companies().stream().noneMatch(row -> number(row, "companyId") == company)) {
+                throw new Problem(400, "신청자의 희망 업종과 선호 직무에 맞는 기업을 선택해 주세요.");
+            }
+            if (job != null && options.jobs().stream().noneMatch(row ->
+                number(row, "jobId") == job && number(row, "companyId") == company)) {
+                throw new Problem(400, "마감되지 않은 해당 기업의 공고 중 선호 직무에 맞는 공고를 선택해 주세요.");
+            }
+        }
         if (manager != null) db.one(
             "SELECT user_id FROM users WHERE user_id=? AND role='ADMIN' AND status='ACTIVE'",
             manager

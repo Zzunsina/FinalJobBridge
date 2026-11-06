@@ -273,6 +273,36 @@ public class EmploymentReferrals {
         ensureReady();
         return db.list("SELECT r.referral_id,r.employment_link_id,e.status,r.review_status,r.sent_at AS requested_at,u.name AS applicant_name,m.name AS manager_name,j.title AS job_title,r.job_id FROM employment_referrals r JOIN companies c ON c.company_id=r.company_id JOIN employment_links e ON e.employment_link_id=r.employment_link_id JOIN job_seekers s ON s.job_seeker_id=e.job_seeker_id JOIN users u ON u.user_id=s.user_id LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN job_postings j ON j.job_id=r.job_id WHERE c.user_id=? ORDER BY r.referral_id DESC",user);
     }
+
+    public List<Map<String, Object>> companyRequestActivity(long user, long company) {
+        try {
+            return db.list("""
+                SELECT n.notification_id, n.title, n.created_at, r.referral_id,
+                       applicant.name AS applicant_name, j.title AS job_title
+                FROM notifications n
+                JOIN employment_referrals r ON r.referral_id = (
+                    SELECT MAX(previous.referral_id) FROM employment_referrals previous
+                    WHERE previous.employment_link_id = n.related_id
+                      AND previous.company_id = ?
+                      AND previous.sent_at <= n.created_at
+                )
+                JOIN employment_links e ON e.employment_link_id = r.employment_link_id
+                JOIN job_seekers s ON s.job_seeker_id = e.job_seeker_id
+                JOIN users applicant ON applicant.user_id = s.user_id
+                LEFT JOIN job_postings j ON j.job_id = r.job_id
+                WHERE n.user_id = ? AND n.notification_type = 'EMPLOYMENT'
+                  AND n.title IN (?, ?, ?, ?)
+                ORDER BY n.created_at DESC, n.notification_id DESC
+                LIMIT 5
+                """, company, user, EmploymentInterviewProposals.CHANGE_REQUEST_NOTICE,
+                EmploymentInterviewProposals.DECLINED_NOTICE, EmploymentOnboarding.HELP_NOTICE,
+                EmploymentOnboarding.NOT_JOINED_NOTICE);
+        } catch (org.springframework.jdbc.BadSqlGrammarException ex) {
+            if (missingReferralTable(ex)) return List.of();
+            throw ex;
+        }
+    }
+
     public Map<String,Object> companyDetail(long user,long id) {
         ensureReady();
         var r = one("SELECT r.*,e.status,m.name AS manager_name,j.title AS job_title FROM employment_referrals r JOIN companies c ON c.company_id=r.company_id JOIN employment_links e ON e.employment_link_id=r.employment_link_id LEFT JOIN users m ON m.user_id=e.manager_user_id LEFT JOIN job_postings j ON j.job_id=r.job_id WHERE r.referral_id=? AND c.user_id=?",id,user);

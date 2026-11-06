@@ -15,10 +15,6 @@ kakao:
   client-secret: ${KAKAO_SECRET_KEY:${KAKAO_CLIENTSECRET:}}
   redirect-uri: ${KAKAO_REDIRECT_URI:${KAKAO_REDIRECTURI:}}
 
-toss:
-  secret-key: ${TOSS_SECRET_KEY:}
-  client-key: ${TOSS_CLIENT_KEY:}
-
 spring:
   datasource:
     url: ${DB_URL}

@@ -125,6 +125,7 @@ export default function CompanyAdvertising() {
   const resource = useResource('/company/advertising', { refreshInterval: 15000 });
   const [params, setParams] = useSearchParams();
   const payment = params.get('merchant_uid'),
+    impUid = params.get('imp_uid'),
     code = params.get('error_code');
   const handled = useRef('');
   const [notice, setNotice] = useState('');
@@ -137,7 +138,7 @@ export default function CompanyAdvertising() {
       return;
     }
     client
-      .post('/company/ad-orders/' + encodeURIComponent(payment) + '/confirm')
+      .post('/company/ad-orders/' + encodeURIComponent(payment) + '/confirm', { impUid })
       .then(({ data }) =>
         setNotice(
           data.paymentStatus === 'PAID'
@@ -150,7 +151,7 @@ export default function CompanyAdvertising() {
         resource.reload();
         setParams({}, { replace: true });
       });
-  }, [payment, code, resource, setParams]);
+  }, [payment, impUid, code, resource, setParams]);
   return (
     <div className="advertising-page">
       <Title
@@ -183,9 +184,10 @@ function CompanyAdContent({ data, reload, setNotice }) {
   const availability=useAdAvailability(selected?.productCode||code,jobId);
   const spaceAvailable=!!availability.data?.days.find(d=>d.startDate===start)?.available;
   async function pay(checkout) {
-    await requestPortOneV1(checkout, window.location.origin + '/company/advertising');
+    const response = await requestPortOneV1(checkout, window.location.origin + '/company/advertising');
     const result = await client.post(
       '/company/ad-orders/' + encodeURIComponent(checkout.paymentId) + '/confirm',
+      { impUid: response.imp_uid },
     );
     if (result.data.paymentStatus !== 'PAID')
       throw new Error('결제 승인이 아직 확인되지 않았습니다. 내역에서 결제 확인을 눌러 주세요.');
@@ -227,13 +229,13 @@ function CompanyAdContent({ data, reload, setNotice }) {
         );
         await pay(checkout);
       } else {
-        await client.post('/company/ad-orders/' + order.orderId + '/' + action, body);
+        const { data: result } = await client.post('/company/ad-orders/' + order.orderId + '/' + action, body);
         setNotice(
           action === 'refund-request'
             ? '환불 요청이 접수되었습니다.'
             : action === 'withdraw'
               ? '광고 신청을 철회했습니다.'
-              : '결제 상태를 확인했습니다.',
+              : '결제 상태: ' + (labels[result.paymentStatus] || result.paymentStatus),
         );
       }
     } catch (e) {
@@ -398,6 +400,22 @@ function CompanyAdContent({ data, reload, setNotice }) {
                 <button className="secondary" disabled={busy} onClick={() => action(o, 'confirm')}>
                   결제 확인
                 </button>
+              )}
+              {['READY', 'FAILED'].includes(o.paymentStatus) && o.reviewStatus === 'APPROVED' && (
+                <details>
+                  <summary>포트원 거래번호로 결제 확인</summary>
+                  <form onSubmit={(event) => {
+                    event.preventDefault();
+                    const impUid = new FormData(event.currentTarget).get('impUid').trim();
+                    action(o, 'confirm', { impUid });
+                  }}>
+                    <label>
+                      포트원 거래번호
+                      <input name="impUid" placeholder="imp_로 시작하는 번호" maxLength={68} required />
+                    </label>
+                    <button className="secondary" disabled={busy}>승인 건 확인</button>
+                  </form>
+                </details>
               )}
               {['READY', 'FAILED'].includes(o.paymentStatus) && o.reviewStatus === 'APPROVED' && (
                 <button

@@ -17,13 +17,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    "kakao.client-id=test-client",
+    "kakao.client-secret=test-secret",
+    "kakao.redirect-uri=http://localhost/test-kakao"
+})
 @AutoConfigureMockMvc
 class SmsSignupIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired SmsService sms;
     @MockitoBean SmsGateway gateway;
+    @MockitoBean org.springframework.mail.javamail.JavaMailSender mailSender;
     final AtomicReference<String> code = new AtomicReference<>();
     @BeforeEach void captureSms() {
         doAnswer(call -> { code.set(call.getArgument(1)); return null; }).when(gateway).send(anyString(), anyString());
@@ -33,7 +38,7 @@ class SmsSignupIntegrationTests {
         var body=fields("loginId", "sms"+UUID.randomUUID().toString().replace("-", "").substring(0,12),
             "password", "TestPassword123!", "name", "문자 인증 테스트", "email", UUID.randomUUID()+"@test.local",
             "phone", phone, "birthDate", "20000123", "gender", "FEMALE",
-            "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-10-21",
+            "termsAccepted", true, "privacyAccepted", true, "agreementVersion", "2026-11-05",
             "companyName", "인증 테스트 기업", "businessNumber", "bad");
         mvc.perform(post("/api/auth/signup/company").with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
             .andExpect(status().isBadRequest());
@@ -57,5 +62,32 @@ class SmsSignupIntegrationTests {
         assertThatThrownBy(() -> sms.requireVerified(phone,token)).isInstanceOf(com.employment.global.common.Problem.class);
         mvc.perform(post("/api/auth/sms/send").with(csrf()).contentType("application/json").content(json.writeValueAsString(fields("phone",phone))))
             .andExpect(status().isConflict());
+
+        var session = mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(fields("loginId", body.get("loginId"), "password", body.get("password"), "memberType", "COMPANY"))))
+            .andExpect(status().isOk()).andReturn().getResponse().getCookies();
+        var profile = fields("name", "수정한 이름", "phone", phone);
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isOk());
+
+        String newPhone = "01087654323";
+        profile.put("phone", newPhone);
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isBadRequest())
+            .andExpect(jsonPath("fieldErrors[0].field").value("phone"));
+
+        var challenge = sms.sendCode(newPhone, "profile-test");
+        String profileToken = sms.verifyCode(newPhone, challenge.get("challengeId").toString(), code.get())
+            .get("verificationToken").toString();
+        profile.put("smsVerificationToken", profileToken);
+        profile.put("phone", "01087654324");
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isBadRequest());
+        profile.put("phone", newPhone);
+        mvc.perform(patch("/api/me").cookie(session).with(csrf()).contentType("application/json")
+            .content(json.writeValueAsString(profile))).andExpect(status().isOk())
+            .andExpect(jsonPath("phone").value(newPhone));
+        assertThatThrownBy(() -> sms.requireVerified(newPhone, profileToken))
+            .isInstanceOf(com.employment.global.common.Problem.class);
     }
 }

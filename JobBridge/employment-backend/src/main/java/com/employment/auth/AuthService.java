@@ -538,7 +538,7 @@ public class AuthService {
         String email = Input.email(body, "email");
 
         var user = db.one(
-            "SELECT user_id FROM users WHERE login_id=? AND email=? AND status IN ('ACTIVE','SUSPENDED')",
+            "SELECT user_id FROM users WHERE login_id=? AND email=? AND status IN ('ACTIVE','SUSPENDED') FOR UPDATE",
             loginId, email
         );
 
@@ -592,7 +592,7 @@ public class AuthService {
         String tokenHash = hash(token);
 
         var tokenRow = db.one(
-            "SELECT * FROM password_reset_tokens WHERE token_hash=? AND expires_at > CURRENT_TIMESTAMP AND used_at IS NULL FOR UPDATE",
+            "SELECT user_id FROM password_reset_tokens WHERE token_hash=?",
             tokenHash
         );
 
@@ -603,6 +603,9 @@ public class AuthService {
         long userId = number(tokenRow, "userId");
         var account=db.one("SELECT status FROM users WHERE user_id=? FOR UPDATE",userId);
         if(account==null||!Set.of("ACTIVE","SUSPENDED").contains(account.get("status")))throw new Problem(400,"현재 계정 상태에서는 비밀번호를 재설정할 수 없습니다. 고객센터로 문의해 주세요.");
+        if (db.one("SELECT user_id FROM password_reset_tokens WHERE token_hash=? AND expires_at > CURRENT_TIMESTAMP AND used_at IS NULL FOR UPDATE", tokenHash) == null) {
+            throw new Problem(400, "유효하지 않거나 만료된 비밀번호 재설정 링크입니다.");
+        }
 
         db.update(
             "UPDATE users SET password=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?",

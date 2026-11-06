@@ -88,6 +88,9 @@ export default function TieredJobAds() {
                 {tier.style === 'premium' ? '◇' : tier.style === 'standard' ? '▱' : '□'}
               </span>
               <h3>{tier.name}</h3>
+              {rows.length > 1 && !resource.error && (
+                <span className="tier-ad-swipe-hint">옆으로 밀어 더 보기 →</span>
+              )}
             </div>
             {resource.error ? (
               <p className="tier-ad-empty">

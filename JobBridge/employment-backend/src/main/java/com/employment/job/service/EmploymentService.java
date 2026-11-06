@@ -1205,8 +1205,10 @@ public class EmploymentService {
     public Map<String,Object> companyOverview(long user) {
         var profile = companyProfile(user);
         var result = fields("profile",profile,"jobs",0,"applications",0,"publishedJobs",0,"pendingJobs",0,"closingJobs",0,"newApplicants",0,"unreviewedApplicants",0,"interviewCount",0,"profileCompletion",0,"activeJobs",List.of(),"upcomingInterviews",List.of());
+        result.put("employmentRequests", List.of());
         if (Boolean.TRUE.equals(profile.get("profileMissing"))) return result;
         long owner = number(profile,"companyId");
+        result.put("employmentRequests", referrals.companyRequestActivity(user, owner));
         result.putAll(db.one("SELECT COUNT(*) AS jobs,COUNT(CASE WHEN status='PUBLISHED' AND end_date>=? THEN 1 END) AS published_jobs,COUNT(CASE WHEN status='PENDING' THEN 1 END) AS pending_jobs,COUNT(CASE WHEN status='PUBLISHED' AND end_date>=? AND end_date<=? THEN 1 END) AS closing_jobs FROM job_postings WHERE company_id=?",today(),today(),today().plusDays(7),owner));
         result.putAll(db.one("SELECT COUNT(*) AS applications,COUNT(CASE WHEN a.applied_at>=? AND a.status<>'CANCELED' THEN 1 END) AS new_applicants,COUNT(CASE WHEN a.status='APPLIED' THEN 1 END) AS unreviewed_applicants FROM applications a JOIN job_postings j ON j.job_id=a.job_id WHERE j.company_id=?",Timestamp.from(Instant.now().minus(Duration.ofDays(7))),owner));
         var interviews = companyInterviews(user);

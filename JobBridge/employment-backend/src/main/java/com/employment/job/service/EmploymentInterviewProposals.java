@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class EmploymentInterviewProposals {
+    static final String CHANGE_REQUEST_NOTICE = "사용자가 면접 일정 변경을 요청했습니다.";
+    static final String DECLINED_NOTICE = "사용자가 면접 참여 어려움을 전달했습니다.";
     private final Database db;
     public EmploymentInterviewProposals(Database db) { this.db=db; }
     private Map<String,Object> one(String sql,Object...args) {
@@ -92,7 +94,7 @@ public class EmploymentInterviewProposals {
             if(response.equals("DECLINED")) db.update("UPDATE employment_referrals SET review_status='CANCELED' WHERE referral_id=?",r.get("referralId"));
             db.update("UPDATE employment_links SET status='MATCHING' WHERE employment_link_id=?",link.get("employmentLinkId"));
         }
-        String title=response.equals("ACCEPTED") ? "사용자가 면접 제안을 수락해 일정이 확정되었습니다." : response.equals("CHANGE_REQUESTED") ? "사용자가 면접 일정 변경을 요청했습니다." : "사용자가 면접 참여 어려움을 전달했습니다.";
+        String title=response.equals("ACCEPTED") ? "사용자가 면접 제안을 수락해 일정이 확정되었습니다." : response.equals("CHANGE_REQUESTED") ? CHANGE_REQUEST_NOTICE : DECLINED_NOTICE;
         notify(number(one("SELECT user_id FROM companies WHERE company_id=?",r.get("companyId")),"userId"),number(link,"employmentLinkId"),title,"취업연계 상세에서 응답을 확인해 주세요.");
         notifyManagers(link,title);
         notify(user,number(link,"employmentLinkId"),title,"취업연계 상세에서 현재 진행 상황을 확인해 주세요.");

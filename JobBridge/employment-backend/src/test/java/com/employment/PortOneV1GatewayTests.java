@@ -26,7 +26,7 @@ class PortOneV1GatewayTests {
     if(!"test-access-token".equals(exchange.getRequestHeaders().getFirst("Authorization")))errors.add("wrong auth header");
     if(path.equals("/payments/cancel")){
      var body=json.readTree(exchange.getRequestBody());if(!body.path("imp_uid").asText().equals("imp_123456789")||body.path("checksum").asInt()!=242000||body.path("amount").asInt()!=242000)errors.add("wrong cancellation");cancelled.set(true);
-    }else if(!path.equals("/payments/find/jb-ad-test"))errors.add("wrong lookup path");
+    }else if(!path.equals("/payments/find/jb-ad-test")&&!path.equals("/payments/imp_123456789"))errors.add("wrong lookup path");
     payload="{\"code\":0,\"response\":"+raw(cancelled.get()?"cancelled":"paid",cancelled.get()?242000:0)+"}";
    }
    byte[] bytes=payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);
@@ -34,6 +34,7 @@ class PortOneV1GatewayTests {
   server.start();try{
    var gateway=new PortOneGateway(json,"imp12345678","channel-test","test-api-key","test-api-secret",URI.create("http://127.0.0.1:"+server.getAddress().getPort()),HttpClient.newHttpClient());
    var paid=gateway.payment("jb-ad-test");gateway.validate(paid,"jb-ad-test",242000);assertThat(paid.path("status").asText()).isEqualTo("PAID");
+   var direct=gateway.paymentByProviderId("imp_123456789");gateway.validate(direct,"jb-ad-test",242000);assertThat(direct).isEqualTo(paid);
    gateway.cancel("jb-ad-test","전액 취소",242000);assertThat(gateway.payment("jb-ad-test").path("status").asText()).isEqualTo("CANCELLED");assertThat(tokenCalls).hasValue(1);assertThat(errors).isEmpty();assertThat(gateway.configuration()).doesNotContainKeys("apiKey","secret","apiSecret");
   }finally{server.stop(0);}
  }
