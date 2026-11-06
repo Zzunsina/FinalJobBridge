@@ -539,15 +539,14 @@ function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기' })
             <th>관리</th>
           </tr>
         </thead>
-        <tbody>
           {orders.map((o) => (
-            <tr key={o.orderId}>
+            <tbody key={o.orderId} className="ad-order-group"><tr>
               {onSelect && <td>{o.companyName}</td>}
               <td>
                 <strong>{o.productName}</strong>
                 {o.paymentSource === 'SIMULATION' && <small>시연 결제</small>}
                 <small>{o.orderId}</small>
-                {o.reviewMemo && <small>검토 의견: {o.reviewMemo}</small>}
+                
               </td>
               <td>
                 {o.startDate}
@@ -581,9 +580,8 @@ function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기' })
                   )}
                 </div>
               </td>
-            </tr>
+            </tr>{o.reviewMemo && <tr className="ad-order-memo-row"><td colSpan={onSelect ? 6 : 5}><span>검토 의견</span>{o.reviewMemo}</td></tr>}</tbody>
           ))}
-        </tbody>
       </table>
     </div>
   ) : (

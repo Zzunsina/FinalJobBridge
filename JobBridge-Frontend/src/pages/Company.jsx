@@ -165,6 +165,19 @@ const jobFields = [
   },
   { name: 'startDate', label: '접수 시작일', type: 'date', required: true },
   { name: 'endDate', label: '접수 마감일', type: 'date', required: true },
+
+ { name: 'description', label: '상세 설명', type: 'textarea', required: true },
+ { name: 'detailImageUrl', label: '상세 소개 이미지', render: ({ id, values, setValues }) => <NoticeImageInput id={id} value={values.detailImageUrl || ''} onChange={(value) => setValues(old => ({ ...old, detailImageUrl: value }))} maxFileSizeMB={4} acceptedTypes={['image/jpeg', 'image/png']} helpText="채용 안내 포스터 1장 · JPG·PNG 최대 4MB · 공고 저장 시 함께 반영됩니다." previewAlt="상세 소개 이미지 미리보기" removeLabel="상세 소개 이미지 삭제" /> },
+
+{
+  name: 'bannerImageUrl',
+  label: '기업 홍보 배너 이미지',
+  type: 'notice-image',
+  previewUrl: '',
+},
+
+{ name: 'requirements', label: '자격요건', type: 'textarea' },
+
   { name: 'description', label: '상세 설명', type: 'textarea', required: true },
   {
     name: 'bannerImageUrl',
@@ -194,6 +207,7 @@ const jobFields = [
     ),
   },
   { name: 'requirements', label: '자격요건', type: 'textarea' },
+
   { name: 'preferredQualifications', label: '우대사항', type: 'textarea' },
 ];
 

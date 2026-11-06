@@ -1,3 +1,5 @@
+import { useRouteScroll } from './hooks/useRouteScroll';
+import { SpellingTool, SalaryTool } from './pages/CareerTools';
 import { MyInterviewReviews, CompanyReviewCenter, AdminReviewReports } from './pages/ReviewFeatures';
 
 import CompanyAdvertising, { AdminAdvertising } from './pages/Advertising';
@@ -100,9 +102,7 @@ export default function App() {
     initialize();
   }, [initialize]);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+  useRouteScroll();
 
   // 카카오 로그인 성공 시 URL 파라미터(?login=kakao) 감지 로직
   useEffect(() => {
@@ -323,6 +323,8 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/tools/spelling" element={<SpellingTool />} />
+            <Route path="/tools/salary" element={<SalaryTool />} />
             <Route path="/companies" element={<Companies />} />
             <Route path="/companies/:id" element={<CompanyDetail />} />
             <Route path="/notices" element={<Notices />} />

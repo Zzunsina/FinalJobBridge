@@ -1,3 +1,4 @@
+import { CareerUtilityLinks } from './CareerTools';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import client, { message } from '../api/client';
@@ -7,9 +8,10 @@ import { formatDateTime } from '../utils/dateTime';
 import '../assets/styles/career-assessment.css';
 
 export function CareerTestCard() {
-  return <aside className="career-home-card career-home-tools" aria-label="취업 준비 도구"><p className="career-card-eyebrow">JOBBRIDGE CAREER LAB</p><h2>오늘의 취업 준비</h2>
+  return <aside className="career-home-card career-home-tools has-career-utilities" aria-label="취업 준비 도구"><p className="career-card-eyebrow">JOBBRIDGE CAREER LAB</p><h2>오늘의 취업 준비</h2>
     <Link className="career-tool-card aptitude" to="/career-test"><span className="career-tool-label">인적성검사</span><strong>취업 준비 UP</strong><small>인성 · 적성 연습 · 적성 실전</small><span className="career-tool-action">무료 검사 시작</span></Link>
     <Link className="career-tool-card exploration" to="/career-exploration"><span className="career-tool-label">진로 탐색 검사</span><strong>내 진로 찾기</strong><small>흥미·가치관 36문항</small><span className="career-tool-action">무료로 탐색하기</span></Link>
+    <CareerUtilityLinks />
     <div className="career-card-links"><Link to="/career-test#history">내 인적성 결과</Link><Link to="/career-exploration#history">내 진로 탐색 결과</Link></div><p className="career-card-note">잡브릿지 자체 취업 준비용 예시 검사</p>
   </aside>;
 }
