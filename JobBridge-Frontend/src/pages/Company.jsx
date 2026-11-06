@@ -283,12 +283,11 @@ function ApplicantDetailContent({ id }) {
 
   const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
   const transitions = {
-  // ... 이전 필드들 ...
-  APPLIED: ['UNDER_REVIEW', 'REJECTED'],
-  UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'], // 288 라인
-  DOCUMENT_PASSED: ['INTERVIEW', 'REJECTED'], // 289 라인
-  INTERVIEW: ['FINAL_PASSED', 'REJECTED'], // 290 라인
-};
+    APPLIED: ['UNDER_REVIEW', 'REJECTED'],
+    UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'],
+    DOCUMENT_PASSED: ['INTERVIEW', 'REJECTED'],
+    INTERVIEW: ['FINAL_PASSED', 'REJECTED'],
+  };
   return (
     <Resource resource={resource}>
       {(a) => (
@@ -328,6 +327,15 @@ function ApplicantDetailContent({ id }) {
             {interviewMessage && <p className="form-success" role="status">{interviewMessage}</p>}
             <Interviews rows={a.interviews} onDelete={resource.reload} showInternalMemo
               onEdit={a.status === 'INTERVIEW' ? (interview) => {
+                // 💡 당일 면접 수정 불가 로직
+                const interviewDate = interview.interviewAt?.slice(0, 10);
+                const today = koreanToday();
+
+                if (interviewDate === today) {
+                  window.alert('당일 면접 일정은 수정할 수 없습니다. 담당자에게 직접 연락해 주세요.');
+                  return;
+                }
+
                 setInterviewMessage('');
                 setEditingInterview(interview);
               } : undefined} />
@@ -432,4 +440,3 @@ export function CompanyProfile() {
     </>
   );
 }
-

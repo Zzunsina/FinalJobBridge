@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useResource } from '../../hooks/useResource';
+import { useAuth } from '../../stores/auth';
 
 const placementText = {
   SLIDE: '대형 이미지 카드 · 한 줄 3개',
@@ -13,6 +14,7 @@ export default function ProductGuidePopover() {
   const root = useRef(null);
   const trigger = useRef(null);
   const resource = useResource('/ads/products');
+  const user = useAuth((s) => s.user);
 
   useEffect(() => {
     if (!open) return;
@@ -36,6 +38,11 @@ export default function ProductGuidePopover() {
       document.removeEventListener('keydown', key);
     };
   }, [open]);
+
+  // 구직자(JOB_SEEKER)이거나 로그인하지 않은 경우 버튼을 숨김
+  if (!user || user.role === 'JOB_SEEKER') {
+    return null;
+  }
 
   return (
     <div className="tier-product-guide" ref={root}>
