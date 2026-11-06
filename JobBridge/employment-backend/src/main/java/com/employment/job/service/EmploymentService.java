@@ -38,8 +38,23 @@ public class EmploymentService {
     }
 
     @jakarta.annotation.PostConstruct
-    public void initializeJobDetailImages(){jdbc.execute("CREATE TABLE IF NOT EXISTS job_detail_images (job_id BIGINT PRIMARY KEY, image_data MEDIUMTEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES job_postings(job_id) ON DELETE CASCADE)");}
-    private String detailImage(long job){var row=db.one("SELECT image_data FROM job_detail_images WHERE job_id=?",job);return row==null?"":Objects.toString(row.get("imageData"),"");}
+    public void initializeJobDetailImages() {
+        jdbc.execute("CREATE TABLE IF NOT EXISTS job_detail_images (job_id BIGINT PRIMARY KEY, image_data MEDIUMTEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES job_postings(job_id) ON DELETE CASCADE)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS job_detail_image_items (item_id BIGINT AUTO_INCREMENT PRIMARY KEY, job_id BIGINT NOT NULL, sort_order INT NOT NULL, image_data MEDIUMTEXT NOT NULL, FOREIGN KEY(job_id) REFERENCES job_postings(job_id) ON DELETE CASCADE)");
+    }
+    private String detailImage(long job) {
+        var row = db.one("SELECT image_data FROM job_detail_images WHERE job_id=?", job);
+        return row == null ? "" : Objects.toString(row.get("imageData"), "");
+    }
+
+    private List<String> detailImages(long job) {
+        var rows = db.list("SELECT image_data FROM job_detail_image_items WHERE job_id=? ORDER BY sort_order, item_id", job);
+        if (!rows.isEmpty()) {
+            return rows.stream().map(r -> Objects.toString(r.get("imageData"), "")).filter(s -> !s.isBlank()).toList();
+        }
+        String legacy = detailImage(job);
+        return legacy.isBlank() ? List.of() : List.of(legacy);
+    }
 
     public Map<String, Object> jobs(
         String q,
@@ -120,8 +135,9 @@ public class EmploymentService {
             id
         );
         if(row==null)throw new Problem(404,"공고를 찾을 수 없습니다.");
-        sanitizeJob(row);
-        row.put("detailImageUrl",detailImage(id));
+        List<String> images = detailImages(id);
+        row.put("detailImageUrls", images);
+        row.put("detailImageUrl", images.isEmpty() ? "" : images.get(0));
         row.put(
             "accepting",
             row.get("status").equals("PUBLISHED") &&
@@ -606,8 +622,9 @@ public class EmploymentService {
             id,
             number(company(user, approved), "companyId")
         );
-        row.put("detailImageUrl",detailImage(id));
-        row.put("assessmentMinScore", assessments.minimum(id));
+        List<String> images = detailImages(id);
+        row.put("detailImageUrls", images);
+        row.put("detailImageUrl", images.isEmpty() ? "" : images.get(0));
         return row;
     }
 
@@ -651,8 +668,23 @@ public class EmploymentService {
         Map<String, Object> body
     ) {
         long company = number(company(user, false), "companyId");
-        String detail=null;
-        if(body.containsKey("detailImageUrl")){try{detail=BannerImageValue.validate(fields("bannerImageUrl",body.get("detailImageUrl")));}catch(Problem error){throw new Problem(400,"4MB 이하의 올바른 JPG 또는 PNG 상세 소개 이미지를 첨부해 주세요.","detailImageUrl");}}
+        List<String> detailList = null;
+        if (body.containsKey("detailImageUrls")) {
+            Object raw = body.get("detailImageUrls");
+            if (!(raw instanceof List<?> list) || list.size() > 10) {
+                throw new Problem(400, "상세 소개 이미지는 최대 10장까지 첨부할 수 있습니다.", "detailImageUrls");
+            }
+            detailList = new ArrayList<>();
+            for (Object item : list) {
+                try {
+                    String v = BannerImageValue.validate(fields("bannerImageUrl", item));
+                    if (v != null && !v.isBlank()) detailList.add(v);
+                } catch (Problem error) {
+                    throw new Problem(400, "올바른 JPG 또는 PNG 상세 소개 이미지를 첨부해 주세요.", "detailImageUrls");
+                }
+            }
+        }
+
         LocalDate originalStart = null;
         if (id != null) {
             var old = ownJob(user, id, false);
@@ -716,7 +748,15 @@ public class EmploymentService {
                 args.toArray()
             );
         }
-        if(detail!=null){db.update("DELETE FROM job_detail_images WHERE job_id=?",id);if(!detail.isBlank())db.update("INSERT INTO job_detail_images(job_id,image_data) VALUES(?,?)",id,detail);}
+        if (detailList != null) {
+            db.update("DELETE FROM job_detail_images WHERE job_id=?", id);
+            db.update("DELETE FROM job_detail_image_items WHERE job_id=?", id);
+            int order = 0;
+            for (String img : detailList) {
+                db.update("INSERT INTO job_detail_image_items(job_id,sort_order,image_data) VALUES(?,?,?)", id, order++, img);
+            }
+        }
+
         if (body.containsKey("assessmentMinScore")) assessments.configure(id, body.get("assessmentMinScore"));
         return ownJob(user, id, false);
     }
