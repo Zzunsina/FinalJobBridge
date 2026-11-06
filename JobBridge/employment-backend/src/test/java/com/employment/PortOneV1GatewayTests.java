@@ -27,6 +27,7 @@ class PortOneV1GatewayTests {
     if(path.equals("/payments/cancel")){
      var body=json.readTree(exchange.getRequestBody());if(!body.path("imp_uid").asText().equals("imp_123456789")||body.path("checksum").asInt()!=242000||body.path("amount").asInt()!=242000)errors.add("wrong cancellation");cancelled.set(true);
     }else if(!path.equals("/payments/find/jb-ad-test")&&!path.equals("/payments/imp_123456789"))errors.add("wrong lookup path");
+    if(!path.equals("/payments/cancel")&&!"include_sandbox=true".equals(exchange.getRequestURI().getQuery()))errors.add("sandbox lookup missing");
     payload="{\"code\":0,\"response\":"+raw(cancelled.get()?"cancelled":"paid",cancelled.get()?242000:0)+"}";
    }
    byte[] bytes=payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);
@@ -47,4 +48,20 @@ class PortOneV1GatewayTests {
   live.remove("sandbox");assertThatThrownBy(()->gateway.validate(gateway.normalize(live),"jb-ad-test",242000)).isInstanceOf(Problem.class);
   assertThat(gateway.normalize(raw("cancelled",1000)).path("status").asText()).isEqualTo("PARTIAL_CANCELLED");assertThat(gateway.normalize(raw("paid",1000)).path("status").asText()).isEqualTo("PARTIAL_CANCELLED");
  }
-}
+ @Test void legacyOrdersMatchOnlyTheirExactFortyCharacterMerchantId()throws Exception {
+  var gateway=new PortOneGateway(json,"imp12345678","channel-test","test-api-key","test-api-secret");
+  String old="jb-ad-83c6d2cc-8834-4900-892b-e3ba987596e0";
+  var r=(com.fasterxml.jackson.databind.node.ObjectNode)raw("paid",0);r.put("merchant_uid",old.substring(0,40));
+  gateway.validate(gateway.normalize(r),old,242000);
+  r.put("merchant_uid",old.substring(0,39));assertThatThrownBy(()->gateway.validate(gateway.normalize(r),old,242000)).isInstanceOf(Problem.class);
+  assertThat(PortOneGateway.merchantId("jb-ad-83c6d2cc88344900892be3ba987596e0")).hasSize(38);
+ } @Test void failedRetryDoesNotHideEarlierPaidTransaction()throws Exception {
+  var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+  server.createContext("/",e->{try{
+   String path=e.getRequestURI().getPath();String body;
+   if(path.equals("/users/getToken"))body="{\"code\":0,\"response\":{\"access_token\":\"token\",\"expired_at\":"+(Instant.now().getEpochSecond()+1800)+"}}";
+   else body="{\"code\":0,\"response\":"+raw(path.endsWith("/paid")?"paid":"failed",0)+"}";
+   var bytes=body.getBytes(java.nio.charset.StandardCharsets.UTF_8);e.sendResponseHeaders(200,bytes.length);e.getResponseBody().write(bytes);
+  }catch(Exception ex){e.sendResponseHeaders(500,-1);}finally{e.close();}});server.start();
+  try{var gateway=new PortOneGateway(json,"imp12345678","channel-test","key","secret",URI.create("http://127.0.0.1:"+server.getAddress().getPort()),HttpClient.newHttpClient());assertThat(gateway.payment("jb-ad-test").path("status").asText()).isEqualTo("PAID");}finally{server.stop(0);}
+ }}

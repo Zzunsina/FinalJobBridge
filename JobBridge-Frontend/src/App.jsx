@@ -1,3 +1,4 @@
+import { useSessionMonitor } from './hooks/useSessionMonitor';
 import { useRouteScroll } from './hooks/useRouteScroll';
 import { SpellingTool, SalaryTool } from './pages/CareerTools';
 import { MyInterviewReviews, CompanyReviewCenter, AdminReviewReports } from './pages/ReviewFeatures';
@@ -92,7 +93,8 @@ const seekerLinks = [
 const protectedPage = (role, element) => <Guard role={role}>{element}</Guard>;
 
 export default function App() {
-  const { user, initialized, error, initialize, logout } = useAuth();
+  const { user, initialized, error, initialize, logout, sessionNotice, dismissSessionNotice } = useAuth();
+  useSessionMonitor(user);
   const [menu, setMenu] = useState(false);
   const [megaDismissed, setMegaDismissed] = useState(false);
   const location = useLocation();
@@ -137,6 +139,10 @@ export default function App() {
         본문으로 바로가기
       </a>
       <BookmarkNotice />
+      {sessionNotice && <div className="session-ended-notice" role="alert">
+        <span>{sessionNotice}</span>
+        <button type="button" onClick={dismissSessionNotice} aria-label="로그아웃 안내 닫기">닫기</button>
+      </div>}
       <div className="utility">
         <div>
           가능성과 기회를 잇는 취업 파트너

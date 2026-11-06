@@ -401,3 +401,8 @@ CREATE TABLE IF NOT EXISTS interview_review_moderation (
  FOREIGN KEY(reviewed_by) REFERENCES users(user_id),
  CHECK(status IN ('PENDING','APPROVED','REJECTED'))
 );
+
+CREATE TABLE IF NOT EXISTS auth_session_replacements (
+    session_id VARCHAR(36) PRIMARY KEY,
+    FOREIGN KEY (session_id) REFERENCES auth_sessions(session_id) ON DELETE CASCADE
+);

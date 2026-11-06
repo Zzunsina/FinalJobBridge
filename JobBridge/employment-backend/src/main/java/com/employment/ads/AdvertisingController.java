@@ -137,7 +137,7 @@ public class AdvertisingController {
     var event = json.readTree(body);
     String id = event.path("merchant_uid").asText(),
       imp = event.path("imp_uid").asText();
-    if (!id.matches("jb-ad-[a-f0-9-]{36}") || !imp.matches("imp_[A-Za-z0-9]+")) throw new Problem(
+    if (!id.matches("jb-ad-(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-(?:[a-f0-9]{10}|[a-f0-9]{12}))") || !imp.matches("imp_[A-Za-z0-9]+")) throw new Problem(
       400,
       "올바르지 않은 결제 알림입니다."
     );

@@ -78,15 +78,30 @@ public class PortOneGateway {
     );
   }
 
+  public static String merchantId(String id) {
+    return id.matches("jb-ad-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}") ? id.substring(0, 40) : id;
+  }
+
   public JsonNode payment(String id) {
-    return normalize(request("GET", "/payments/find/" + encode(id), null));
+    String path = "/payments/find/" + encode(merchantId(id));
+    var latest = normalize(request("GET", path + "?include_sandbox=true", null));
+    // A failed retry must not hide an earlier successful charge on the same order.
+    if (Set.of("FAILED", "READY", "PENDING").contains(latest.path("status").asText())) {
+      try {
+        var paid = normalize(request("GET", path + "/paid?include_sandbox=true", null));
+        if ("PAID".equals(paid.path("status").asText())) return paid;
+      } catch (Problem error) {
+        if (error.status != 409) throw error;
+      }
+    }
+    return latest;
   }
 
   public JsonNode paymentByProviderId(String impUid) {
     if (!impUid.matches("imp_[A-Za-z0-9]{1,64}")) {
       throw new Problem(400, "포트원 거래번호를 확인해 주세요.");
     }
-    return normalize(request("GET", "/payments/" + encode(impUid), null));
+    return normalize(request("GET", "/payments/" + encode(impUid) + "?include_sandbox=true", null));
   }
 
   public void cancel(String id, String reason, int amount) {
@@ -104,7 +119,7 @@ public class PortOneGateway {
         "imp_uid",
         payment.path("providerPaymentId").asText(),
         "merchant_uid",
-        id,
+        payment.path("id").asText(),
         "reason",
         reason,
         "amount",
@@ -117,7 +132,7 @@ public class PortOneGateway {
 
   public void validate(JsonNode payment, String id, int amount) {
     if (
-      !id.equals(payment.path("id").asText()) ||
+      !merchantId(id).equals(payment.path("id").asText()) ||
       !payment.path("sandbox").isBoolean() ||
       !payment.path("sandbox").asBoolean() ||
       !"html5_inicis".equals(payment.path("provider").asText()) ||
