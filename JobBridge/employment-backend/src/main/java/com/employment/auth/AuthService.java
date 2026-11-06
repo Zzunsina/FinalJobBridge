@@ -63,6 +63,11 @@ public class AuthService {
         this.suspensions = suspensions;
     }
 
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void initializeSingleSessionPolicy() {
+        db.update("CREATE TABLE IF NOT EXISTS auth_session_replacements (session_id VARCHAR(36) PRIMARY KEY, FOREIGN KEY (session_id) REFERENCES auth_sessions(session_id) ON DELETE CASCADE)");
+    }
+
     private void ensureActiveAccount(Map<String,Object> user) {
         if("SUSPENDED".equals(user.get("status")))throw new Problem(403,"정지된 아이디입니다.\n정지 사유: "+suspensions.reason(number(user,"userId")));
         if(!"ACTIVE".equals(user.get("status")))throw new Problem(401,"아이디 또는 비밀번호를 확인해 주세요.");
@@ -84,7 +89,10 @@ public class AuthService {
 
     public Map<String, Object> user(HttpServletRequest request) {
         Object user = request.getAttribute("user");
-        if (user == null) throw new Problem(401, "로그인이 필요합니다.");
+        if (user == null) {
+            if (request.getAttribute("authFailure") instanceof Problem failure) throw failure;
+            throw new Problem(401, "로그인이 필요합니다.");
+        }
         @SuppressWarnings("unchecked")
         var result = (Map<String, Object>) user;
         return result;
@@ -287,8 +295,8 @@ public class AuthService {
         try {
             var session = validate(token, "access", false);
             request.setAttribute("user", publicUser(number(session, "userId")));
-        } catch (Problem ignored) {
-            /* The endpoint returns 401 if authentication is required. */
+        } catch (Problem failure) {
+            request.setAttribute("authFailure", failure);
         }
     }
 
@@ -313,15 +321,19 @@ public class AuthService {
                 "SELECT * FROM auth_sessions WHERE session_id=?" + (lock ? " FOR UPDATE" : ""),
                 claims.path("sid").asText()
             );
-            if (
-                Boolean.TRUE.equals(session.get("revoked")) ||
-                    !hash(token).equals(session.get(type + "Hash")) ||
-                    !"ACTIVE".equals(publicUser(number(session, "userId")).get("status")) ||
-                    !Long.toString(number(session, "userId")).equals(claims.path("sub").asText())
-            ) {
+            if (session == null || !hash(token).equals(session.get(type + "Hash")) ||
+                !Long.toString(number(session, "userId")).equals(claims.path("sub").asText()) ||
+                !"ACTIVE".equals(publicUser(number(session, "userId")).get("status"))) {
+                throw new IllegalArgumentException();
+            }
+            if (Boolean.TRUE.equals(session.get("revoked"))) {
+                if (db.one("SELECT session_id FROM auth_session_replacements WHERE session_id=?", session.get("sessionId")) != null)
+                    throw new Problem(401, "다른 곳에서 로그인되어 로그아웃되었습니다. 다시 로그인해 주세요.", "sessionReplaced");
                 throw new IllegalArgumentException();
             }
             return session;
+        } catch (Problem ex) {
+            throw ex;
         } catch (Exception ex) {
             throw new Problem(401, "로그인이 만료되었습니다.");
         }
@@ -338,6 +350,11 @@ public class AuthService {
         String access = token(userId, sid, "access", accessEnd);
         String refresh = token(userId, sid, "refresh", end);
         if (create) {
+            // Serialize successful logins for the same user, including different server instances.
+            var owner = db.one("SELECT user_id,status FROM users WHERE user_id=? FOR UPDATE", userId);
+            if (owner == null || !"ACTIVE".equals(owner.get("status"))) throw new Problem(401, "로그인할 수 없는 계정입니다.");
+            db.update("INSERT INTO auth_session_replacements(session_id) SELECT session_id FROM auth_sessions WHERE user_id=? AND revoked=FALSE", userId);
+            db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=? AND revoked=FALSE", userId);
             db.update(
                 "INSERT INTO auth_sessions(session_id,user_id,access_hash,refresh_hash,access_expires_at,refresh_expires_at) VALUES(?,?,?,?,?,?)",
                 sid,
@@ -512,6 +529,7 @@ public class AuthService {
             encoder.encode(nextPassword),
             userId
         );
+        db.update("UPDATE auth_sessions SET revoked=TRUE WHERE user_id=?", userId);
         db.update("DELETE FROM user_password_history WHERE user_id=? AND used_until<?", userId, cutoff);
     }
 

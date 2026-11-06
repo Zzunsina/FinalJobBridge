@@ -6,13 +6,15 @@ export const useAuth = create((set) => ({
   user: null,
   initialized: false,
   error: '',
+  sessionNotice: '',
+  dismissSessionNotice() { set({ sessionNotice: '' }); },
   async initialize() {
     set({ initialized: false, error: '' });
     try {
       await loadCsrf();
       try {
         const { data } = await refresh();
-        set({ user: data });
+        set({ user: data, sessionNotice: '' });
       } catch (error) {
         if (error.response?.status !== 401) throw error;
         set({ user: null });
@@ -27,7 +29,7 @@ export const useAuth = create((set) => ({
     await loadCsrf();
     const { data } = await client.post(adminOnly ? '/auth/admin/login' : '/auth/login', body);
     useBookmarks.getState().reset();
-    set({ user: data });
+    set({ user: data, sessionNotice: '' });
     return data;
   },
   async logout() {
@@ -39,3 +41,10 @@ export const useAuth = create((set) => ({
     set({ user });
   },
 }));
+
+if (typeof window !== 'undefined') window.addEventListener('jobbridge:session-ended', (event) => {
+  const state = useAuth.getState();
+  if (!state.user && !event.detail.replaced) return;
+  useBookmarks.getState().reset();
+  useAuth.setState({ user: null, sessionNotice: event.detail.message });
+});

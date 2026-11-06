@@ -2000,15 +2000,16 @@ class PlatformIntegrationTests {
     void withdrawalRejectsWrongPasswordAndRevokesAllSessions() throws Exception {
         Cookie first = login(seeker);
         Cookie second = login(seeker);
+        mvc.perform(get("/api/me").cookie(first)).andExpect(status().isUnauthorized());
         long app = number(service.apply(seeker, job, fields("resumeId", resume)), "applicationId");
-        mvc.perform(delete("/api/me").cookie(first).with(csrf()).contentType("application/json")
+        mvc.perform(delete("/api/me").cookie(second).with(csrf()).contentType("application/json")
             .content(json.writeValueAsString(fields("currentPassword", "wrong"))))
             .andExpect(status().isBadRequest());
         assertThat(auth.publicUser(seeker).get("status")).isEqualTo("ACTIVE");
-        mvc.perform(delete("/api/me").cookie(first).contentType("application/json")
+        mvc.perform(delete("/api/me").cookie(second).contentType("application/json")
             .content(json.writeValueAsString(fields("currentPassword", password))))
             .andExpect(status().isForbidden());
-        mvc.perform(delete("/api/me").cookie(first).with(csrf()).contentType("application/json")
+        mvc.perform(delete("/api/me").cookie(second).with(csrf()).contentType("application/json")
             .content(json.writeValueAsString(fields("currentPassword", password))))
             .andExpect(status().isNoContent());
         assertThat(auth.publicUser(seeker).get("status")).isEqualTo("WITHDRAWN");
@@ -3099,6 +3100,17 @@ class PlatformIntegrationTests {
         assertThat(db.list("SELECT notification_id FROM notifications WHERE user_id=? AND title='광고 결제 완료'",admin)).hasSize(1);
         advertising.review(admin,id,fields("action","pause"));assertThat(advertising.active("SLIDE").stream().filter(r->id.equals(r.get("orderId")))).isEmpty();
     }
+    @Test void advertisingLegacyTruncatedWebhookRecoversOnlyOneOrder()throws Exception {
+        advertisingGateway();
+        String current=advertising.create(companyUser,advertisingBody("SLIDE")).get("orderId").toString();
+        assertThat(current).hasSize(38);
+        String old="jb-ad-83c6d2cc-8834-4900-892b-e3ba987596e0", shortened=old.substring(0,40);
+        db.update("UPDATE ad_orders SET order_id=? WHERE order_id=?",old,current);
+        org.mockito.Mockito.when(portOne.paymentByProviderId("imp_123456789")).thenReturn(advertisingPayment(shortened,"PAID",242000));
+        advertising.webhook(shortened,"imp_123456789");
+        assertThat(db.one("SELECT payment_status FROM ad_orders WHERE order_id=?",old).get("paymentStatus")).isEqualTo("PAID");
+        assertThat(advertising.confirm(companyUser,shortened,"imp_123456789").get("paymentStatus")).isEqualTo("PAID");
+    }
     @Test void advertisingCheckoutRetryReusesApprovedApplicationAndCanWithdraw()throws Exception{
         advertisingGateway();var body=advertisingBody("COMPANY");body.put("startDate",EmploymentService.today().plusDays(10).toString());String id=advertising.create(companyUser,body).get("orderId").toString();advertising.review(admin,id,fields("action","approve"));
         long before=number(db.one("SELECT COUNT(*) AS n FROM ad_orders WHERE company_id=?",company),"n");var first=advertising.checkout(companyUser,id);var retry=advertising.checkout(companyUser,id);
@@ -3570,6 +3582,53 @@ class PlatformIntegrationTests {
   assertThatThrownBy(()->interviewReviews.report(companyUser,fields("targetType","REVIEW","targetId",review,"reason","OTHER","details","비공개 후기"))).isInstanceOf(Problem.class);
   db.update("UPDATE interview_reviews SET content='연락처 010-1234-5678' WHERE review_id=?",review);assertThatThrownBy(()->approveReview(review)).isInstanceOf(Problem.class);assertThat(interviewReviews.published(company)).isEmpty();
  }
+
+    private MockHttpServletResponse singleSessionLogin(long user) {
+        var response=new MockHttpServletResponse();
+        var account=auth.publicUser(user);
+        var body=fields("loginId",account.get("loginId"),"password",password,"memberType",account.get("role"));
+        if ("ADMIN".equals(account.get("role"))) auth.adminLogin(body,response); else auth.login(body,response);
+        return response;
+    }
+    @Test void singleSessionReplacesAccessAndRefreshAcrossAllRoles() throws Exception {
+        for(long user:List.of(seeker,companyUser,admin)) {
+            var first=singleSessionLogin(user);
+            mvc.perform(get("/api/me").cookie(first.getCookie("accessToken"))).andExpect(status().isOk());
+            var second=singleSessionLogin(user);
+            mvc.perform(get("/api/me").cookie(first.getCookie("accessToken"))).andExpect(status().isUnauthorized()).andExpect(jsonPath("message").value(org.hamcrest.Matchers.containsString("다른 곳에서 로그인되어")));
+            mvc.perform(post("/api/auth/refresh").cookie(first.getCookie("refreshToken")).with(csrf())).andExpect(status().isUnauthorized()).andExpect(jsonPath("fieldErrors[0].field").value("sessionReplaced"));
+            mvc.perform(get("/api/me").cookie(second.getCookie("accessToken"))).andExpect(status().isOk());
+            mvc.perform(post("/api/auth/refresh").cookie(second.getCookie("refreshToken")).with(csrf())).andExpect(status().isOk());
+            assertThat(number(db.one("SELECT COUNT(*) AS n FROM auth_sessions WHERE user_id=? AND revoked=FALSE",user),"n")).isEqualTo(1);
+        }
+    }
+    @Test void singleSessionFailedLoginDoesNotTerminateExistingLogin() throws Exception {
+        var first=singleSessionLogin(seeker);
+        var body=fields("loginId",auth.publicUser(seeker).get("loginId"),"password","WrongPassword123!","memberType","JOB_SEEKER");
+        assertThatThrownBy(()->auth.login(body,new MockHttpServletResponse())).isInstanceOf(Problem.class);
+        body.put("password",password);body.put("memberType","COMPANY");
+        assertThatThrownBy(()->auth.login(body,new MockHttpServletResponse())).isInstanceOf(Problem.class);
+        mvc.perform(get("/api/me").cookie(first.getCookie("accessToken"))).andExpect(status().isOk());
+        assertThat(number(db.one("SELECT COUNT(*) AS n FROM auth_session_replacements r JOIN auth_sessions s ON s.session_id=r.session_id WHERE s.user_id=?",seeker),"n")).isZero();
+    }
+    @Test void singleSessionOldLogoutCannotTerminateTheNewLogin() throws Exception {
+        var first=singleSessionLogin(seeker);var second=singleSessionLogin(seeker);
+        var request=new org.springframework.mock.web.MockHttpServletRequest();request.setCookies(first.getCookie("accessToken"),first.getCookie("refreshToken"));
+        auth.logout(request,new MockHttpServletResponse());
+        mvc.perform(get("/api/me").cookie(second.getCookie("accessToken"))).andExpect(status().isOk());
+        mvc.perform(post("/api/auth/refresh").cookie(second.getCookie("refreshToken")).with(csrf())).andExpect(status().isOk());
+    }
+    @Test void singleSessionConcurrentLoginsLeaveExactlyOneActiveSession() throws Exception {
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        try {
+            var a=pool.submit(()->{start.await();return singleSessionLogin(seeker);});
+            var b=pool.submit(()->{start.await();return singleSessionLogin(seeker);});start.countDown();
+            var results=List.of(a.get(15,TimeUnit.SECONDS),b.get(15,TimeUnit.SECONDS));
+            assertThat(number(db.one("SELECT COUNT(*) AS n FROM auth_sessions WHERE user_id=? AND revoked=FALSE",seeker),"n")).isEqualTo(1);
+            var statuses=new ArrayList<Integer>();for(var response:results)statuses.add(mvc.perform(get("/api/me").cookie(response.getCookie("accessToken"))).andReturn().getResponse().getStatus());
+            assertThat(statuses).containsExactlyInAnyOrder(200,401);
+        } finally {pool.shutdownNow();}
+    }
 }
 
 

@@ -24,11 +24,14 @@ export function loadPortOneV1() {
   }
   return sdk;
 }
+export function paymentMerchantId(orderId) {
+  return /^jb-ad-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(orderId) ? orderId.slice(0, 40) : orderId;
+}
 export function legacyPaymentParameters(checkout, returnUrl) {
   return {
     channelKey: checkout.channelKey,
     pay_method: 'card',
-    merchant_uid: checkout.paymentId,
+    merchant_uid: paymentMerchantId(checkout.paymentId),
     name: checkout.orderName,
     amount: checkout.totalAmount,
     currency: 'KRW',
@@ -43,7 +46,7 @@ export function legacyCallback(response, orderId) {
     throw new Error(
       response?.error_msg || '결제가 취소되거나 실패했습니다. 주문 내역에서 다시 확인해 주세요.',
     );
-  if (!response.imp_uid || response.merchant_uid !== orderId)
+  if (!response.imp_uid || response.merchant_uid !== paymentMerchantId(orderId))
     throw new Error('결제 응답이 주문과 일치하지 않습니다. 내역에서 결제 확인을 눌러 주세요.');
   return response;
 }

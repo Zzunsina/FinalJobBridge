@@ -566,7 +566,7 @@
 /* Keep order details aligned; give review notes a separate, readable line. */
 .ad-history > .row { margin-bottom: 16px; align-items: center; }
 .ad-history > .row h2 { margin: 0; }
-.ad-table-wrap table { min-width: 720px; }
+
 .ad-table-wrap td { padding: 18px 14px; }
 .ad-table-wrap th { padding: 15px 14px; }
 .ad-table-wrap td > small { display: block; color: #64748b; line-height: 1.6; }
@@ -575,3 +575,39 @@
 .ad-table-wrap .ad-order-memo-row td { padding: 10px 14px 16px; background: #fafbfc; color: #526278; line-height: 1.7; }
 .ad-order-memo-row td > span { display: inline-block; margin-right: 10px; color: #334155; font-weight: 600; }
 .ad-order-group:has(.ad-order-memo-row) > tr:first-child > td { border-bottom: 0; padding-bottom: 12px; }
+/* Fit the available panel width, including layouts with a sidebar. */
+.advertising-page, .advertising-page .panel, .ad-history { min-width: 0; }
+.ad-table-wrap { min-width: 0; max-width: 100%; container-type: inline-size; }
+.ad-table-wrap .ad-orders-table { width: 100%; min-width: 0; table-layout: fixed; }
+.ad-orders-table .ad-col-product { width: 34%; }
+.ad-orders-table .ad-col-dates { width: 18%; }
+.ad-orders-table .ad-col-payment { width: 18%; }
+.ad-orders-table .ad-col-status { width: 16%; }
+.ad-orders-table .ad-col-actions { width: 14%; }
+.ad-orders-admin .ad-col-company { width: 12%; }
+.ad-orders-admin .ad-col-product { width: 28%; }
+.ad-orders-admin .ad-col-dates { width: 16%; }
+.ad-orders-admin .ad-col-payment { width: 15%; }
+.ad-orders-admin .ad-col-status { width: 15%; }
+.ad-orders-admin .ad-col-actions { width: 14%; }
+.ad-orders-table th, .ad-orders-table td { padding: 14px 10px; min-width: 0; max-width: none; }
+.ad-orders-table td { overflow-wrap: anywhere; }
+.ad-orders-table .ad-order-number { white-space: normal; overflow-wrap: anywhere; font-size: 11px; line-height: 1.65; }
+.ad-orders-table .ad-order-dates, .ad-orders-table .ad-order-payment, .ad-orders-table .ad-order-dates small { white-space: nowrap; }
+.ad-orders-table .ad-table-actions { min-width: 0; }
+.ad-orders-table .ad-table-actions button { min-width: 0; max-width: 100%; white-space: nowrap; flex-shrink: 0; padding: 8px 10px; }
+.ad-orders-table .ad-status { max-width: 100%; white-space: normal; }
+@container (max-width: 700px) {
+  .ad-orders-table, .ad-orders-table tbody { display: block; }
+  .ad-orders-table colgroup, .ad-orders-table thead { display: none; }
+  .ad-orders-table .ad-order-group { padding: 12px 0; border-bottom: 1px solid #e6ecf4; }
+  .ad-orders-table .ad-order-group > tr:first-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+  .ad-orders-table .ad-order-group > tr:first-child > td { display: block; padding: 0; border: 0; }
+  .ad-orders-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 6px; color: #64748b; font-size: 12px; font-weight: 500; }
+  .ad-orders-table td[data-label='상품·주문번호'] { grid-column: 1 / -1; }
+  .ad-orders-table .ad-order-memo-row { display: block; margin-top: 14px; }
+  .ad-orders-table .ad-order-memo-row td { display: block; padding: 12px; border: 0; border-radius: 8px; }
+}
+@container (max-width: 340px) {
+  .ad-orders-table .ad-order-group > tr:first-child { grid-template-columns: minmax(0, 1fr); }
+}
