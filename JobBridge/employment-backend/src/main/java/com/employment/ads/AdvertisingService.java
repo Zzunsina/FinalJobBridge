@@ -236,7 +236,7 @@ public class AdvertisingService {
     else if (type.equals("external")) url = external(Input.text(body, "linkUrl", 500, true));
     else throw new Problem(400, "광고 이동 대상을 선택해 주세요.");
     var image = decode(Input.text(body, "image", 5600000, true));
-    String id = "jb-ad-" + UUID.randomUUID();
+    String id = "jb-ad-" + UUID.randomUUID().toString().replace("-", "");
     insertOrder(
       fields(
         "order_id",
@@ -341,6 +341,7 @@ public class AdvertisingService {
 
   @Transactional
   public Map<String, Object> confirm(long user, String id, String impUid) {
+    id = resolvePaymentOrderId(id);
     var c = company(user);
     owned(number(c, "companyId"), id, false);
     sync(id, impUid);
@@ -354,6 +355,7 @@ public class AdvertisingService {
 
   @Transactional
   public void webhook(String id, String impUid) {
+    id = resolvePaymentOrderId(id);
     if (db.one("SELECT order_id FROM ad_orders WHERE order_id=?", id) == null) return;
     sync(id, impUid);
   }
@@ -363,7 +365,17 @@ public class AdvertisingService {
     sync(id, "");
   }
 
+  private String resolvePaymentOrderId(String id) {
+    if (id.matches("jb-ad-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{10}")) {
+      var matches = db.list("SELECT order_id FROM ad_orders WHERE LEFT(order_id,40)=?", id);
+      if (matches.size() != 1) throw new Problem(409, "결제 주문번호를 고유하게 확인할 수 없습니다. 관리자에게 문의해 주세요.");
+      return matches.get(0).get("orderId").toString();
+    }
+    return id;
+  }
+
   private void sync(String id, String impUid) {
+    if (!id.equals(PortOneGateway.merchantId(id)) && !id.equals(resolvePaymentOrderId(PortOneGateway.merchantId(id)))) throw new Problem(409, "결제 주문번호가 일치하지 않습니다.");
     var o = db.one("SELECT * FROM ad_orders WHERE order_id=? FOR UPDATE", id);
     if (o == null) throw new Problem(404, "광고 주문을 찾을 수 없습니다.");
     if (db.one("SELECT order_id FROM ad_order_simulations WHERE order_id=?", id) != null) return;

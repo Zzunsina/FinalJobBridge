@@ -18,7 +18,7 @@ const labels = {
   FAILED: '결제 실패',
   PAID: '결제 완료',
   UNPAID: '미결제',
-  PAYMENT_PENDING: '결제 대기',
+  PAYMENT_PENDING: '심사 승인',
   PAYMENT_EXPIRED: '결제 기한 경과',
   WITHDRAWN: '신청 철회',
   CANCELLED: '결제 취소',
@@ -29,8 +29,8 @@ const labels = {
   APPROVED: '승인',
   PAUSED: '노출 중지',
   STOPPED: '종료',
-  JOB_CLOSED: '공고 마감·변경으로 신청 취소',
-  JOB_STOPPED: '공고 마감·변경으로 노출 중단',
+  JOB_CLOSED: '신청 취소',
+  JOB_STOPPED: '노출 중단',
   NONE: '없음',
   REQUESTED: '환불 요청',
   COMPLETED: '환불 완료',
@@ -528,7 +528,12 @@ function Creative({ order, reload }) {
 function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기' }) {
   return orders.length ? (
     <div className="ad-table-wrap">
-      <table>
+      <table className={onSelect ? 'ad-orders-table ad-orders-admin' : 'ad-orders-table'}>
+        <colgroup>
+          {onSelect && <col className="ad-col-company" />}
+          <col className="ad-col-product" /><col className="ad-col-dates" />
+          <col className="ad-col-payment" /><col className="ad-col-status" /><col className="ad-col-actions" />
+        </colgroup>
         <thead>
           <tr>
             {onSelect && <th>기업</th>}
@@ -541,35 +546,31 @@ function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기' })
         </thead>
           {orders.map((o) => (
             <tbody key={o.orderId} className="ad-order-group"><tr>
-              {onSelect && <td>{o.companyName}</td>}
-              <td>
+              {onSelect && <td data-label="기업">{o.companyName}</td>}
+              <td data-label="상품·주문번호">
                 <strong>{o.productName}</strong>
                 {o.paymentSource === 'SIMULATION' && <small>시연 결제</small>}
-                <small>{o.orderId}</small>
+                <small className="ad-order-number">{o.orderId}</small>
                 
               </td>
-              <td>
+              <td className="ad-order-dates" data-label="노출 기간">
                 {o.startDate}
                 <small>~ {o.endDate}</small>
               </td>
-              <td>
+              <td className="ad-order-payment" data-label="결제">
                 {won(o.totalAmount)}
                 <small>
                   <Status
                     value={
-                      ['READY', 'FAILED'].includes(o.paymentStatus)
-                        ? o.reviewStatus === 'APPROVED'
-                          ? 'PAYMENT_PENDING'
-                          : 'UNPAID'
-                        : o.paymentStatus
+                      o.paymentStatus === 'READY' ? 'UNPAID' : o.paymentStatus
                     }
                   />
                 </small>
               </td>
-              <td>
+              <td data-label="광고 상태">
                 <Status value={o.displayStatus} />
               </td>
-              <td>
+              <td data-label="관리">
                 <div className="ad-table-actions">
                   {onSelect ? (
                     <button className="secondary" onClick={() => onSelect(o.orderId)}>
@@ -863,11 +864,7 @@ function AdminOrder({ order: o, reload, close }) {
           <dd>
             <Status
               value={
-                ['READY', 'FAILED'].includes(o.paymentStatus)
-                  ? o.reviewStatus === 'APPROVED'
-                    ? 'PAYMENT_PENDING'
-                    : 'UNPAID'
-                  : o.paymentStatus
+                o.paymentStatus === 'READY' ? 'UNPAID' : o.paymentStatus
               }
             />
           </dd>
