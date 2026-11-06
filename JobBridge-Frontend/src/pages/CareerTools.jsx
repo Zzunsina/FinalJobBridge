@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { calculateSalary, SALARY_RULES } from '../utils/salaryCalculator';
-import { applySpellingCorrections, checkKoreanText } from '../utils/koreanSpellChecker';
+import client, { message } from '../api/client';
+import { applySpellingCorrections } from '../utils/koreanSpellChecker';
 import '../assets/styles/career-tools.css';
 
 export function CareerToolIcon({ type }) {
@@ -21,16 +22,38 @@ export function SpellingTool() {
  const [text,setText]=useState(''),[result,setResult]=useState(null),[selected,setSelected]=useState([]),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const chosen=result?.issues.filter(item=>selected.includes(item.id))||[];
  const corrected=result?applySpellingCorrections(result.source,chosen):'';
- function inspect(event){event?.preventDefault();setNotice('');setError('');try{const next=checkKoreanText(text);setResult(next);setSelected(next.issues.map(item=>item.id));}catch(problem){setError(problem.message);}}
+ const [checking, setChecking] = useState(false);
+ async function inspect(event) {
+  event.preventDefault();
+  if (checking) return;
+  setNotice('');
+  setError('');
+  setResult(null);
+  setSelected([]);
+  if (!text.trim()) {
+   setError('검사할 내용을 입력해 주세요.');
+   return;
+  }
+  setChecking(true);
+  try {
+   const { data } = await client.post('/tools/spelling', { text });
+   setResult(data);
+   setSelected(data.issues.map((item) => item.id));
+  } catch (error) {
+   setError(message(error));
+  } finally {
+   setChecking(false);
+  }
+ }
  function change(value){setText(value);setResult(null);setSelected([]);setError('');setNotice('');}
  async function copy(){try{await navigator.clipboard.writeText(corrected);setNotice('검사 결과를 복사했습니다.');}catch{setNotice('복사하지 못했습니다. 검사 결과를 직접 선택해 복사해 주세요.');}}
  return <ToolShell title="맞춤법 검사" description="이력서와 자기소개서, 제출 전에 한 번 더 확인하세요.">
-  <p className="utility-scope">자주 틀리는 표현과 일부 띄어쓰기를 확인하는 기본 검사입니다. 문맥에 따른 모든 오류를 찾거나 문장 전체를 교정하지는 않습니다. 입력 내용은 저장하거나 외부로 전송하지 않습니다.</p>
-  <form onSubmit={inspect} className="spell-layout"><section className="utility-panel"><div className="utility-panel-heading"><h2>검사할 내용</h2><button type="button" className="utility-text-button" onClick={()=>change('저는 책임감을 가지고 역활을 수행할수있습니다. 최선을 다할께요.')}>문장 예시</button></div><label htmlFor="spelling-text" className="sr-only">검사할 내용</label><textarea id="spelling-text" maxLength={5000} spellCheck={false} value={text} onChange={event=>change(event.target.value)} placeholder="이력서 또는 자기소개서 내용을 입력해 주세요. (최대 5,000자)"/>
+  <p className="utility-scope">검사 버튼을 누르면 입력한 문장이 맞춤법과 띄어쓰기 검사를 위해 바른AI로 전송됩니다. 이름, 연락처 등 개인정보는 지우고 검사해 주세요.</p>
+  <form onSubmit={inspect} className="spell-layout"><section className="utility-panel"><div className="utility-panel-heading"><h2>검사할 내용</h2><button type="button" className="utility-text-button" disabled={checking} onClick={()=>change('저는 책임감을 가지고 역활을 수행할수있습니다. 최선을 다할께요.')}>문장 예시</button></div><label htmlFor="spelling-text" className="sr-only">검사할 내용</label><textarea id="spelling-text" disabled={checking} maxLength={5000} spellCheck={false} value={text} onChange={event=>change(event.target.value)} placeholder="이력서 또는 자기소개서 내용을 입력해 주세요. (최대 5,000자)"/>
    <div className="utility-counter">공백 포함 {text.length.toLocaleString()}자 · 공백 제외 {text.replace(/\s/g,'').length.toLocaleString()}자 <span>/ 5,000자</span></div>
-   {error&&<p role="alert" className="error">{error}</p>}<div className="utility-actions"><button type="button" className="secondary" onClick={()=>change('')}>초기화</button><button type="submit">맞춤법 검사하기</button></div></section>
+   {error&&<p role="alert" className="error">{error}</p>}<div className="utility-actions"><button type="button" className="secondary" disabled={checking} onClick={()=>change('')}>초기화</button><button type="submit" disabled={checking}>{checking ? '검사 중…' : '맞춤법 검사하기'}</button></div></section>
    <section className="utility-panel spell-result" aria-live="polite"><div className="utility-panel-heading"><h2>검사 결과</h2>{result&&<span className="utility-count">수정 제안 {result.issues.length}개</span>}</div>
-    {!result?<div className="utility-placeholder"><CareerToolIcon type="spelling"/><strong>전달하고 싶은 이야기를 더 정확하게</strong><p>내용을 입력하고 검사 버튼을 눌러 주세요.</p></div>:<>{result.issues.length===0?<p className="utility-empty-result">기본 검사에서 수정할 표현을 찾지 못했습니다. 문맥과 고유명사는 직접 확인해 주세요.</p>:<><div className="utility-selection"><label><input type="checkbox" checked={selected.length===result.issues.length} onChange={event=>setSelected(event.target.checked?result.issues.map(item=>item.id):[])}/>전체 선택</label><span>적용할 항목을 선택하세요.</span></div><ul className="spell-issues">{result.issues.map(item=><li key={item.id}><label><input type="checkbox" checked={selected.includes(item.id)} onChange={event=>setSelected(previous=>event.target.checked?[...previous,item.id]:previous.filter(id=>id!==item.id))}/><span><span className="spell-category">{item.type}</span><strong><del>{item.before}</del><span aria-label="수정 제안"> → </span><ins>{item.after}</ins></strong><small>{item.message}</small></span></label></li>)}</ul></>}
+    {!result?<div className="utility-placeholder"><CareerToolIcon type="spelling"/><strong>전달하고 싶은 이야기를 더 정확하게</strong><p>내용을 입력하고 검사 버튼을 눌러 주세요.</p></div>:<>{result.issues.length===0?<p className="utility-empty-result">고칠 부분이 없습니다.</p>:<><div className="utility-selection"><label><input type="checkbox" checked={selected.length===result.issues.length} onChange={event=>setSelected(event.target.checked?result.issues.map(item=>item.id):[])}/>전체 선택</label><span>{chosen.length}개 선택됨</span></div><ul className="spell-issues" tabIndex={0} aria-label="수정 제안 목록">{result.issues.map(item=><li key={item.id}><label><input type="checkbox" checked={selected.includes(item.id)} onChange={event=>setSelected(previous=>event.target.checked?[...previous,item.id]:previous.filter(id=>id!==item.id))}/><span><span className="spell-category">{item.type}</span><strong><del>{item.before}</del><span aria-label="수정 제안"> → </span><ins>{item.after}</ins></strong></span></label>{item.message && <details className="spell-explanation"><summary>교정 이유</summary><p>{item.message}</p></details>}</li>)}</ul></>}
     <label className="spell-output-label" htmlFor="spelling-output">선택 항목을 반영한 내용</label><textarea id="spelling-output" readOnly value={corrected}/><div className="utility-actions"><button type="button" className="secondary" onClick={copy}>결과 복사</button><button type="button" disabled={!chosen.length} onClick={()=>change(corrected)}>선택 항목 적용</button></div></>}
    </section></form>{notice&&<p className="utility-notice" role="status">{notice}</p>}
  </ToolShell>;

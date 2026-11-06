@@ -12,3 +12,31 @@
 
 .home-content-container .career-home-tools.has-career-utilities>h2{font-size:21px;padding:0 4px;margin:0;line-height:1.3}.career-home-tools.has-career-utilities .career-utility-links{padding:6px;gap:7px}.career-home-tools.has-career-utilities .career-utility-links>a{min-height:58px;padding:6px 3px}.home-content-container .career-home-tools.has-career-utilities .career-tool-card>strong{font-size:21px}.home-content-container .career-home-tools.has-career-utilities .career-tool-card>small{font-size:11px}
 @media(max-width:1100px){.home-content-container .home-career-hero>.career-home-tools.has-career-utilities{padding:18px;gap:12px}.home-content-container .home-career-hero>.career-home-tools.has-career-utilities .career-tool-card{min-height:150px}.career-home-tools.has-career-utilities .career-utility-links>a{min-height:46px}.home-content-container .career-home-tools.has-career-utilities>h2{padding:0}}
+.spell-result .spell-issues {
+  border: 1px solid #e5ebe7;
+  border-radius: 10px;
+  padding: 0 12px;
+  scrollbar-gutter: stable;
+}
+
+.spell-issues li:last-child {
+  border-bottom: 0;
+}
+
+.spell-explanation {
+  margin: 4px 0 0 25px;
+  color: #516b60;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.spell-explanation summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.spell-explanation p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}

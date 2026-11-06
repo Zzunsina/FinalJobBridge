@@ -86,6 +86,7 @@ public class SecurityConfig {
                             req.getMethod().equals("POST") &&
                             (req.getRequestURI().equals("/api/auth/login") ||
                                 req.getRequestURI().equals("/api/auth/admin/login") ||
+                                req.getRequestURI().equals(req.getContextPath() + "/api/tools/spelling") ||
                                 req.getRequestURI().contains("password-reset"))
                         ) {
                             long now = System.currentTimeMillis();
