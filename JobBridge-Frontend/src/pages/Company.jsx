@@ -5,7 +5,7 @@ import CompanyInterviewForm from '../components/common/CompanyInterviewForm';
 
 import NoticeImageInput from '../components/common/NoticeImageInput';
 import SubmittedAssessment from '../components/common/SubmittedAssessment';
-
+import DetailImagesInput from '../components/common/DetailImagesInput';
 import CalendarPicker from '../components/common/CalendarPicker';
 import { koreanToday } from '../utils/memberInputs';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -27,18 +27,21 @@ import CompanyCover from '../components/common/CompanyCover';
 import CompanyIndustryInput from '../components/common/CompanyIndustryInput';
 import { companySizes } from '../data/companySizes';
 
+
 export { default as CompanyDashboard } from './CompanyOverview';
 
 export function JobManage() {
   const all = useResource('/company/jobs');
   const profile = useResource('/company/profile');
   const [params] = useSearchParams();
-  const status = ['PUBLISHED','PENDING','DRAFT','CLOSED','REJECTED'].includes(params.get('status')) ? params.get('status') : '';
+  const status = ['PUBLISHED', 'PENDING', 'DRAFT', 'CLOSED', 'REJECTED'].includes(params.get('status')) ? params.get('status') : '';
   const closing = params.get('closing') === 'true';
-  const resource = { ...all, data: all.data?.filter((job) => {
-    const days = Math.round((Date.parse(job.endDate) - Date.parse(koreanToday())) / 86400000);
-    return (!status || job.status === status) && (status !== 'PUBLISHED' || days >= 0) && (!closing || (job.status === 'PUBLISHED' && days >= 0 && days <= 7));
-  }) };
+  const resource = {
+    ...all, data: all.data?.filter((job) => {
+      const days = Math.round((Date.parse(job.endDate) - Date.parse(koreanToday())) / 86400000);
+      return (!status || job.status === status) && (status !== 'PUBLISHED' || days >= 0) && (!closing || (job.status === 'PUBLISHED' && days >= 0 && days <= 7));
+    })
+  };
   return (
     <>
       <Title
@@ -66,49 +69,49 @@ export function JobManage() {
                     className="company-managed-job-cover"
                   />
                   <div className="company-managed-job-content">
-                  <div className="row">
-                    <h2>{j.title}</h2>
-                    <Badge value={j.status} />
-                  </div>
-                  <p className="muted">
-                    {j.workLocation} · {j.startDate} ~ {j.endDate}
-                  </p>
-                  {j.reviewReason && <p className="callout">심사 의견: {j.reviewReason}</p>}
-                  <div className="actions">
-                    {!['CLOSED', 'PENDING'].includes(j.status) && (
-                      <Link className="button secondary" to={`/company/jobs/${j.jobId}/edit`}>
-                        수정하기
+                    <div className="row">
+                      <h2>{j.title}</h2>
+                      <Badge value={j.status} />
+                    </div>
+                    <p className="muted">
+                      {j.workLocation} · {j.startDate} ~ {j.endDate}
+                    </p>
+                    {j.reviewReason && <p className="callout">심사 의견: {j.reviewReason}</p>}
+                    <div className="actions">
+                      {!['CLOSED', 'PENDING'].includes(j.status) && (
+                        <Link className="button secondary" to={`/company/jobs/${j.jobId}/edit`}>
+                          수정하기
+                        </Link>
+                      )}
+                      {j.status === 'DRAFT' && (
+                        <Action
+                          url={`/company/jobs/${j.jobId}/review-request`}
+                          onDone={resource.reload}
+                        >
+                          심사 요청
+                        </Action>
+                      )}
+                      {j.status === 'PUBLISHED' && (
+                        <Action
+                          url={`/company/jobs/${j.jobId}/close`}
+                          onDone={resource.reload}
+                          confirm="이 공고를 마감할까요?"
+                        >
+                          공고 마감
+                        </Action>
+                      )}
+                      <Link className="button secondary" to={`/company/jobs/${j.jobId}/applicants`}>
+                        지원자 관리 →
                       </Link>
-                    )}
-                    {j.status === 'DRAFT' && (
                       <Action
-                        url={`/company/jobs/${j.jobId}/review-request`}
+                        method="delete"
+                        url={`/company/jobs/${j.jobId}`}
                         onDone={resource.reload}
+                        confirm="이 공고를 삭제할까요? 지원·연계 이력이 있는 공고는 삭제할 수 없으며 마감으로 관리해 주세요."
                       >
-                        심사 요청
+                        삭제
                       </Action>
-                    )}
-                    {j.status === 'PUBLISHED' && (
-                      <Action
-                        url={`/company/jobs/${j.jobId}/close`}
-                        onDone={resource.reload}
-                        confirm="이 공고를 마감할까요?"
-                      >
-                        공고 마감
-                      </Action>
-                    )}
-                    <Link className="button secondary" to={`/company/jobs/${j.jobId}/applicants`}>
-                      지원자 관리 →
-                    </Link>
-                    <Action
-                      method="delete"
-                      url={`/company/jobs/${j.jobId}`}
-                      onDone={resource.reload}
-                      confirm="이 공고를 삭제할까요? 지원·연계 이력이 있는 공고는 삭제할 수 없으며 마감으로 관리해 주세요."
-                    >
-                      삭제
-                    </Action>
-                  </div>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -162,6 +165,7 @@ const jobFields = [
   },
   { name: 'startDate', label: '접수 시작일', type: 'date', required: true },
   { name: 'endDate', label: '접수 마감일', type: 'date', required: true },
+
  { name: 'description', label: '상세 설명', type: 'textarea', required: true },
  { name: 'detailImageUrl', label: '상세 소개 이미지', render: ({ id, values, setValues }) => <NoticeImageInput id={id} value={values.detailImageUrl || ''} onChange={(value) => setValues(old => ({ ...old, detailImageUrl: value }))} maxFileSizeMB={4} acceptedTypes={['image/jpeg', 'image/png']} helpText="채용 안내 포스터 1장 · JPG·PNG 최대 4MB · 공고 저장 시 함께 반영됩니다." previewAlt="상세 소개 이미지 미리보기" removeLabel="상세 소개 이미지 삭제" /> },
 
@@ -173,8 +177,40 @@ const jobFields = [
 },
 
 { name: 'requirements', label: '자격요건', type: 'textarea' },
+
+  { name: 'description', label: '상세 설명', type: 'textarea', required: true },
+  {
+    name: 'bannerImageUrl',
+    label: '기업 홍보 배너 이미지',
+    render: ({ id, values, setValues }) => (
+      <NoticeImageInput
+        id={id}
+        value={values.bannerImageUrl || ''}
+        onChange={(value) => setValues((old) => ({ ...old, bannerImageUrl: value }))}
+        helpText="기업 홍보 배너 1장 · JPG, PNG, WEBP 최대 10MB · 공고 저장 시 함께 반영됩니다."
+        previewAlt="기업 홍보 배너 미리보기"
+        removeLabel="배너 이미지 삭제"
+      />
+    ),
+  },
+  {
+    name: 'detailImageUrls',
+    label: '상세 소개 이미지',
+    render: ({ id, values, setValues }) => (
+      <DetailImagesInput
+        id={id}
+        value={values.detailImageUrls || []}
+        onChange={(urls) => setValues((old) => ({ ...old, detailImageUrls: urls }))}
+        previewAlt="상세 소개 이미지 미리보기"
+        removeLabel="상세 소개 이미지 삭제"
+      />
+    ),
+  },
+  { name: 'requirements', label: '자격요건', type: 'textarea' },
+
   { name: 'preferredQualifications', label: '우대사항', type: 'textarea' },
 ];
+
 export function JobForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -190,7 +226,15 @@ export function JobForm() {
           <div className="panel narrow">
             <Form
               key={`${id || "new"}:${data.jobId || ""}:${data.updatedAt || ""}`}
-              initial={id ? { ...data, education: data.education || '학력무관' } : { headcount: 1, jobType: '정규직', careerType: '신입·경력', education: '학력무관' }}
+              initial={
+                id
+                  ? {
+                    ...data,
+                    education: data.education || '학력무관',
+                    detailImageUrls: data.detailImageUrls ?? (data.detailImageUrl ? [data.detailImageUrl] : []),
+                  }
+                  : { headcount: 1, jobType: '정규직', careerType: '신입·경력', education: '학력무관', detailImageUrls: [] }
+              }
               fields={jobFields.map((field) => {
                 if (field.name === 'education' && id && data.education && !field.options.includes(data.education)) {
                   return { ...field, options: [...field.options, { value: data.education, label: `${data.education} (기존 입력값)` }] };
@@ -221,8 +265,9 @@ export function JobForm() {
                 };
               })}
               onSubmit={async (body) => {
-                if (id) await client.put(`/company/jobs/${id}`, body);
-                else await client.post('/company/jobs', body);
+                const payload = { ...body, detailImageUrl: body.detailImageUrls?.[0] || '' };
+                if (id) await client.put(`/company/jobs/${id}`, payload);
+                else await client.post('/company/jobs', payload);
                 navigate('/company/jobs');
               }}
               submit="초안 저장"
@@ -238,7 +283,7 @@ export function JobForm() {
 
 export function Applicants() {
   const { id } = useParams();
-  const resource = useResource(`/company/jobs/${id}/applications`, { refreshInterval:10000 });
+  const resource = useResource(`/company/jobs/${id}/applications`, { refreshInterval: 10000 });
   return (
     <>
       <Title action={<button type="button" className="secondary" onClick={resource.reload}>새로고침</button>}>지원자 관리</Title>
@@ -281,7 +326,7 @@ function ApplicantDetailContent({ id }) {
   const [editingInterview, setEditingInterview] = useState(null);
   const [interviewMessage, setInterviewMessage] = useState('');
 
-  const resource = useResource(`/company/applications/${id}`, { refreshInterval:10000 });
+  const resource = useResource(`/company/applications/${id}`, { refreshInterval: 10000 });
   const transitions = {
     APPLIED: ['UNDER_REVIEW', 'REJECTED'],
     UNDER_REVIEW: ['DOCUMENT_PASSED', 'REJECTED'],

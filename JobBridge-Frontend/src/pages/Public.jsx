@@ -37,16 +37,16 @@ export function Home() {
       <div className="home-career-hero">
         <div className="home-promotion-column">
           <HomePromotion searchContent={<Search />} />
-      <section className="support-banner home-hero-support">
-        <div>
-          <p className="eyebrow">WE ARE HERE FOR YOU</p>
-          <h2>취업 준비, 혼자 고민하지 마세요.</h2>
-          <p>상담부터 기업 매칭까지, 취업연계 서비스가 함께합니다.</p>
-        </div>
-        <Link className="button" to="/employment">
-          취업연계 알아보기 ↗
-        </Link>
-      </section>
+          <section className="support-banner home-hero-support">
+            <div>
+              <p className="eyebrow">WE ARE HERE FOR YOU</p>
+              <h2>취업 준비, 혼자 고민하지 마세요.</h2>
+              <p>상담부터 기업 매칭까지, 취업연계 서비스가 함께합니다.</p>
+            </div>
+            <Link className="button" to="/employment">
+              취업연계 알아보기 ↗
+            </Link>
+          </section>
         </div>
         <CareerTestCard />
       </div>
@@ -225,7 +225,7 @@ export function Jobs() {
 
 export function JobDetail() {
   const { id } = useParams();
-  const resource = useResource(`/jobs/${id}`, { refreshInterval:60000 });
+  const resource = useResource(`/jobs/${id}`, { refreshInterval: 60000 });
   const deadline = useJobDeadline(resource.data);
   const user = useAuth((s) => s.user);
   const [applying, setApplying] = useState(false);
@@ -290,7 +290,20 @@ export function JobDetail() {
               ].map(([k, v]) => (
                 <section className="prose" key={k}>
                   <h2>{k}</h2>
-                  {k === '상세 소개' && job.detailImageUrl && <div className="job-detail-poster-link"><img className="job-detail-poster" src={job.detailImageUrl} alt={job.companyName + ' ' + job.title + ' 상세 소개'} /></div>}
+                  {k === '상세 소개' && (() => {
+                    const images = job.detailImageUrls?.length
+                      ? job.detailImageUrls
+                      : (job.detailImageUrl ? [job.detailImageUrl] : []);
+                    return images.map((src, i) => (
+                      <div className="job-detail-poster-link" key={i}>
+                        <img
+                          className="job-detail-poster"
+                          src={src}
+                          alt={`${job.companyName} ${job.title} 상세 소개 ${i + 1}`}
+                        />
+                      </div>
+                    ));
+                  })()}
                   <p>{v || '별도 안내'}</p>
                 </section>
               ))}
@@ -591,7 +604,7 @@ export function CompanyDetail() {
   const user = useAuth((s) => s.user);
   const admin = user?.role === 'ADMIN';
   const resource = useResource(`${admin ? '/admin' : ''}/companies/${id}`);
-  
+
   return (
     <Resource resource={resource}>
       {(c) => (
@@ -604,12 +617,12 @@ export function CompanyDetail() {
             <p>{c.description || '기업 소개를 준비하고 있습니다.'}</p>
             <p>규모: {c.companySize || '별도 안내'}</p>
             <p>주소: {c.address || '별도 안내'}</p>
-            
+
             {/* 🗺️ 기업 위치 지도 컴포넌트 삽입 */}
-            <LocationMap 
-              address={c.address} 
-              latitude={c.latitude} 
-              longitude={c.longitude} 
+            <LocationMap
+              address={c.address}
+              latitude={c.latitude}
+              longitude={c.longitude}
             />
 
             {c.website && (
@@ -656,7 +669,7 @@ function NoticeBoard({ id }) {
     </div>
   );
 
-  
+
 }
 function PremiumJobBanner({ job }) {
   return (
