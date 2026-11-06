@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-export default function NoticeImageInput({ id, value, previewUrl, onChange, onBusyChange, helpText, previewAlt, removeLabel }) {
+export default function NoticeImageInput({ id, value, previewUrl, onChange, onBusyChange, helpText, previewAlt, removeLabel, maxFileSizeMB = 10, acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'] }) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -10,21 +10,26 @@ export default function NoticeImageInput({ id, value, previewUrl, onChange, onBu
     if (!file) return;
     setError(''); setBusy(true); onBusyChange?.(true);
     try {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) throw new Error('10MB 이하의 JPG, PNG, WEBP 이미지를 선택해 주세요.');
+      if (!acceptedTypes.includes(file.type) || file.size > maxFileSizeMB * 1024 * 1024) {
+        const formats = acceptedTypes.map(type => ({ 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/webp': 'WEBP' })[type]).join(', ');
+        throw new Error(`${maxFileSizeMB}MB 이하의 ${formats} 이미지를 선택해 주세요.`);
+      }
       const bitmap = await createImageBitmap(file);
       try {
         const scale = Math.min(1, 1600 / bitmap.width, 8000 / bitmap.height);
         const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
         const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
         const data = canvas.toDataURL('image/jpeg', 0.9);
-        if (data.length > 5600000) throw new Error('저장할 이미지가 너무 큽니다. 크기를 줄여 다시 선택해 주세요.');
+        const encoded = data.slice(data.indexOf(',') + 1);
+        const storedBytes = encoded.length * 3 / 4 - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0);
+        if (storedBytes > 4 * 1024 * 1024) throw new Error('저장할 이미지가 너무 큽니다. 크기를 줄여 다시 선택해 주세요.');
         onChange(data);
       } finally { bitmap.close(); }
     } catch (ex) { setError(ex.message || '이미지를 읽을 수 없습니다.'); }
     finally { setBusy(false); onBusyChange?.(false); }
   }
   return <div className="notice-image-input">
-    <input id={id} ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={select} disabled={busy} />
+    <input id={id} ref={input} type="file" accept={acceptedTypes.join(',')} onChange={select} disabled={busy} />
     <p className="muted">{helpText || '안내 이미지 1장 · 최대 10MB · 비율을 유지하며 저장합니다. 공지 저장 시 함께 반영됩니다.'}</p>
     {source && <><img src={source} alt={previewAlt || '공지 안내 이미지 미리보기'} /><button type="button" className="secondary" disabled={busy} onClick={() => onChange('')}>{removeLabel || '이미지 삭제'}</button></>}
     {busy && <p role="status">이미지를 처리하는 중입니다…</p>}

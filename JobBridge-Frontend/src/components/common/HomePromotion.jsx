@@ -33,7 +33,7 @@ export default function HomePromotion({ searchContent }) {
     );
     return () => window.clearTimeout(timer);
   }, [paused, interacting, reducedMotion, slides, index]);
-  if (!current) return null;
+  if (!current) return resource.loading ? <span hidden data-scroll-loading="true" /> : null;
   const advance = (delta) =>
     setActiveKey(slides[(index + slides.length + delta) % slides.length].key);
   return (

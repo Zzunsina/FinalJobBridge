@@ -163,7 +163,7 @@ const jobFields = [
   { name: 'startDate', label: '접수 시작일', type: 'date', required: true },
   { name: 'endDate', label: '접수 마감일', type: 'date', required: true },
  { name: 'description', label: '상세 설명', type: 'textarea', required: true },
- { name: 'detailImageUrl', label: '상세 소개 이미지', render: ({ id, values, setValues }) => <NoticeImageInput id={id} value={values.detailImageUrl || ''} onChange={(value) => setValues(old => ({ ...old, detailImageUrl: value }))} helpText="채용 안내 포스터 1장 · JPG, PNG, WEBP 최대 10MB · 공고 저장 시 함께 반영됩니다." previewAlt="상세 소개 이미지 미리보기" removeLabel="상세 소개 이미지 삭제" /> },
+ { name: 'detailImageUrl', label: '상세 소개 이미지', render: ({ id, values, setValues }) => <NoticeImageInput id={id} value={values.detailImageUrl || ''} onChange={(value) => setValues(old => ({ ...old, detailImageUrl: value }))} maxFileSizeMB={4} acceptedTypes={['image/jpeg', 'image/png']} helpText="채용 안내 포스터 1장 · JPG·PNG 최대 4MB · 공고 저장 시 함께 반영됩니다." previewAlt="상세 소개 이미지 미리보기" removeLabel="상세 소개 이미지 삭제" /> },
 
 {
   name: 'bannerImageUrl',

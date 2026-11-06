@@ -65,7 +65,7 @@ export default function TieredJobAds() {
     basic = useResource('/ads/active?placement=JOB', { refreshInterval: 30000 });
   const resources = [premium, standard, basic];
   return (
-    <section className="section tiered-job-ads">
+    <section className="section tiered-job-ads" data-scroll-loading={resources.some(resource => resource.loading && !resource.data) ? "true" : undefined}>
       <div className="section-heading">
         <div>
           <p className="eyebrow">FIND YOUR OPPORTUNITY</p>

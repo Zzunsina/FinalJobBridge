@@ -562,3 +562,16 @@
 
 .ad-form-grid{align-items:start}.ad-form-grid>label{align-self:start;align-content:start}.ad-form-grid>label>input[readonly]{height:46px;min-height:46px;align-self:start}
 
+
+/* Keep order details aligned; give review notes a separate, readable line. */
+.ad-history > .row { margin-bottom: 16px; align-items: center; }
+.ad-history > .row h2 { margin: 0; }
+.ad-table-wrap table { min-width: 720px; }
+.ad-table-wrap td { padding: 18px 14px; }
+.ad-table-wrap th { padding: 15px 14px; }
+.ad-table-wrap td > small { display: block; color: #64748b; line-height: 1.6; }
+.ad-table-wrap .ad-status { max-width: 170px; line-height: 1.5; white-space: normal; }
+.ad-table-actions:empty::after { content: '—'; color: #94a3b8; }
+.ad-table-wrap .ad-order-memo-row td { padding: 10px 14px 16px; background: #fafbfc; color: #526278; line-height: 1.7; }
+.ad-order-memo-row td > span { display: inline-block; margin-right: 10px; color: #334155; font-weight: 600; }
+.ad-order-group:has(.ad-order-memo-row) > tr:first-child > td { border-bottom: 0; padding-bottom: 12px; }
