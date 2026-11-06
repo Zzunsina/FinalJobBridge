@@ -389,4 +389,62 @@
 @media(max-width:1050px){.tier-grid-standard,.tier-grid-basic{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:750px){.tier-heading-actions{flex-direction:column;align-items:flex-end;gap:5px}.tier-all-jobs{font-size:12px}.tier-grid-standard,.tier-grid-basic{grid-template-columns:1fr}.tier-ad-standard .tier-ad-cover{height:140px}.tier-ad-standard .tier-ad-body{padding-top:32px}}
 
+.tier-ad-swipe-hint {
+  display: none;
+}
+
+@media (max-width: 750px) {
+  .home-page .tier-ad-swipe-hint {
+    display: inline;
+    margin-inline-start: auto;
+    color: #526880;
+    font-size: 11px;
+  }
+  .home-page .tier-ad-grid:has(> .tier-ad-card + .tier-ad-card) {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 86%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    padding: 5px 3px 8px;
+  }
+  .home-page .tier-ad-grid > .tier-ad-card {
+    scroll-snap-align: start;
+  }
+  .home-page .tiered-job-ads {
+    padding: 14px;
+  }
+  .home-page .tiered-job-ads > .section-heading,
+  .home-page .tier-ad-heading {
+    margin-bottom: 8px;
+  }
+  .home-page .tier-ad-section + .tier-ad-section {
+    margin-top: 12px;
+  }
+  .home-page .tier-ad-empty {
+    padding: 10px;
+  }
+  .home-page .tier-ad-grid {
+    gap: 10px;
+  }
+  .home-page .tier-ad-premium > a {
+    height: 200px;
+  }
+  .home-page .tier-ad-standard .tier-ad-cover {
+    height: 108px;
+  }
+  .home-page .tier-ad-standard .tier-ad-body {
+    min-height: 0;
+    padding-bottom: 10px;
+  }
+  .home-page .tier-ad-standard .tier-ad-body h3 {
+    min-height: 0;
+  }
+  .home-page .tier-ad-basic > a {
+    min-height: 100px;
+    padding-block: 10px;
+  }
+}
+
 .tier-ad-basic>a{min-height:122px;padding:17px 14px}.tier-ad-basic .tier-ad-body{padding-top:16px}.tier-ad-basic .tier-ad-body p{font-size:12px;color:#607591}.tier-ad-basic .tier-ad-body h3{font-size:15px;line-height:1.55;margin-bottom:8px}.tier-ad-basic .tier-ad-body small{font-size:11px}.tier-ad-basic .tier-ad-top{top:9px;right:11px}.tier-ad-basic:hover{background:#f5f9ff}

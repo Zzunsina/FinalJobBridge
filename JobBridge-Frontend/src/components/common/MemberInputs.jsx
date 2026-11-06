@@ -15,7 +15,7 @@ export function BirthDateInput({ id, value, onChange, required }) {
   );
 }
 
-export function MobileInput({ id, name, value, onChange, required }) {
+export function MobileInput({ id, name, value, onChange, required, disabled }) {
   const input = useRef(null);
   const caret = useRef(null);
   const formatted = formatMobile(value);
@@ -30,7 +30,7 @@ export function MobileInput({ id, name, value, onChange, required }) {
       caret.current = null;
     }
   });
-  return <input ref={input} id={id} name={name} type="tel" inputMode="numeric" autoComplete="tel-national" required={required} maxLength={13} value={formatted}
+  return <input ref={input} id={id} name={name} type="tel" inputMode="numeric" autoComplete="tel-national" required={required} disabled={disabled} maxLength={13} value={formatted}
     onChange={(e) => {
       caret.current = e.target.value.slice(0, e.target.selectionStart).replace(/[^0-9]/g, '').length;
       onChange(e.target.value.replace(/[^0-9]/g, '').slice(0, 11));

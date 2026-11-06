@@ -14,6 +14,30 @@ function Icon({ type }) {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{type === 'people' ? <><circle cx="9" cy="8" r="3" /><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M21 20v-2a6 6 0 0 0-4-5" /></> : type === 'calendar' ? <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 11h18M8 15h3M8 18h6" /></> : <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></>}</svg>;
 }
 
+function EmploymentRequests({ requests }) {
+  return (
+    <section className="company-employment-requests panel">
+      <div className="company-section-heading">
+        <h2>취업연계 요청</h2>
+        <Link to="/company/employment">전체 취업연계 보기 →</Link>
+      </div>
+      {requests.length ? (
+        <ul className="company-request-list">
+          {requests.map((request) => (
+            <li key={request.notificationId}>
+              <Link to={`/company/employment/referrals/${request.referralId}`}>
+                <strong>{request.title}</strong>
+                <span>{request.applicantName}{request.jobTitle && ` · ${request.jobTitle}`}</span>
+                <time dateTime={request.createdAt}>{date(request.createdAt)}</time>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="muted">최근 취업연계 요청이 없습니다.</p>}
+    </section>
+  );
+}
+
 export default function CompanyOverview() {
   const resource = useCompanyOverview();
   return <div className="company-overview">
@@ -26,6 +50,7 @@ export default function CompanyOverview() {
         ['누적 지원자', data.applications, 'people', 'purple', '/company/applicants'],
         ['예정된 면접', data.interviewCount, 'calendar', 'orange', '/company/interviews'],
       ].map(([label, value, icon, tone, to]) => <Link to={to} className="company-summary-card" key={label}><span className={`company-metric-icon ${tone}`}><Icon type={icon} /></span><span><small>{label}</small><strong>{number(value)}</strong></span><span className="company-card-arrow">↗</span></Link>)}</div>
+      <EmploymentRequests requests={data.employmentRequests ?? []} />
       <div className="company-section-heading"><h2>진행 중인 채용공고 <span>({number(data.publishedJobs)})</span></h2><Link to="/company/jobs">전체 공고 보기 →</Link></div>
       {data.activeJobs.length ? <div className="company-overview-job-list">{data.activeJobs.map((job) => <article className="company-overview-job" key={job.jobId}>
         <CompanyCover companyId={data.profile.companyId} profileImageUrl="/api/company/image" companyName={data.profile.companyName} industry={data.profile.industry} bannerImageUrl={job.bannerImageUrl} className="company-overview-job-image" />
@@ -84,7 +109,28 @@ function ApplicantList({ rows }) {
     <p className="applicant-result-count" role="status">지원서 <strong>{number(filtered.length)}</strong>건 · 공고 {number(groups.length)}개</p>
     {groups.length ? <div className="stack">{groups.map((job) => <section className="panel applicant-job-group" key={job.id}>
       <div className="applicant-job-heading"><div><small>채용공고 #{job.id}</small><h2>{job.title}</h2></div><strong>{number(job.rows.length)}명</strong></div>
-      <PagedRows key={job.id + ':' + query + ':' + status} rows={job.rows}>{(pageRows) => <div className="applicant-table-wrap"><table className="applicant-table"><thead><tr><th scope="col">지원자</th><th scope="col">지원일</th><th scope="col">지원 당시 적성 점수</th><th scope="col">심사 상태</th><th scope="col">지원서</th></tr></thead><tbody>{pageRows.map((row) => <tr key={row.applicationId}><td><Link to={'/company/applications/' + row.applicationId}>{row.name}</Link></td><td>{date(row.appliedAt)}</td><td>{row.score == null ? '제출 결과 없음' : row.score + '점'}</td><td><Badge value={row.status} /></td><td><Link to={'/company/applications/' + row.applicationId}>상세 보기 →</Link></td></tr>)}</tbody></table></div>}</PagedRows>
+      <PagedRows key={job.id + ':' + query + ':' + status} rows={job.rows}>{(pageRows) => (
+        <div className="applicant-table-wrap">
+          <table className="applicant-table" role="table">
+            <thead role="rowgroup"><tr role="row">
+              <th scope="col" role="columnheader">지원자</th>
+              <th scope="col" role="columnheader">지원일</th>
+              <th scope="col" role="columnheader">지원 당시 적성 점수</th>
+              <th scope="col" role="columnheader">심사 상태</th>
+              <th scope="col" role="columnheader">지원서</th>
+            </tr></thead>
+            <tbody role="rowgroup">{pageRows.map((row) => (
+              <tr key={row.applicationId} role="row">
+                <td role="cell"><Link to={'/company/applications/' + row.applicationId}>{row.name}</Link></td>
+                <td role="cell"><span className="applicant-mobile-label" aria-hidden="true">지원일</span>{date(row.appliedAt)}</td>
+                <td role="cell"><span className="applicant-mobile-label" aria-hidden="true">적성 점수</span>{row.score == null ? '제출 결과 없음' : row.score + '점'}</td>
+                <td role="cell"><span className="applicant-mobile-label" aria-hidden="true">심사 상태</span><Badge value={row.status} /></td>
+                <td role="cell"><Link to={'/company/applications/' + row.applicationId}>상세 보기 →</Link></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}</PagedRows>
     </section>)}</div> : <div className="empty">{rows.length ? '검색 조건에 맞는 지원자가 없습니다.' : '접수된 지원서가 없습니다.'}</div>}
   </>;
 }

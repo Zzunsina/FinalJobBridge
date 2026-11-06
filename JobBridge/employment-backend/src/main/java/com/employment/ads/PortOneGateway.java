@@ -79,8 +79,14 @@ public class PortOneGateway {
   }
 
   public JsonNode payment(String id) {
-    // V1 lookup uses our merchant_uid; an untrusted browser imp_uid is never sufficient.
     return normalize(request("GET", "/payments/find/" + encode(id), null));
+  }
+
+  public JsonNode paymentByProviderId(String impUid) {
+    if (!impUid.matches("imp_[A-Za-z0-9]{1,64}")) {
+      throw new Problem(400, "포트원 거래번호를 확인해 주세요.");
+    }
+    return normalize(request("GET", "/payments/" + encode(impUid), null));
   }
 
   public void cancel(String id, String reason, int amount) {
@@ -219,7 +225,7 @@ public class PortOneGateway {
     throws java.io.IOException {
     if (response.statusCode() == 404) throw new Problem(
       409,
-      "아직 확인된 결제가 없습니다. 결제를 마친 뒤 다시 확인해 주세요."
+      "포트원에서 이 결제를 찾지 못했습니다. 카드 승인이 있다면 다시 결제하지 말고 포트원 거래번호로 확인해 주세요."
     );
     if (response.statusCode() < 200 || response.statusCode() >= 300) throw new Problem(
       502,

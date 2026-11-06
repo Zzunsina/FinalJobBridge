@@ -336,25 +336,42 @@ public class AdvertisingService {
 
   @Transactional
   public Map<String, Object> confirm(long user, String id) {
+    return confirm(user, id, "");
+  }
+
+  @Transactional
+  public Map<String, Object> confirm(long user, String id, String impUid) {
     var c = company(user);
     owned(number(c, "companyId"), id, false);
-    sync(id);
+    sync(id, impUid);
     return orderView(number(c, "companyId"), id);
   }
 
   @Transactional
   public void webhook(String id) {
+    webhook(id, "");
+  }
+
+  @Transactional
+  public void webhook(String id, String impUid) {
     if (db.one("SELECT order_id FROM ad_orders WHERE order_id=?", id) == null) return;
-    sync(id);
+    sync(id, impUid);
   }
 
   @Transactional
   public void sync(String id) {
+    sync(id, "");
+  }
+
+  private void sync(String id, String impUid) {
     var o = db.one("SELECT * FROM ad_orders WHERE order_id=? FOR UPDATE", id);
     if (o == null) throw new Problem(404, "광고 주문을 찾을 수 없습니다.");
     if (db.one("SELECT order_id FROM ad_order_simulations WHERE order_id=?", id) != null) return;
-    var payment = gateway.payment(id);
+    var payment = impUid.isEmpty() ? gateway.payment(id) : gateway.paymentByProviderId(impUid);
     gateway.validate(payment, id, ((Number) o.get("totalAmount")).intValue());
+    if (!impUid.isEmpty() && !impUid.equals(payment.path("providerPaymentId").asText())) {
+      throw new Problem(409, "포트원 거래번호가 조회 결과와 일치하지 않습니다.");
+    }
     String status = payment.path("status").asText();
     if (status.equals("PAID")) {
       if (Set.of("CANCELLED", "PARTIAL_CANCELLED").contains(o.get("paymentStatus"))) return;

@@ -42,8 +42,9 @@ public class AdvertisingController {
   }
 
   @PostMapping("/company/ad-orders/{id}/confirm")
-  Object confirm(@PathVariable String id, HttpServletRequest r) {
-    return service.confirm(auth.require(r, "COMPANY"), id);
+  Object confirm(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body, HttpServletRequest r) {
+    String impUid = body == null ? "" : Input.text(body, "impUid", 68, false).strip();
+    return service.confirm(auth.require(r, "COMPANY"), id, impUid);
   }
 
   @PutMapping("/company/ad-orders/{id}/creative")
@@ -142,6 +143,6 @@ public class AdvertisingController {
     );
     // V1 webhooks have no V2 signature. Ignore the supplied status and retrieve the
     // payment through our server's V1 REST credentials before changing any state.
-    service.webhook(id);
+    service.webhook(id, imp);
   }
 }

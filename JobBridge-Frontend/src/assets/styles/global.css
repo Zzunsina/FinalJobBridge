@@ -741,6 +741,10 @@ main {
   max-width: 800px;
   margin-top: 25px;
 }
+.account-page {
+  max-width: 800px;
+  margin-inline: auto;
+}
 .panel p:last-child {
   margin-bottom: 0;
 }

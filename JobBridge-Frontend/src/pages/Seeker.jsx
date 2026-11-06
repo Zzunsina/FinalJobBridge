@@ -11,6 +11,8 @@ import ResumeEditor from '../components/resume/ResumeEditor';
 import ResumeDocument from '../components/resume/ResumeDocument';
 import BookmarkButton from '../components/common/BookmarkButton';
 import ProfilePhoto from '../components/common/ProfilePhoto';
+import SmsPhoneInput from '../components/common/SmsPhoneInput';
+import { jobCategories } from '../data/jobCategories';
 import WithdrawAccount from '../components/common/WithdrawAccount';
 import LocationMap from '../components/common/LocationMap';
 import { ResumeCollection, ApplicationCollection } from '../components/common/CareerLists';
@@ -344,6 +346,15 @@ export function Bookmarks() {
   );
 }
 
+const employmentIndustries = [
+  'IT·정보통신', '제조업', '건설업', '유통·물류', '금융·보험',
+  '교육', '보건·복지', '문화·콘텐츠', '숙박·음식', '공공·행정', '기타 서비스업', '기타 업종',
+];
+const employmentOccupations = [
+  ...jobCategories.flatMap(({ jobs }) => jobs),
+  '사무·행정', '생산·제조', '기타 직무',
+];
+
 export function Employment() {
   const user = useAuth((s) => s.user);
   const resource = useResource('/employment-links');
@@ -370,8 +381,8 @@ export function Employment() {
         <Resource resource={eligibility}>{(data) => data.hasPublicResume ? <>
           <p className="muted">공개 이력서를 바탕으로 기업 매칭이 진행됩니다.</p>
           {activeLink ? <div className="callout"><p>진행 중인 취업연계 신청이 있습니다.</p><Link className="button secondary" to={`/employment/${activeLink.employmentLinkId}`}>진행 중인 신청 확인 →</Link></div> : <Form fields={[
-            { name: 'preferredIndustry', label: '희망 업종', required: true, maxLength: 100, placeholder: '예: IT·정보통신, 제조업, 서비스업' },
-            { name: 'preferredOccupation', label: '선호 직업·직무', required: true, maxLength: 100, placeholder: '예: 백엔드 개발자, 사무직, 생산직' },
+            { name: 'preferredIndustry', label: '희망 업종', required: true, options: employmentIndustries },
+            { name: 'preferredOccupation', label: '선호 직업·직무', required: true, options: employmentOccupations },
           ]} onSubmit={async (body) => { await client.post('/employment-links', body); await resource.reload(); }} submit="희망 조건 제출하고 취업연계 신청" successMessage="희망 조건과 취업연계 신청을 접수했습니다." />}
         </> : <div className="callout"><p>취업연계 신청에는 공개된 이력서가 필요합니다. 이력서를 작성하거나 기존 이력서의 ‘공개 여부 설정’을 켜고 저장해 주세요.</p><Link className="button secondary" to="/resumes">이력서 관리로 이동 →</Link></div>}</Resource>
       </div>
@@ -402,13 +413,14 @@ export function Employment() {
 }
 
 export function MyPage() {
-  return <><Title>내 정보</Title><div className="panel narrow"><AccountSettings /></div></>;
+  return <div className="account-page"><Title>내 정보</Title><div className="panel"><AccountSettings /></div></div>;
 }
 
 export function AccountSettings({ company = false }) {
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const navigate = useNavigate();
+  const savedPhone = String(user.phone ?? '').replace(/[^0-9]/g, '');
 
   return (
     <>
@@ -416,15 +428,33 @@ export function AccountSettings({ company = false }) {
         {!company && <ProfilePhoto key={user.userId} user={user} />}
         <h2>{company ? '계정 정보' : '기본 정보'}</h2>
         <p>아이디: {user.loginId}</p>
-        <p>{user.email}</p>
         <Form
-          initial={user}
+          key={user.userId + ':' + savedPhone}
+          initial={{ name: user.name, email: user.email, phone: savedPhone }}
+          detectChanges
           fields={[
             { name: 'name', label: company ? '담당자 이름' : '이름', required: true, maxLength: 100 },
-            { name: 'phone', label: '휴대폰번호', type: 'tel', required: true },
+            { name: 'email', label: '이메일', type: 'email', required: true, maxLength: 254, autoComplete: 'email' },
+            {
+              name: 'phone', label: '휴대폰번호', required: true,
+              validate: (phone, values) =>
+                phone === savedPhone || (values.smsVerificationToken && values.phoneVerifiedUntil > Date.now())
+                  ? '' : '새 휴대폰번호의 문자 인증을 완료해 주세요.',
+              render: ({ id, values, setValues, error, clearError }) => (
+                <SmsPhoneInput id={id} value={values.phone} savedPhone={savedPhone} serverError={error}
+                  onChange={(phone) => {
+                    clearError();
+                    setValues((old) => ({ ...old, phone, smsVerificationToken: '', phoneVerifiedUntil: 0 }));
+                  }}
+                  onVerified={(smsVerificationToken, phoneVerifiedUntil) => {
+                    clearError();
+                    setValues((old) => ({ ...old, smsVerificationToken, phoneVerifiedUntil }));
+                  }} />
+              ),
+            },
           ]}
-          onSubmit={async (body) => {
-            const { data } = await client.patch('/me', body);
+          onSubmit={async ({ name, email, phone, smsVerificationToken }) => {
+            const { data } = await client.patch('/me', { name, email, phone, smsVerificationToken });
             setUser(data);
             window.alert('내 정보를 저장했습니다.');
           }}

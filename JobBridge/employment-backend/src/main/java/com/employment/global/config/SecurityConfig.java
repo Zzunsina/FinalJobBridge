@@ -1,6 +1,7 @@
 package com.employment.global.config;
 
 import com.employment.auth.AuthService;
+import com.employment.global.common.Problem;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import java.io.IOException;
@@ -102,6 +103,15 @@ public class SecurityConfig {
                             }
                         }
                         auth.authenticate(req);
+                        String path = req.getRequestURI().substring(req.getContextPath().length());
+                        if (path.equals("/api/admin") || path.startsWith("/api/admin/")) {
+                            try {
+                                auth.require(req, "ADMIN");
+                            } catch (Problem ex) {
+                                error(res, ex.status, ex.getMessage());
+                                return;
+                            }
+                        }
                         chain.doFilter(req, res);
                     }
                 },

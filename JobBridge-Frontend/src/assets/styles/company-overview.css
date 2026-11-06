@@ -21,6 +21,12 @@
 .company-section-heading h2 { font-size:21px; margin:0; color:#253d60; }
 .company-section-heading h2 span { color:#8999b1; font-size:16px; font-weight:400; }
 .company-section-heading > a { font-size:13px; color:#4b78bd; }
+.company-employment-requests { margin-bottom: 32px; }
+.company-request-list { list-style: none; margin: 0; padding: 0; }
+.company-request-list li + li { border-top: 1px solid var(--line); }
+.company-request-list a { display: grid; gap: 4px; padding: 12px 0; overflow-wrap: anywhere; }
+.company-request-list a:hover strong { text-decoration: underline; }
+.company-request-list span, .company-request-list time { font-size: 13px; color: #526986; }
 .company-overview-job-list { display:grid; gap:16px; }
 .company-overview-job { display:flex; align-items:center; gap:22px; padding:20px; border:1px solid #e1e8f3; border-radius:14px; background:#fff; }
 .company-overview-job-image { width:200px; height:122px; flex:0 0 200px; border-radius:10px; }
@@ -66,12 +72,40 @@
 .applicant-job-heading small { color:#71839f; }
 .applicant-job-heading h2 { margin:6px 0 0; font-size:20px; overflow-wrap:anywhere; }
 .applicant-job-heading > strong { color:#3370cc; white-space:nowrap; }
-.applicant-table-wrap { overflow-x:auto; }
-.applicant-table { width:100%; min-width:500px; border-collapse:collapse; font-size:14px; }
-.applicant-table th, .applicant-table td { padding:14px 12px; text-align:left; border-bottom:1px solid #e7edf6; }
+.applicant-job-group { min-width: 0; }
+.applicant-table-wrap { container-type: inline-size; }
+.applicant-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:14px; }
+.applicant-table th, .applicant-table td { padding:14px 12px; text-align:left; border-bottom:1px solid #e7edf6; overflow-wrap:anywhere; }
 .applicant-table th { background:#f5f8fc; color:#71839f; font-size:12px; }
 .applicant-table td:first-child a { font-size:16px; font-weight:700; color:#213a61; }
-.applicant-table td:last-child a { color:#3370cc; white-space:nowrap; }
+.applicant-table td:last-child a { color:#3370cc; }
+.applicant-mobile-label { display: none; }
+@container (max-width: 540px) {
+  .applicant-table, .applicant-table tbody { display: block; }
+  .applicant-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .applicant-table tbody { display: grid; gap: 12px; }
+  .applicant-table tr {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #e7edf6;
+    border-radius: 10px;
+  }
+  .applicant-table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .applicant-mobile-label { display: inline-block; margin-inline-end: 8px; color: #526986; }
+}
 @media(max-width:900px) { .company-summary-card { padding:18px 14px; gap:10px; } .company-overview-job-image { width:140px; flex-basis:140px; } }
 @media(max-width:600px) {
   .company-welcome { align-items:flex-start; padding:18px; gap:12px; flex-wrap:wrap; }

@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class EmploymentOnboarding {
+    static final String HELP_NOTICE = "사용자가 입사 관련 도움을 요청했습니다.";
+    static final String NOT_JOINED_NOTICE = "사용자가 입사하지 않음을 전달했습니다.";
     private final Database db;
     public EmploymentOnboarding(Database db) { this.db=db; }
     private Map<String,Object> one(String sql,Object...args) {
@@ -85,7 +87,7 @@ public class EmploymentOnboarding {
             }
             db.insert("inquiries",fields("user_id",user,"title","취업연계 #"+link.get("employmentLinkId")+" 입사 관련 도움 요청","content",message));
         }
-        String title=action.equals("JOINED") ? "사용자가 실제 입사를 확인했습니다." : action.equals("NOT_JOINED") ? "사용자가 입사하지 않음을 전달했습니다." : "사용자가 입사 관련 도움을 요청했습니다.";
+        String title=action.equals("JOINED") ? "사용자가 실제 입사를 확인했습니다." : action.equals("NOT_JOINED") ? NOT_JOINED_NOTICE : HELP_NOTICE;
         var managers=link.get("managerUserId")==null ? db.list("SELECT user_id FROM users WHERE role='ADMIN' AND status='ACTIVE'") : List.of(fields("userId",link.get("managerUserId")));
         for(var m:managers) notify(number(m,"userId"),number(link,"employmentLinkId"),title,"취업연계 관리 또는 문의 관리에서 확인해 주세요.");
         notify(number(one("SELECT user_id FROM companies WHERE company_id=?",r.get("companyId")),"userId"),number(link,"employmentLinkId"),title,"취업연계 상세에서 사용자 응답을 확인해 주세요.");

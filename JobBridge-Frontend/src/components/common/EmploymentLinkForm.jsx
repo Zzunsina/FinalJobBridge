@@ -5,6 +5,7 @@ import { useResource } from '../../hooks/useResource';
 import client, { message } from '../../api/client';
 import { Action, labels, Resource } from './UI';
 import { employmentReviewLabels } from '../../utils/employmentReview';
+import { koreanToday } from '../../utils/memberInputs';
 
 const moves = {
   REQUESTED: ['MATCHING', 'CLOSED'],
@@ -15,7 +16,8 @@ const moves = {
 
 export default function EmploymentLinkForm({ record, onDone }) {
   const resource = useResource(
-    `/admin/employment-link-options?employmentLinkId=${record.employmentLinkId}`
+    `/admin/employment-link-options?employmentLinkId=${record.employmentLinkId}`,
+    { refreshInterval: 30000 }
   );
   const history = useResource(`/admin/employment-links/${record.employmentLinkId}/referrals`, { refreshInterval: 30000 });
   return <Resource resource={resource}>{(options) => <Resource resource={history}>{(rows) => <SelectionForm key={record.employmentLinkId + ':' + record.status + ':' + (rows[0]?.referralId || '') + ':' + (rows[0]?.reviewStatus || '')} record={record} referral={rows.find((row) => row.referralId)} options={options} onDone={async (values) => { await onDone(values); await history.reload(); }} />}</Resource>}</Resource>;
@@ -29,7 +31,12 @@ function SelectionForm({ record, referral, options, onDone }) {
   const [success, setSuccess] = useState('');
   const active = referral && !['DECLINED', 'CANCELED'].includes(referral.reviewStatus);
   const canInterview = record.status === 'INTERVIEW';
-  const jobs = options.jobs.filter((j) => String(j.companyId) === String(values.companyId));
+  const today = koreanToday();
+  const jobs = options.jobs.filter((job) =>
+    String(job.companyId) === String(values.companyId) &&
+    job.status === 'PUBLISHED' && job.endDate >= today
+  );
+  const unavailableJob = Boolean(values.jobId && !jobs.some((job) => String(job.jobId) === String(values.jobId)));
   const needsMatch = ['MATCHING', 'INTERVIEW', 'EMPLOYED'].includes(values.status);
   function field(name, value) { setValues((old) => ({ ...old, [name]: value })); setSuccess(''); }
   async function save(event) {
@@ -72,22 +79,25 @@ function SelectionForm({ record, referral, options, onDone }) {
         <select id={id + '-company'} value={values.companyId || ''} required={needsMatch} disabled={busy || active} onChange={(e) => { setValues((old) => ({ ...old, companyId: e.target.value, jobId: '' })); setSuccess(''); }}>
           <option value="">연계 기업 선택</option>
           {unavailable(options.companies, 'companyId', values.companyId) && <option value={values.companyId} disabled>기존 기업 · 사용 불가 (다시 선택해 주세요)</option>}
-          {options.companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.companyName} ({c.businessNumber})</option>)}
+          {options.companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.companyName} ({c.industry || c.businessNumber})</option>)}
         </select>
+        <p className="muted">{options.companies.length
+          ? '신청자의 희망 업종과 선호 직무에 맞는 기업만 표시합니다.'
+          : '현재 희망 업종과 선호 직무에 맞는 기업이 없습니다.'}</p>
       </div>
       <div className="form-field">
         <label htmlFor={id + '-job'}>
           연계 공고 (선택 사항)
         </label>
-        <select id={id + '-job'} value={values.jobId || ''} disabled={busy || active || !values.companyId} onChange={(e) => field('jobId', e.target.value)}>
+        <select id={id + '-job'} value={unavailableJob ? '' : values.jobId || ''} disabled={busy || active || !values.companyId} onChange={(e) => field('jobId', e.target.value)}>
           <option value="">
             {values.companyId
-              ? '채용공고 없이 기업만 추천'
+              ? (unavailableJob ? '다른 연계 공고 선택' : '채용공고 없이 기업만 추천')
               : '기업을 먼저 선택해 주세요'}
           </option>
-          {unavailable(jobs, 'jobId', values.jobId) && <option value={values.jobId} disabled>기존 공고 · 사용 불가 (다시 선택해 주세요)</option>}
           {jobs.map((j) => <option key={j.jobId} value={j.jobId}>{j.title} · {labels[j.status] || j.status}</option>)}
         </select>
+        {unavailableJob && <p className="muted">기존 연계 공고는 현재 선택할 수 없습니다.</p>}
       </div>
       {values.status === 'EMPLOYED' && <label><input type="checkbox" required checked={!!values.employmentConfirmed} onChange={(e) => field('employmentConfirmed', e.target.checked)} />사용자와 기업의 실제 입사를 확인했습니다.</label>}
       <div className="form-field">
