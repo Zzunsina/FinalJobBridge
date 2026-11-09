@@ -43,6 +43,14 @@ export function filterAdminRows(rows, name, query, status, role = '') {
       .join(' ');
     return terms.every((term) => text.includes(term));
   });
+  if (name === 'users') {
+    const priority = { ACTIVE: 0, SUSPENDED: 1, WITHDRAWN: 2 };
+    return filtered.sort((a, b) =>
+      (priority[a.status] ?? 3) - (priority[b.status] ?? 3) ||
+      String(b.createdAt || '').localeCompare(String(a.createdAt || '')) ||
+      Number(b.userId) - Number(a.userId),
+    );
+  }
   if (name === 'inquiries') {
     return filtered.sort((a, b) =>
       Number(a.status !== 'OPEN') - Number(b.status !== 'OPEN') ||
