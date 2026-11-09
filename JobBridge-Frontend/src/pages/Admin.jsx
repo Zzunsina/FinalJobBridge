@@ -29,9 +29,11 @@ function AdminManageContent({ resourceName }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [memberRole, setMemberRole] = useState(null);
+  const [focusUserId, setFocusUserId] = useState(null);
   const allRows = resource.data || [];
   const [params] = useSearchParams();
   const focus = params.get('focus');
+  const activeFocus = focusUserId ?? focus;
   const focusedRole = allRows.find((row) => String(row.userId) === focus)?.role;
   const selectedRole = resourceName === 'users' ? (memberRole ?? focusedRole ?? 'JOB_SEEKER') : '';
   const typeRows = resourceName === 'users' && selectedRole ? allRows.filter((row) => row.role === selectedRole) : allRows;
@@ -49,11 +51,11 @@ function AdminManageContent({ resourceName }) {
     inquiries: 'inquiryId',
   }[resourceName];
   useEffect(() => {
-    if (!resource.loading && resource.data && focus)
+    if (!resource.loading && resource.data && activeFocus)
       document
-        .getElementById(`admin-record-${focus}`)
+        .getElementById(`admin-record-${activeFocus}`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [resource.loading, resource.data, focus]);
+  }, [resource.loading, resource.data, activeFocus]);
   return (
     <div className="admin-management">
       <Title
@@ -146,7 +148,7 @@ function AdminManageContent({ resourceName }) {
       )}
       <PagedResource
         resource={{ ...resource, data: resource.data == null ? null : filteredRows }}
-        focusId={focus}
+        focusId={activeFocus}
         idKey={key}
         key={`${resourceName}:${selectedRole}:${query}:${status}`}
       >
@@ -156,13 +158,13 @@ function AdminManageContent({ resourceName }) {
               {rows.map((r, i) => (
                 <details
                   className={
-                    String(r[key]) === focus
+                    String(r[key]) === activeFocus
                       ? 'admin-compact-record admin-focused-record'
                       : 'admin-compact-record'
                   }
                   id={`admin-record-${r[key]}`}
                   key={r[key] ?? i}
-                  open={String(r[key]) === focus || undefined}
+                  open={String(r[key]) === activeFocus || undefined}
                 >
                   <summary>
                     <span className="admin-record-heading">
@@ -185,7 +187,15 @@ function AdminManageContent({ resourceName }) {
                     <span className="admin-record-toggle" aria-hidden="true" />
                   </summary>
                   <div className="admin-record-body">
-                    <AdminRow name={resourceName} row={r} reload={resource.reload} />
+                    <AdminRow
+                      name={resourceName}
+                      row={r}
+                      reload={resource.reload}
+                      onUserStatusChanged={(nextStatus, userId) => {
+                        setStatus(nextStatus);
+                        setFocusUserId(String(userId));
+                      }}
+                    />
                   </div>
                 </details>
               ))}
@@ -217,7 +227,7 @@ function AdminManageContent({ resourceName }) {
   );
 }
 
-function AdminRow({ name, row: r, reload }) {
+function AdminRow({ name, row: r, reload, onUserStatusChanged }) {
   const [editing, setEditing] = useState(false);
   const [employmentSuccess, setEmploymentSuccess] = useState('');
   if (name === 'users')
@@ -233,8 +243,8 @@ function AdminRow({ name, row: r, reload }) {
           <Badge value={r.status} />
         </div>
         {r.status === 'SUSPENDED' && <p className="callout" style={{ whiteSpace:'pre-line' }}>정지 사유: {r.suspensionReason || '기존 정지 건으로 사유가 등록되지 않았습니다.'}</p>}
-        {r.role !== 'ADMIN' && r.status === 'ACTIVE' && <details className="admin-suspend-form"><summary>회원 정지</summary><p className="muted">입력한 사유는 해당 회원의 로그인 화면에 표시됩니다.</p><Form fields={[{ name:'reason', label:'정지 사유 (회원에게 표시됩니다)', type:'textarea', required:true, maxLength:1000 }]} submit="사유 저장 후 회원 정지" onSubmit={async(body)=>{ await client.patch('/admin/users/'+r.userId+'/status',{ status:'SUSPENDED', reason:body.reason }); await reload(); }} /></details>}
-        {r.role !== 'ADMIN' && r.status === 'SUSPENDED' && <Action method="patch" url={'/admin/users/'+r.userId+'/status'} body={{ status:'ACTIVE' }} onDone={reload} confirm="회원 정지를 해제할까요?">정지 해제</Action>}
+        {r.role !== 'ADMIN' && r.status === 'ACTIVE' && <details className="admin-suspend-form"><summary>회원 정지</summary><p className="muted">입력한 사유는 해당 회원의 로그인 화면에 표시됩니다.</p><Form fields={[{ name:'reason', label:'정지 사유 (회원에게 표시됩니다)', type:'textarea', required:true, maxLength:1000 }]} submit="사유 저장 후 회원 정지" onSubmit={async(body)=>{ await client.patch('/admin/users/'+r.userId+'/status',{ status:'SUSPENDED', reason:body.reason }); await reload(); onUserStatusChanged?.('SUSPENDED', r.userId); }} /></details>}
+        {r.role !== 'ADMIN' && r.status === 'SUSPENDED' && <Action method="patch" url={'/admin/users/'+r.userId+'/status'} body={{ status:'ACTIVE' }} onDone={async()=>{ await reload(); onUserStatusChanged?.('ACTIVE', r.userId); }} confirm="회원 정지를 해제할까요?">정지 해제</Action>}
       </>
     );
   if (name === 'companies' || name === 'jobs') {

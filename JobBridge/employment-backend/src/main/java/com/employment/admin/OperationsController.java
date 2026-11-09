@@ -90,7 +90,7 @@ public class OperationsController {
                 id,
                 member(req)
             ) ==
-            0
+                0
         ) throw new Problem(404, "알림을 찾을 수 없습니다.");
     }
 
@@ -352,25 +352,25 @@ public class OperationsController {
             "SELECT c.company_id,c.company_name,c.business_number,c.industry FROM companies c JOIN users u ON u.user_id=c.user_id WHERE c.approval_status='APPROVED' AND u.status='ACTIVE' ORDER BY c.company_name,c.company_id"
         );
         var jobs = db.list(
-                """
-                SELECT
-                    j.job_id,
-                    j.company_id,
-                    j.title,
-                    j.status,
-                    j.end_date
-                FROM job_postings j
-                JOIN companies c
-                    ON c.company_id = j.company_id
-                JOIN users u
-                    ON u.user_id = c.user_id
-                WHERE c.approval_status = 'APPROVED'
-                  AND u.status = 'ACTIVE'
-                  AND j.status = 'PUBLISHED'
-                  AND j.end_date >= ?
-                ORDER BY j.title, j.job_id
-                """,
-                EmploymentService.today()
+            """
+            SELECT
+                j.job_id,
+                j.company_id,
+                j.title,
+                j.status,
+                j.end_date
+            FROM job_postings j
+            JOIN companies c
+                ON c.company_id = j.company_id
+            JOIN users u
+                ON u.user_id = c.user_id
+            WHERE c.approval_status = 'APPROVED'
+              AND u.status = 'ACTIVE'
+              AND j.status = 'PUBLISHED'
+              AND j.end_date >= ?
+            ORDER BY j.title, j.job_id
+            """,
+            EmploymentService.today()
         );
         Object industry = link.get("preferredIndustry");
         Object occupation = link.get("preferredOccupation");
@@ -427,17 +427,21 @@ public class OperationsController {
         String columns = resource.equals("users")
             ? "user_id,email,name,phone,role,status,created_at,(SELECT s.reason FROM account_suspensions s WHERE s.user_id=users.user_id AND s.lifted_at IS NULL) AS suspension_reason"
             : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
-            : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
-            : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
+              : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
+                : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
         var rows = db.list(
             "SELECT " +
                 columns +
                 " FROM " +
                 table +
                 " ORDER BY " +
-                (resource.equals("inquiries")
-                    ? "CASE WHEN status='OPEN' THEN 0 ELSE 1 END, created_at DESC, inquiry_id DESC"
-                    : resource.equals("employment-links") ? "CASE status WHEN 'REQUESTED' THEN 0 WHEN 'COUNSELING' THEN 1 WHEN 'MATCHING' THEN 2 WHEN 'INTERVIEW' THEN 3 WHEN 'EMPLOYED' THEN 4 WHEN 'CLOSED' THEN 5 ELSE 6 END, requested_at DESC, employment_link_id DESC" : IDS.get(resource) + " DESC")
+                (resource.equals("users")
+                    ? "CASE status WHEN 'ACTIVE' THEN 0 WHEN 'SUSPENDED' THEN 1 WHEN 'WITHDRAWN' THEN 2 ELSE 3 END, created_at DESC, user_id DESC"
+                    : resource.equals("inquiries")
+                      ? "CASE WHEN status='OPEN' THEN 0 ELSE 1 END, created_at DESC, inquiry_id DESC"
+                      : resource.equals("employment-links")
+                        ? "CASE status WHEN 'REQUESTED' THEN 0 WHEN 'COUNSELING' THEN 1 WHEN 'MATCHING' THEN 2 WHEN 'INTERVIEW' THEN 3 WHEN 'EMPLOYED' THEN 4 WHEN 'CLOSED' THEN 5 ELSE 6 END, requested_at DESC, employment_link_id DESC"
+                        : IDS.get(resource) + " DESC")
         );
         if (resource.equals("employment-links")) rows.forEach(service::decorateEmploymentPreferences);
         return rows;
@@ -455,8 +459,8 @@ public class OperationsController {
         String columns = resource.equals("users")
             ? "user_id,email,name,phone,role,status,created_at,(SELECT s.reason FROM account_suspensions s WHERE s.user_id=users.user_id AND s.lifted_at IS NULL) AS suspension_reason"
             : resource.equals("inquiries") ? "*,(SELECT u.name FROM users u WHERE u.user_id=inquiries.user_id) AS author_name"
-            : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
-            : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
+              : resource.equals("employment-links") ? "*,(SELECT u.name FROM job_seekers s JOIN users u ON u.user_id=s.user_id WHERE s.job_seeker_id=employment_links.job_seeker_id) AS job_seeker_name"
+                : resource.equals("notices") ? "*,EXISTS(SELECT 1 FROM notice_images ni WHERE ni.notice_id=notices.notice_id) AS has_image" : "*";
         var result = db.one(
             "SELECT " +
                 columns +
@@ -526,7 +530,7 @@ public class OperationsController {
         if (
             !(current.equals("PENDING") &&
                 Set.of("PUBLISHED", "REJECTED").contains(next)) &&
-            !(current.equals("PUBLISHED") && next.equals("CLOSED"))
+                !(current.equals("PUBLISHED") && next.equals("CLOSED"))
         ) throw new Problem(409, "허용되지 않은 상태 변경입니다.");
         var company = db.one(
             "SELECT c.*,u.status AS user_status FROM companies c JOIN users u ON u.user_id=c.user_id WHERE company_id=?",
@@ -534,11 +538,11 @@ public class OperationsController {
         );
         if (
             next.equals("PUBLISHED") &&
-            (!"APPROVED".equals(company.get("approvalStatus")) ||
-                !"ACTIVE".equals(company.get("userStatus")) ||
-                java.time.LocalDate.parse(
-                    job.get("endDate").toString()
-                ).isBefore(EmploymentService.today()))
+                (!"APPROVED".equals(company.get("approvalStatus")) ||
+                    !"ACTIVE".equals(company.get("userStatus")) ||
+                    java.time.LocalDate.parse(
+                        job.get("endDate").toString()
+                    ).isBefore(EmploymentService.today()))
         ) throw new Problem(409, "기업 승인과 접수 기간을 확인해 주세요.");
         String reason = Input.text(
             body,
@@ -713,7 +717,7 @@ public class OperationsController {
         );
         if (
             !moves.containsKey(current) ||
-            !(current.equals(next) || moves.get(current).contains(next))
+                !(current.equals(next) || moves.get(current).contains(next))
         ) throw new Problem(409, "허용되지 않은 연계 상태 변경입니다.");
         Long manager = nullableId(body, "managerUserId");
         Long company = nullableId(body, "companyId");
@@ -751,7 +755,7 @@ public class OperationsController {
         }
         if (
             Set.of("MATCHING", "INTERVIEW", "EMPLOYED").contains(next) &&
-            (manager == null || company == null)
+                (manager == null || company == null)
         ) throw new Problem(400, "담당자와 연계 기업을 지정해 주세요.");
         referrals.validateAdminUpdate(link, next, company, job, body);
         db.update(

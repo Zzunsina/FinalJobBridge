@@ -3478,3 +3478,17 @@ html { scroll-padding-top: 112px; }
 
 .session-ended-notice { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:10000; width:min(640px,calc(100vw - 32px)); display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; border-radius:12px; background:#173241; color:white; box-shadow:0 8px 30px #102b3630; line-height:1.6; }
 .session-ended-notice button { flex-shrink:0; padding:7px 12px; background:transparent; color:white; border:1px solid #ffffff66; border-radius:6px; cursor:pointer; }
+
+
+/* Admin member status colors */
+.badge-SUSPENDED {
+  color: #C2410C !important;
+  background: #FFEDD5 !important;
+  border: 1px solid #FED7AA !important;
+}
+
+.badge-WITHDRAWN {
+  color: #B91C1C !important;
+  background: #FEE2E2 !important;
+  border: 1px solid #FECACA !important;
+}
