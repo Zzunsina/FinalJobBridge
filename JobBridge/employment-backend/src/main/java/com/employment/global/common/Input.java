@@ -1,10 +1,14 @@
 package com.employment.global.common;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public final class Input {
+
+    private static final Pattern PASSWORD = Pattern.compile(
+        "(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{8,20}"
+    );
 
     private Input() {}
 
@@ -42,14 +46,8 @@ public final class Input {
     }
 
     public static String password(Map<String, Object> body, String key) {
-        String value = text(body, key, 10000, true);
-        if (
-            value.length() < 8 ||
-            value.length() > 20 ||
-            value.getBytes(StandardCharsets.UTF_8).length > 72 ||
-            value.codePoints().anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))
-        ) {
-            throw new Problem(400, "비밀번호는 공백 없이 8~20자로 입력해 주세요.");
+        if (!(body.get(key) instanceof String value) || !PASSWORD.matcher(value).matches()) {
+            throw new Problem(400, "비밀번호는 영문, 숫자, 특수문자를 각각 1개 이상 포함해 공백 없이 8~20자로 입력해 주세요.", key);
         }
         return value;
     }

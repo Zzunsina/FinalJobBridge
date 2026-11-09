@@ -23,3 +23,5 @@ export function formatMobile(value) {
   const split = digits.startsWith('010') || digits.length === 11 ? 7 : 6;
   return digits.slice(0, 3) + '-' + digits.slice(3, split) + '-' + digits.slice(split);
 }
+export const passwordPattern = '(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{8,20}';
+export const passwordHint = '영문·숫자·특수문자 포함, 공백 없이 8~20자';

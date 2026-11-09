@@ -566,35 +566,62 @@ function CompanyMap({ address, latitude, longitude }) {
 
 export function Companies() {
   const resource = useResource('/companies');
+  const [query, setQuery] = useState('');
+  const keyword = query.trim().toLocaleLowerCase();
+
   return (
     <>
       <Title description="함께 일하고 싶은 기업을 만나보세요.">함께하는 기업</Title>
-      <PagedResource resource={resource}>
-        {(rows) =>
-          rows.length ? (
-            <div className="job-grid">
-              {rows.map((c) => (
-                <Link
-                  className="panel company-card company-card-photo"
-                  key={c.companyId}
-                  to={`/companies/${c.companyId}`}
-                >
-                  <CompanyCover companyId={c.companyId} companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-list-cover" />
-                  <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
-                  <div className="company-card-heading"><h2>{c.companyName}</h2>{c.description?.startsWith('[예시 기업]') && <span className="company-demo-label">예시 기업</span>}</div>
-                  <p className="company-industry">{c.industry || '산업 정보 준비 중'}</p>
-                  <p className="muted">
-                    {[c.companySize, c.address].filter(Boolean).join(' · ') || '기업 정보를 준비하고 있습니다.'}
-                  </p>
-                  <p className="company-card-intro">{c.description?.replace(/^\[예시 기업\][^\n]*\n*/, '').split('\n').find((line) => line.trim()) || '새로운 가능성을 함께 만들어갈 팀을 만나보세요.'}</p><span className="text-link">기업 알아보기 ↗</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Empty />
-          )
-        }
-      </PagedResource>
+      <Resource resource={resource}>
+        {(companies) => {
+          const results = companies.filter((company) =>
+            company.companyName.toLocaleLowerCase().includes(keyword),
+          );
+
+          return (
+            <>
+              <div className="notice-list-tools">
+                <p role="status">{keyword ? '검색 결과' : '전체'} <strong>{results.length}</strong>개 기업</p>
+                <label>
+                  <span className="notice-search-label">기업 검색</span>
+                  <input
+                    type="search"
+                    value={query}
+                    placeholder="기업명을 입력해 주세요"
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </label>
+              </div>
+              {results.length ? (
+                <PagedRows key={keyword} rows={results}>
+                  {(rows) => (
+                    <div className="job-grid">
+                      {rows.map((c) => (
+                        <Link
+                          className="panel company-card company-card-photo"
+                          key={c.companyId}
+                          to={`/companies/${c.companyId}`}
+                        >
+                          <CompanyCover companyId={c.companyId} companyName={c.companyName} industry={c.industry} bannerImageUrl={c.bannerImageUrl} className="company-list-cover" />
+                          <CompanyImage companyId={c.companyId} companyName={c.companyName} className="company-symbol large" />
+                          <div className="company-card-heading"><h2>{c.companyName}</h2>{c.description?.startsWith('[예시 기업]') && <span className="company-demo-label">예시 기업</span>}</div>
+                          <p className="company-industry">{c.industry || '산업 정보 준비 중'}</p>
+                          <p className="muted">
+                            {[c.companySize, c.address].filter(Boolean).join(' · ') || '기업 정보를 준비하고 있습니다.'}
+                          </p>
+                          <p className="company-card-intro">{c.description?.replace(/^\[예시 기업\][^\n]*\n*/, '').split('\n').find((line) => line.trim()) || '새로운 가능성을 함께 만들어갈 팀을 만나보세요.'}</p><span className="text-link">기업 알아보기 ↗</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </PagedRows>
+              ) : (
+                <Empty>{keyword ? '검색 결과가 없습니다.' : '등록된 기업이 없습니다.'}</Empty>
+              )}
+            </>
+          );
+        }}
+      </Resource>
     </>
   );
 }
