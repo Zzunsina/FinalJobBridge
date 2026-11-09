@@ -1,3 +1,11 @@
+/* 관리 열(Column)의 너비를 넉넉하게 확보하여 버튼 텍스트 잘림 방지 */
+.ad-orders-table col.ad-col-actions,
+.ad-orders-table th:last-child,
+.ad-orders-table td:last-child {
+  width: 150px;
+  min-width: 150px;
+}
+
 .advertising-page {
   --ad-blue: #2460ed;
   --ad-border: #dce5f4;
@@ -302,14 +310,44 @@
 .ad-table-wrap small {
   margin-top: 6px;
 }
+/* 관리 칸 내부의 액션 버튼 및 폼 영역 세로 정렬 및 간격 개선 */
 .ad-table-actions {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
+
 .ad-table-actions button {
-  font-size: 12px;
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+}
+
+.ad-table-actions details {
+  width: 100%;
+  background: #f8faff;
+  border: 1px solid #dce5f4;
+  border-radius: 8px;
   padding: 8px 10px;
+  font-size: 12px;
+}
+
+.ad-table-actions details summary {
+  font-weight: 600;
+  color: var(--ad-blue, #2460ed);
+  cursor: pointer;
+}
+
+.ad-table-actions details form {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ad-table-actions details input {
+  padding: 8px 10px;
+  font-size: 12px;
 }
 .ad-status {
   display: inline-block;
@@ -410,7 +448,48 @@
 }
 .ad-refund-form {
   display: grid;
-  gap: 7px;
+  gap: 10px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  grid-column: 1 / -1;
+}
+
+.ad-refund-form h3 {
+  font-size: 15px;
+  font-weight: bold;
+  margin: 0;
+  color: #333;
+}
+
+.ad-refund-form textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #ced4da;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  box-sizing: border-box;
+  background: #fff;
+  color: #19304e;
+}
+
+.ad-refund-form textarea:focus {
+  outline: none;
+  border-color: var(--ad-blue);
+  box-shadow: 0 0 0 3px rgba(36, 96, 237, 0.1);
+}
+
+.ad-refund-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 .ad-dashboard-summary {
   display: flex;
@@ -552,6 +631,20 @@
   .ad-metrics {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+ad-orders-table .ad-order-number {
+  display: block;
+  font-size: 11px;
+  color: #8c9bae;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.ad-orders-table .ad-order-number {
+  display: none;
 }
 
 .ad-checkout-requirements{margin-top:14px;padding:12px 14px;border-radius:8px;background:#f4f7fd;color:#536a89;font-size:12px;line-height:1.8}.ad-checkout-requirements p{margin:0;font-weight:600}.ad-checkout-requirements ul{margin:5px 0 0;padding-left:17px}

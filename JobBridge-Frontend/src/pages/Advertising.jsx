@@ -3,7 +3,7 @@ import AdAvailability from '../components/common/AdAvailability';
 import { useAdAvailability } from '../hooks/useAdAvailability';
 import { ordersForAdminTab } from '../utils/advertisingOrders';
 import { requestPortOneV1 } from '../api/portoneV1';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import client, { message } from '../api/client';
 import { useResource } from '../hooks/useResource';
@@ -129,6 +129,7 @@ export default function CompanyAdvertising() {
     code = params.get('error_code');
   const handled = useRef('');
   const [notice, setNotice] = useState('');
+
   useEffect(() => {
     if (!payment || handled.current === payment) return;
     handled.current = payment;
@@ -139,19 +140,21 @@ export default function CompanyAdvertising() {
     }
     client
       .post('/company/ad-orders/' + encodeURIComponent(payment) + '/confirm', { impUid })
-      .then(({ data }) =>
-        setNotice(
+      .then(({ data }) => {
+        const text =
           data.paymentStatus === 'PAID'
-            ? '결제가 확인되었습니다. 승인된 광고는 지정한 기간에 노출됩니다.'
-            : '결제 상태: ' + (labels[data.paymentStatus] || data.paymentStatus),
-        ),
-      )
+            ? '결제가 완료되었습니다. 승인된 광고는 지정한 기간에 노출됩니다.'
+            : '결제 상태: ' + (labels[data.paymentStatus] || data.paymentStatus);
+        setNotice(text);
+        setTimeout(() => window.alert(text), 100);
+      })
       .catch((e) => setNotice(message(e)))
       .finally(() => {
         resource.reload();
         setParams({}, { replace: true });
       });
   }, [payment, impUid, code, resource, setParams]);
+
   return (
     <div className="advertising-page">
       <Title
@@ -171,18 +174,25 @@ export default function CompanyAdvertising() {
     </div>
   );
 }
+
 function CompanyAdContent({ data, reload, setNotice }) {
   const [productParams] = useSearchParams();
-  const [code, setCode] = useState(() => ['SLIDE','COMPANY','JOB'].includes(productParams.get('product')) ? productParams.get('product') : 'SLIDE'),
+  const [code, setCode] = useState(() => ['SLIDE', 'COMPANY', 'JOB'].includes(productParams.get('product')) ? productParams.get('product') : 'SLIDE'),
     [start, setStart] = useState(koreanToday()),
     [jobId, setJob] = useState(''),
     [image, setImage] = useState(''),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  function done(text) {
+    setNotice(text);
+    // 목록 갱신이 화면에 먼저 그려진 뒤 알림창이 뜨도록 약간 지연
+    setTimeout(() => window.alert(text), 100);
+  }
   const selected = data.products.find((p) => p.productCode === code) || data.products[0];
-  const availability=useAdAvailability(selected?.productCode||code,jobId);
-  const spaceAvailable=!!availability.data?.days.find(d=>d.startDate===start)?.available;
+  const availability = useAdAvailability(selected?.productCode || code, jobId);
+  const spaceAvailable = !!availability.data?.days.find(d => d.startDate === start)?.available;
+
   async function pay(checkout) {
     const response = await requestPortOneV1(checkout, window.location.origin + '/company/advertising');
     const result = await client.post(
@@ -191,7 +201,7 @@ function CompanyAdContent({ data, reload, setNotice }) {
     );
     if (result.data.paymentStatus !== 'PAID')
       throw new Error('결제 승인이 아직 확인되지 않았습니다. 내역에서 결제 확인을 눌러 주세요.');
-    setNotice('결제가 확인되었습니다. 승인된 광고는 지정한 기간에 노출됩니다.');
+    // setNotice(...) 삭제
   }
   async function submit(e) {
     e.preventDefault();
@@ -207,43 +217,72 @@ function CompanyAdContent({ data, reload, setNotice }) {
         image,
         consent,
       });
-      setNotice(
-        '광고 심사 신청이 접수되었습니다. 관리자 승인 후 이 신청 건에서 결제할 수 있습니다.',
-      );
+
+      // 신청 성공 시 입력값 초기화 → 버튼이 다시 비활성화됨
+      setJob('');
+      setImage('');
+      setConsent(false);
+      setStart(koreanToday());
+
+      done('광고 심사 신청이 완료되었습니다. 관리자 승인 후 결제하실 수 있습니다.');
+      try {
+        await reload();
+      } catch {
+        /* 목록 갱신 실패는 무시 */
+      }
     } catch (e) {
-      setError(e.response ? message(e) : e.message);
-      setNotice(e.response ? message(e) : e.message);
+      const errMessage = e.response ? message(e) : e.message;
+      setError(errMessage);
+      setNotice(errMessage);
+      window.alert(errMessage);
     } finally {
       setBusy(false);
-      reload();
     }
   }
-  async function action(order, action, body = {}) {
+  
+  async function action(order, actionType, body = {}) {
     if (busy) return;
     setBusy(true);
     setError('');
     try {
-      if (action === 'checkout') {
+      if (actionType === 'checkout') {
         const { data: checkout } = await client.post(
           '/company/ad-orders/' + order.orderId + '/checkout',
         );
         await pay(checkout);
+        done('결제가 완료되었습니다. 승인된 광고는 지정한 기간에 노출됩니다.');
+        try {
+          await reload();
+        } catch {
+          /* 목록 갱신 실패는 무시 */
+        }
       } else {
-        const { data: result } = await client.post('/company/ad-orders/' + order.orderId + '/' + action, body);
-        setNotice(
-          action === 'refund-request'
-            ? '환불 요청이 접수되었습니다.'
-            : action === 'withdraw'
-              ? '광고 신청을 철회했습니다.'
-              : '결제 상태: ' + (labels[result.paymentStatus] || result.paymentStatus),
+        const { data: result } = await client.post(
+          '/company/ad-orders/' + order.orderId + '/' + actionType,
+          body,
         );
+        const text =
+          actionType === 'refund-request'
+            ? '환불 요청이 접수되었습니다.'
+            : actionType === 'withdraw'
+              ? '광고 신청이 철회되었습니다.'
+              : actionType === 'confirm'
+                ? '결제가 확인되었습니다. 승인된 광고는 지정한 기간에 노출됩니다.'
+                : '결제 상태: ' + (labels[result?.paymentStatus] || result?.paymentStatus);
+        done(text);
+        try {
+          await reload();
+        } catch {
+          /* 목록 갱신 실패는 무시 */
+        }
       }
     } catch (e) {
-      setError(e.response ? message(e) : e.message);
-      setNotice(e.response ? message(e) : e.message);
+      const errMessage = e.response ? message(e) : e.message;
+      setError(errMessage);
+      setNotice(errMessage);
+      window.alert(errMessage);
     } finally {
       setBusy(false);
-      reload();
     }
   }
   return (
@@ -394,58 +433,8 @@ function CompanyAdContent({ data, reload, setNotice }) {
         <OrderTable
           orders={data.orders}
           onSelect={null}
-          actions={(o) => (
-            <>
-              {(o.paymentStatus === 'PAID' || o.reviewStatus === 'APPROVED') && (
-                <button className="secondary" disabled={busy} onClick={() => action(o, 'confirm')}>
-                  결제 확인
-                </button>
-              )}
-              {['READY', 'FAILED'].includes(o.paymentStatus) && o.reviewStatus === 'APPROVED' && (
-                <details>
-                  <summary>포트원 거래번호로 결제 확인</summary>
-                  <form onSubmit={(event) => {
-                    event.preventDefault();
-                    const impUid = new FormData(event.currentTarget).get('impUid').trim();
-                    action(o, 'confirm', { impUid });
-                  }}>
-                    <label>
-                      포트원 거래번호
-                      <input name="impUid" placeholder="imp_로 시작하는 번호" maxLength={68} required />
-                    </label>
-                    <button className="secondary" disabled={busy}>승인 건 확인</button>
-                  </form>
-                </details>
-              )}
-              {['READY', 'FAILED'].includes(o.paymentStatus) && o.reviewStatus === 'APPROVED' && (
-                <button
-                  disabled={busy || !data.gateway.ready || o.startDate < koreanToday()}
-                  onClick={() => action(o, 'checkout')}
-                >
-                  결제하기
-                </button>
-              )}
-              {['READY', 'FAILED'].includes(o.paymentStatus) &&
-                ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'].includes(o.reviewStatus) && (
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => {
-                      if (window.confirm('이 광고 신청을 철회할까요?')) action(o, 'withdraw');
-                    }}
-                  >
-                    신청 철회
-                  </button>
-                )}
-              {o.paymentStatus === 'PAID' && o.refundStatus === 'NONE' && (
-                <RefundRequest
-                  order={o}
-                  busy={busy}
-                  onRequest={(reason) => action(o, 'refund-request', { reason })}
-                />
-              )}
-            </>
-          )}
+          busy={busy}
+          actions={(o, actType, body) => action(o, actType, body)}
         />
         {data.orders
           .filter((o) => o.reviewStatus === 'CHANGES_REQUESTED' && o.refundStatus === 'NONE')
@@ -456,37 +445,36 @@ function CompanyAdContent({ data, reload, setNotice }) {
     </>
   );
 }
-function RefundRequest({ onRequest, busy }) {
-  const [open, setOpen] = useState(false),
-    [reason, setReason] = useState('');
-  return open ? (
+
+function RefundRequestForm({ onSubmit, onCancel, busy }) {
+  const [reason, setReason] = useState('');
+  return (
     <div className="ad-refund-form">
-      <input
+      <h3>환불 요청 상세</h3>
+      <textarea
         aria-label="환불 사유"
         maxLength={500}
+        rows={4}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
-        placeholder="환불 사유"
+        placeholder="환불 사유를 입력해 주세요 (필수)"
       />
-      <button
-        disabled={busy || !reason.trim()}
-        onClick={() => {
-          onRequest(reason);
-          setOpen(false);
-        }}
-      >
-        요청 제출
-      </button>
-      <button className="secondary" onClick={() => setOpen(false)}>
-        닫기
-      </button>
+      <div className="ad-refund-actions">
+        <button type="button" className="secondary" onClick={onCancel}>
+          취소
+        </button>
+        <button
+          type="button"
+          disabled={busy || !reason.trim()}
+          onClick={() => onSubmit(reason)}
+        >
+          요청 제출
+        </button>
+      </div>
     </div>
-  ) : (
-    <button className="secondary" disabled={busy} onClick={() => setOpen(true)}>
-      환불 요청
-    </button>
   );
 }
+
 function Creative({ order, reload }) {
   const [image, setImage] = useState(''),
     [startDate, setStartDate] = useState(
@@ -494,8 +482,8 @@ function Creative({ order, reload }) {
     ),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
-  const availability=useAdAvailability(order.productCode,order.jobId||'',order.orderId);
-  const spaceAvailable=!!availability.data?.days.find(d=>d.startDate===startDate)?.available;
+  const availability = useAdAvailability(order.productCode, order.jobId || '', order.orderId);
+  const spaceAvailable = !!availability.data?.days.find(d => d.startDate === startDate)?.available;
   return (
     <section className="ad-creative">
       <h3>{order.productName} · 광고 이미지 보완</h3>
@@ -525,7 +513,10 @@ function Creative({ order, reload }) {
     </section>
   );
 }
-function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기' }) {
+function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기', busy }) {
+  const [refundOpenMap, setRefundOpenMap] = useState({});
+  const [payCheckOpenMap, setPayCheckOpenMap] = useState({});
+
   return orders.length ? (
     <div className="ad-table-wrap">
       <table className={onSelect ? 'ad-orders-table ad-orders-admin' : 'ad-orders-table'}>
@@ -544,45 +535,156 @@ function OrderTable({ orders, onSelect, actions, actionLabel = '검토하기' })
             <th>관리</th>
           </tr>
         </thead>
-          {orders.map((o) => (
-            <tbody key={o.orderId} className="ad-order-group"><tr>
-              {onSelect && <td data-label="기업">{o.companyName}</td>}
-              <td data-label="상품·주문번호">
-                <strong>{o.productName}</strong>
-                {o.paymentSource === 'SIMULATION' && <small>시연 결제</small>}
-                <small className="ad-order-number">{o.orderId}</small>
-                
-              </td>
-              <td className="ad-order-dates" data-label="노출 기간">
-                {o.startDate}
-                <small>~ {o.endDate}</small>
-              </td>
-              <td className="ad-order-payment" data-label="결제">
-                {won(o.totalAmount)}
-                <small>
-                  <Status
-                    value={
-                      o.paymentStatus === 'READY' ? 'UNPAID' : o.paymentStatus
-                    }
-                  />
-                </small>
-              </td>
-              <td data-label="광고 상태">
-                <Status value={o.displayStatus} />
-              </td>
-              <td data-label="관리">
-                <div className="ad-table-actions">
-                  {onSelect ? (
-                    <button className="secondary" onClick={() => onSelect(o.orderId)}>
-                      {actionLabel}
-                    </button>
-                  ) : (
-                    actions(o)
-                  )}
-                </div>
-              </td>
-            </tr>{o.reviewMemo && <tr className="ad-order-memo-row"><td colSpan={onSelect ? 6 : 5}><span>검토 의견</span>{o.reviewMemo}</td></tr>}</tbody>
-          ))}
+        <tbody>
+          {orders.map((o) => {
+            const isRefundOpen = !!refundOpenMap[o.orderId];
+            const setRefundOpen = (isOpen) =>
+              setRefundOpenMap((prev) => ({ ...prev, [o.orderId]: isOpen }));
+
+            const isPayCheckOpen = !!payCheckOpenMap[o.orderId];
+            const setPayCheckOpen = (isOpen) =>
+              setPayCheckOpenMap((prev) => ({ ...prev, [o.orderId]: isOpen }));
+
+            return (
+              <React.Fragment key={o.orderId}>
+                <tr className="ad-order-group">
+                  {onSelect && <td data-label="기업">{o.companyName}</td>}
+                  <td data-label="상품·주문번호">
+                    <strong>{o.productName}</strong>
+                    {o.paymentSource === 'SIMULATION' && <small>시연 결제</small>}
+                    <small className="ad-order-number">{o.orderId}</small>
+                  </td>
+                  <td className="ad-order-dates" data-label="노출 기간">
+                    {o.startDate}
+                    <small>~ {o.endDate}</small>
+                  </td>
+                  <td className="ad-order-payment" data-label="결제">
+                    {won(o.totalAmount)}
+                    <small>
+                      <Status
+                        value={
+                          o.paymentStatus === 'READY' ? 'UNPAID' : o.paymentStatus
+                        }
+                      />
+                    </small>
+                  </td>
+                  <td data-label="광고 상태">
+                    <Status value={o.displayStatus} />
+                  </td>
+                  <td data-label="관리">
+                    <div className="ad-table-actions">
+                      {onSelect ? (
+                        <button className="secondary" onClick={() => onSelect(o.orderId)}>
+                          {actionLabel}
+                        </button>
+                      ) : (
+                        <>
+                          {(o.paymentStatus === 'PAID' || o.reviewStatus === 'APPROVED') && (
+                            <button className="secondary" disabled={busy} onClick={() => actions(o, 'confirm')}>
+                              결제 확인
+                            </button>
+                          )}
+                          {['READY', 'FAILED'].includes(o.paymentStatus) && o.reviewStatus === 'APPROVED' && !isPayCheckOpen && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              disabled={busy}
+                              onClick={() => setPayCheckOpen(true)}
+                            >
+                              거래번호로 확인
+                            </button>
+                          )}
+                          {['READY', 'FAILED'].includes(o.paymentStatus) && o.reviewStatus === 'APPROVED' && (
+                            <button
+                              disabled={busy}
+                              onClick={() => actions(o, 'checkout')}
+                            >
+                              결제하기
+                            </button>
+                          )}
+                          {['READY', 'FAILED'].includes(o.paymentStatus) &&
+                            ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'].includes(o.reviewStatus) && (
+                              <button
+                                className="secondary"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (window.confirm('이 광고 신청을 철회할까요?')) actions(o, 'withdraw');
+                                }}
+                              >
+                                신청 철회
+                              </button>
+                            )}
+                          {o.paymentStatus === 'PAID' &&
+                            o.refundStatus === 'NONE' &&
+                            !isRefundOpen &&
+                            !(o.startDate <= koreanToday() && o.reviewStatus === 'APPROVED') && (
+                              <button type="button" className="secondary" disabled={busy} onClick={() => setRefundOpen(true)}>
+                                환불 요청
+                              </button>
+                            )}
+                          {o.paymentStatus === 'PAID' &&
+                            o.refundStatus === 'NONE' &&
+                            o.startDate <= koreanToday() &&
+                            o.reviewStatus === 'APPROVED' && <small>노출 중인 광고는 고객센터로 문의해 주세요.</small>}
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {isPayCheckOpen && (
+                  <tr className="ad-order-memo-row">
+                    <td colSpan={onSelect ? 6 : 5}>
+                      <div className="ad-refund-form">
+                        <h3>포트원 거래번호로 결제 확인</h3>
+                        <form onSubmit={(event) => {
+                          event.preventDefault();
+                          const impUid = new FormData(event.currentTarget).get('impUid').trim();
+                          actions(o, 'confirm', { impUid });
+                          setPayCheckOpen(false);
+                        }}>
+                          <label>
+                            포트원 거래번호
+                            <input name="impUid" placeholder="imp_로 시작하는 번호" maxLength={68} required />
+                          </label>
+                          <div className="ad-refund-actions">
+                            <button type="button" className="secondary" onClick={() => setPayCheckOpen(false)}>
+                              취소
+                            </button>
+                            <button className="secondary" disabled={busy}>
+                              승인 건 확인
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {isRefundOpen && (
+                  <tr className="ad-order-memo-row">
+                    <td colSpan={onSelect ? 6 : 5}>
+                      <RefundRequestForm
+                        busy={busy}
+                        onCancel={() => setRefundOpen(false)}
+                        onSubmit={(reason) => {
+                          actions(o, 'refund-request', { reason });
+                          setRefundOpen(false);
+                        }}
+                      />
+                    </td>
+                  </tr>
+                )}
+                {o.reviewMemo && (
+                  <tr className="ad-order-memo-row">
+                    <td colSpan={onSelect ? 6 : 5}>
+                      <span>검토 의견</span>
+                      {o.reviewMemo}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
       </table>
     </div>
   ) : (
@@ -739,7 +841,7 @@ function ProductEditor({ product: p, reload, onSaved }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (busy) return;
-        if (!hasFormChanges(p,draft,['name','description','price','durationDays','isActive'].map(name=>({name,type:name==='isActive'?'checkbox':'text'})))) { setNotice(NO_CHANGES); return; }
+        if (!hasFormChanges(p, draft, ['name', 'description', 'price', 'durationDays', 'isActive'].map(name => ({ name, type: name === 'isActive' ? 'checkbox' : 'text' })))) { setNotice(NO_CHANGES); return; }
         setBusy(true);
         setNotice('');
         try {
@@ -818,13 +920,22 @@ function AdminOrder({ order: o, reload, close }) {
     setError('');
     try {
       await client.post(
+
         '/admin/ad-orders/' +
-          o.orderId +
-          '/' +
-          (action === 'sync' || action === 'refund' ? action : 'review'),
+        o.orderId +
+        '/' +
+        (action === 'sync' || action === 'refund' ? action : 'review'),
         { action, memo },
       );
-      reload();
+      const doneText = {
+        approve: '광고가 승인되었습니다.',
+        changes: '보완 요청을 보냈습니다.',
+        pause: '노출이 중지되었습니다.',
+        refund: '환불(전액 취소) 처리가 완료되었습니다.',
+        sync: '결제 상태를 확인했습니다.',
+      }[action];
+      await reload();
+      if (doneText) setTimeout(() => window.alert(doneText), 100);
     } catch (e) {
       setError(message(e));
     } finally {

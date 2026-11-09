@@ -284,7 +284,7 @@ export function Signup() {
         <SignupAgreements value={agreements} onChange={setAgreements} />
       </Form>
       <p>
-        이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+        이미 계정이 있으신가요? <Link to="/login" style={{ textDecoration: 'underline' }}>로그인</Link>
       </p>
     </div>
   );
