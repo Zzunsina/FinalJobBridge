@@ -1295,7 +1295,7 @@ class PlatformIntegrationTests {
             changed.put("birthDate", invalid);
             assertThatThrownBy(() -> auth.signup(changed, false)).isInstanceOf(Problem.class);
         }
-        for (String invalid : List.of("1234567", "1".repeat(21), "abcd efgh", "abcd\u00a0efgh")) {
+        for (String invalid : List.of("Abcd12!", "Ab1!" + "x".repeat(17), "Abcd 123!", "Abcd\u00a0123!", "12345678", "Abcdefg!", "Abcdefg1")) {
             var changed = new LinkedHashMap<>(body);
             changed.put("password", invalid);
             assertThatThrownBy(() -> auth.signup(changed, false)).isInstanceOf(Problem.class);
@@ -1303,15 +1303,15 @@ class PlatformIntegrationTests {
         var changed = new LinkedHashMap<>(body);
         changed.put("gender", "UNKNOWN");
         assertThatThrownBy(() -> auth.signup(changed, false)).isInstanceOf(Problem.class);
-        body.put("password", "1".repeat(20));
+        body.put("password", "Ab1!" + "x".repeat(16));
         body.put("birthDate", "20000229");
         body.put("smsVerificationToken", "platform-test-verification");
         long user = number(auth.signup(body, false), "userId");
         assertThat(auth.publicUser(user).get("birthDate")).isEqualTo("2000-02-29");
         assertThat(auth.publicUser(user).get("gender")).isEqualTo("FEMALE");
         assertThat(
-            com.employment.global.common.Input.password(Map.of("password", "12345678"), "password")
-        ).isEqualTo("12345678");
+            com.employment.global.common.Input.password(Map.of("password", "Abc1234!"), "password")
+        ).isEqualTo("Abc1234!");
     }
 
     @Test

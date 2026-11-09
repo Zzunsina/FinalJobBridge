@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { passwordHint, passwordPattern } from '../utils/memberInputs';
 import SubmittedAssessment from '../components/common/SubmittedAssessment';
 import { formatDateTime } from "../utils/dateTime";
 import { employmentStage } from '../utils/employmentStage';
@@ -475,16 +476,17 @@ export function AccountSettings({ company = false }) {
             },
             {
               name: 'password',
-              label: '새 비밀번호 (공백 없이 8~20자)',
+              label: `새 비밀번호 (${passwordHint})`,
               type: 'password',
               required: true,
               minLength: 8,
               maxLength: 20,
-              pattern: '\\S{8,20}',
+              pattern: passwordPattern,
+              title: passwordHint,
             },
             {
               name: 'passwordConfirm',
-              label: '새 비밀번호 확인 (공백 없이 8~20자)',
+              label: '새 비밀번호 확인',
               type: 'password',
               required: true,
               maxLength: 20,

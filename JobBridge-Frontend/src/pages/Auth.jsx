@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { passwordHint, passwordPattern } from '../utils/memberInputs';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../stores/auth';
@@ -151,6 +152,10 @@ export function Login({ adminOnly = false }) {
   );
 }
 
+const signupPasswordRegex = new RegExp(`^(?:${passwordPattern})$`, 'v');
+const passwordMismatch = (value, values) =>
+  value === values.password ? '' : '비밀번호가 일치하지 않습니다.';
+
 export function Signup() {
   const [kind, setKind] = useState('job-seeker');
   const [agreements, setAgreements] = useState(emptyAgreements);
@@ -159,7 +164,7 @@ export function Signup() {
     {
       name: 'loginId',
       type: 'signup-login-id',
-      label: '아이디 (영문·숫자, 4~30자)',
+      label: '아이디 (영문·숫자만, 4~30자)',
       required: true,
       minLength: 4,
       maxLength: 30,
@@ -170,17 +175,21 @@ export function Signup() {
     },
     {
       name: 'password',
-      label: '비밀번호 (공백 없이 8~20자)',
+      label: `비밀번호 (${passwordHint})`,
       type: 'password',
       required: true,
       minLength: 8,
       maxLength: 20,
-      pattern: '\\S{8,20}',
+      pattern: passwordPattern,
+      title: passwordHint,
       autoComplete: 'new-password',
+      liveFeedback: (value) =>
+        value && !signupPasswordRegex.test(value) ? `비밀번호 형식을 확인해 주세요. ${passwordHint}` : '',
     },
     { name: 'passwordConfirm', label: '비밀번호 확인', type: 'password', required: true,
       maxLength: 20, autoComplete: 'new-password',
-      validate: (value, values) => value === values.password ? '' : '비밀번호가 일치하지 않습니다.',
+      validate: passwordMismatch,
+      liveFeedback: (value, values) => value ? passwordMismatch(value, values) : '',
     },
     { name: 'name', label: '이름', required: true, maxLength: 100 },
     {
@@ -373,12 +382,13 @@ export function ResetPassword() {
   const fields = [
     {
       name: 'newPassword',
-      label: '새 비밀번호 (공백 없이 8~20자)',
+      label: `새 비밀번호 (${passwordHint})`,
       type: 'password',
       required: true,
       minLength: 8,
       maxLength: 20,
-      pattern: '\\S{8,20}',
+      pattern: passwordPattern,
+      title: passwordHint,
     },
     {
       name: 'newPasswordConfirm',

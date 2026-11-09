@@ -252,9 +252,14 @@ export function Form({
           previewUrl,
           render,
           validate: _validate,
+          liveFeedback,
           ...rest
-        }) =>
-          (!visibleWhen || visibleWhen(values)) && (
+        }) => {
+          if (visibleWhen && !visibleWhen(values)) return null;
+          const feedback = liveFeedback?.(values[name], values);
+          const guidance = feedback || fieldErrors[name];
+          const guidanceId = `${formId}-${name}-guidance`;
+          return (
             <div key={name} className={type === 'checkbox' ? 'checkbox' : 'form-field'}>
               <label htmlFor={`${formId}-${name}`}>
                 {label}
@@ -332,7 +337,12 @@ export function Form({
                   type={type}
                   value={type === 'checkbox' ? undefined : (values[name] ?? '')}
                   checked={type === 'checkbox' ? Boolean(values[name]) : undefined}
-                  onChange={(e) =>
+                  aria-invalid={liveFeedback && guidance ? true : undefined}
+                  aria-describedby={liveFeedback && guidance ? guidanceId : undefined}
+                  onChange={(e) => {
+                    if (liveFeedback && fieldErrors[name]) {
+                      setFieldErrors((old) => ({ ...old, [name]: '' }));
+                    }
                     setValues({
                       ...values,
                       [name]:
@@ -343,16 +353,21 @@ export function Form({
                             : sanitize === 'digits'
                               ? e.target.value.replace(/[^0-9]/g, '')
                               : e.target.value,
-                    })
-                  }
+                    });
+                  }}
                   required={required}
                   maxLength={maxLength}
                   {...rest}
                 />
               )}
-              {!render && type !== 'signup-login-id' && fieldErrors[name] && <p className="input-guidance" role="alert">{fieldErrors[name]}</p>}
+              {!render && type !== 'signup-login-id' && guidance && (
+                <p id={guidanceId} className="input-guidance" role={feedback ? 'status' : 'alert'}>
+                  {guidance}
+                </p>
+              )}
             </div>
-          ),
+          );
+        },
       )}
       {children}
       {success && (
