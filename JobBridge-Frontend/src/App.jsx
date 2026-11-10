@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './stores/auth';
 import { Empty, Guard } from './components/common/UI';
-import { Home, Jobs, JobDetail, Companies, CompanyDetail, Notices } from './pages/Public';
+import { Home, Jobs, JobDetail, Companies, CompanyDetail, CompanyWebsiteUnavailable, Notices } from './pages/Public';
 import { Login, Signup, FindId, FindPassword, ResetPassword } from './pages/Auth';
 import {
   Resumes,
@@ -332,6 +332,7 @@ export default function App() {
             <Route path="/tools/spelling" element={<SpellingTool />} />
             <Route path="/tools/salary" element={<SalaryTool />} />
             <Route path="/companies" element={<Companies />} />
+            <Route path="/companies/:id/website" element={<CompanyWebsiteUnavailable />} />
             <Route path="/companies/:id" element={<CompanyDetail />} />
             <Route path="/notices" element={<Notices />} />
             <Route path="/notices/:id" element={<Notices />} />

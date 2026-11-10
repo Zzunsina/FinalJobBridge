@@ -652,8 +652,12 @@ export function CompanyDetail() {
               longitude={c.longitude}
             />
 
-            {c.website && (
-              <a href={c.website} target="_blank" rel="noreferrer">
+            {!c.website?.trim() || /\.invalid(?:[/:?#]|$)/i.test(c.website.trim()) ? (
+              <Link to={`/companies/${c.companyId}/website`}>
+                기업 홈페이지
+              </Link>
+            ) : (
+              <a href={c.website.trim()} target="_blank" rel="noreferrer">
                 기업 홈페이지 ↗
               </a>
             )}
@@ -662,6 +666,20 @@ export function CompanyDetail() {
         </>
       )}
     </Resource>
+  );
+}
+
+export function CompanyWebsiteUnavailable() {
+  const { id } = useParams();
+  return (
+    <section className="panel narrow company-website-unavailable">
+      <p className="eyebrow">404 NOT FOUND</p>
+      <h1>등록된 홈페이지가 없습니다</h1>
+      <p className="muted">이 가상 기업은 외부 홈페이지를 등록하지 않았습니다.</p>
+      <Link className="button secondary" to={`/companies/${id}`}>
+        기업 정보로 돌아가기
+      </Link>
+    </section>
   );
 }
 

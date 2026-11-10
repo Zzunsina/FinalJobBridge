@@ -104,8 +104,8 @@ export function ApplicationDetail() {
             <Snapshot data={a.snapshot} />
             <SubmittedAssessment data={a.snapshot?.careerAssessment} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>제출한 첨부파일 다운로드</a>}
-            <h3>자기소개서</h3>
-            <p className="prose">{a.coverLetter || '작성한 자기소개서가 없습니다.'}</p>
+            <h3>기업에 전하고 싶은 말</h3>
+            <p className="prose">{a.coverLetter || '작성한 내용이 없습니다.'}</p>
             <h2>면접 일정</h2>
             <Interviews rows={a.interviews} />
             {['APPLIED', 'UNDER_REVIEW', 'DOCUMENT_PASSED', 'INTERVIEW'].includes(a.status) && (

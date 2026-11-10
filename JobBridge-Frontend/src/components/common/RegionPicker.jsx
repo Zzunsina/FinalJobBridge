@@ -75,7 +75,9 @@ export default function RegionPicker({ value = '', onChange }) {
           <circle cx="12" cy="8" r="2.5" />
         </svg>
         <span>{summary}</span>
-        <span aria-hidden="true">{open ? '⌃' : '⌄'}</span>
+        <svg className="region-trigger-chevron" aria-hidden="true" viewBox="0 0 20 20">
+          <path d="m5 7.5 5 5 5-5" />
+        </svg>
       </button>
       {open && (
         <section id={panelId} className="region-panel" role="dialog" aria-label="근무지역 선택">

@@ -84,9 +84,6 @@ export default function TieredJobAds() {
             aria-label={tier.name + ' 채용 정보'}
           >
             <div className="tier-ad-heading">
-              <span className="tier-ad-mark" aria-hidden="true">
-                {tier.style === 'premium' ? '◇' : tier.style === 'standard' ? '▱' : '□'}
-              </span>
               <h3>{tier.name}</h3>
               {rows.length > 1 && !resource.error && (
                 <span className="tier-ad-swipe-hint">옆으로 밀어 더 보기 →</span>

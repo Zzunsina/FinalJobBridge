@@ -35,7 +35,7 @@ function AdminManageContent({ resourceName }) {
   const focus = params.get('focus');
   const activeFocus = focusUserId ?? focus;
   const focusedRole = allRows.find((row) => String(row.userId) === focus)?.role;
-  const selectedRole = resourceName === 'users' ? (memberRole ?? focusedRole ?? 'JOB_SEEKER') : '';
+  const selectedRole = resourceName === 'users' ? (memberRole ?? focusedRole ?? '') : '';
   const typeRows = resourceName === 'users' && selectedRole ? allRows.filter((row) => row.role === selectedRole) : allRows;
   const filteredRows = filterAdminRows(allRows, resourceName, query, status, selectedRole);
   const statuses = [...new Set(typeRows.map((row) => recordStatus(resourceName, row)))].filter(
@@ -70,11 +70,11 @@ function AdminManageContent({ resourceName }) {
           <NoticeForm onDone={resource.reload} />
         </details>
       )}
-      {resourceName === 'jobs' && <p className="callout">심사 중 → 초안 → 반려 → 게시 중 → 마감 순으로 표시합니다. 같은 상태에서는 최근 등록 공고가 먼저 표시됩니다.</p>}
+      {resourceName === 'jobs' && <p className="callout">목록은 심사 대기, 초안, 반려, 게시 중, 마감 순으로 정렬됩니다. 같은 상태에서는 최근 등록한 공고가 먼저 표시됩니다.</p>}
       {resourceName === 'users' && (
         <div className="admin-member-tabs" role="group" aria-label="회원 유형">
           {[
-            ['JOB_SEEKER', '개인회원'], ['COMPANY', '기업회원'], ['', '전체'],
+            ['', '전체'], ['JOB_SEEKER', '개인회원'], ['COMPANY', '기업회원'],
             ...(allRows.some((row) => row.role === 'ADMIN') ? [['ADMIN', '관리자']] : []),
           ].map(([role, label]) => (
             <button key={role} type="button" className={selectedRole === role ? 'selected' : ''}
@@ -301,11 +301,13 @@ function AdminRow({ name, row: r, reload, onUserStatusChanged }) {
           <div className="stack">
             <p className="callout">기업의 심사 요청이 접수되었습니다. 내용을 확인한 후 게시 승인하거나, 사유를 입력해 반려해 주세요.</p>
             <div className="admin-job-approval-bar"><p>승인하면 채용공고가 바로 게시됩니다.</p><Action className="admin-job-approve-button" method="patch" url={url} body={{ status: 'PUBLISHED' }} onDone={reload} confirm="이 공고를 게시 승인할까요? 승인하면 채용공고에 공개됩니다."><span aria-hidden="true">✓</span> 승인하고 게시하기</Action></div>
-            <Form
-              fields={[{ name: 'reason', label: '반려 사유', type: 'textarea', required: true }]}
-              onSubmit={async (body) => { await client.patch(url, { ...body, status: 'REJECTED' }); await reload(); }}
-              submit="심사 반려"
-            />
+            <div className="admin-job-reject-form">
+              <Form
+                fields={[{ name: 'reason', label: '반려 사유', type: 'textarea', required: true }]}
+                onSubmit={async (body) => { await client.patch(url, { ...body, status: 'REJECTED' }); await reload(); }}
+                submit="심사 반려"
+              />
+            </div>
           </div>
         )}
         {company && status === 'PENDING' && (
