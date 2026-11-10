@@ -10,7 +10,7 @@
 .employment-stages li > span { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:#edf2f8; font-weight:700; }
 .employment-stages .current { background:#eff6ff; border-color:#90b8ef; color:#2563eb; font-weight:700; }
 .employment-stages .current > span { background:#2563eb; color:#fff; }
-.employment-stages small { font-size:11px; }
+.employment-stages small { font-size:12px; }
 .employment-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
 .employment-facts { display:grid; grid-template-columns:90px minmax(0,1fr); gap:16px; font-size:14px; }
 .employment-facts dt { color:#71839f; }

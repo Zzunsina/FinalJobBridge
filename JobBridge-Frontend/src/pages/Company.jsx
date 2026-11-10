@@ -344,7 +344,7 @@ function ApplicantDetailContent({ id }) {
             <SubmittedAssessment data={a.snapshot?.careerAssessment} />
             <ReportForm targetType="APPLICANT" targetId={Number(id)} />
             {a.snapshot?.resume?.attachment && <a className="button secondary" href={`/api/applications/${id}/attachment`}>지원 당시 첨부파일 다운로드</a>}
-            <h3>자기소개서</h3>
+            <h3>지원자가 전하고 싶은 말</h3>
             <p className="prose">{a.coverLetter || '미입력'}</p>
             <div className="actions applicant-status-actions">
               {(transitions[a.status] || []).map((status) => (

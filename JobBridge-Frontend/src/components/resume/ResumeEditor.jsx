@@ -521,8 +521,21 @@ export default function ResumeEditor({ initial = {}, onSave, onSaved }) {
                   <input type="file" accept=".pdf,application/pdf" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    if (!file.name.toLowerCase().endsWith('.pdf') || file.size > 5 * 1024 * 1024) {
-                      setError('5MB 이하 PDF 파일을 선택해 주세요.'); e.target.value = ''; return;
+                    const hasPdfExtension = file.name.toLowerCase().endsWith('.pdf');
+                    const hasPdfMimeType = !file.type || file.type === 'application/pdf';
+                    if (!hasPdfExtension || !hasPdfMimeType) {
+                      const message = 'PDF 형식 파일만 첨부할 수 있습니다. PDF 파일 1개를 선택해 주세요.';
+                      setError(message);
+                      window.alert(message);
+                      e.target.value = '';
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      const message = '파일 크기가 5MB를 초과했습니다. 5MB 이하의 PDF 파일을 선택해 주세요.';
+                      setError(message);
+                      window.alert(message);
+                      e.target.value = '';
+                      return;
                     }
                     try {
                       const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = reject; reader.readAsDataURL(file); });

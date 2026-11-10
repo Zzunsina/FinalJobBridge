@@ -31,7 +31,12 @@ export default function ApplyForm({ id, onDone }) {
                     label: r.title,
                   })),
                 },
-                { name: 'coverLetter', label: '자기소개서', type: 'textarea' },
+                {
+                  name: 'coverLetter',
+                  label: '기업에 전하고 싶은 말',
+                  type: 'textarea',
+                  placeholder: '지원과 관련해 기업에 전하고 싶은 내용을 적어 주세요.',
+                },
               ]}
               onSubmit={async (body) => {
                 await client.post(`/jobs/${id}/applications`, body);
