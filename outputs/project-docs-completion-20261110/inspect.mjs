@@ -1,0 +1,3 @@
+import { FileBlob, SpreadsheetFile } from "file:///C:/Program%20Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1104-2876-0_26.1104.2876.0_x64__3k8sg7r9htsxt/dependencies/node/node_modules/@oai/artifact-tool/dist/artifact_tool.mjs";
+const inputs=["C:/FinalJobBridge/outputs/requirements-definition-update-20261110/잡브릿지_통합테스트_수정_통합본.xlsx","C:/Users/hi101/Desktop/잡브릿지.xlsx"];
+for(const path of inputs){const wb=await SpreadsheetFile.importXlsx(await FileBlob.load(path)); console.log("FILE",path); console.log((await wb.inspect({kind:"sheet",include:"id,name",maxChars:3000})).ndjson); for(const s of wb.worksheets.items){console.log("SHEET",s.name);console.log((await wb.inspect({kind:"region",sheetId:s.name,range:"A1:O12",maxChars:3500})).ndjson);}}

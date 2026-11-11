@@ -693,14 +693,19 @@ ad-orders-table .ad-order-number {
 @container (max-width: 700px) {
   .ad-orders-table, .ad-orders-table tbody { display: block; }
   .ad-orders-table colgroup, .ad-orders-table thead { display: none; }
-  .ad-orders-table .ad-order-group { padding: 12px 0; border-bottom: 1px solid #e6ecf4; }
-  .ad-orders-table .ad-order-group > tr:first-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
-  .ad-orders-table .ad-order-group > tr:first-child > td { display: block; padding: 0; border: 0; }
+  .ad-orders-table .ad-order-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 20px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e6ecf4;
+  }
+  .ad-orders-table .ad-order-group > td { display: block; padding: 0; border: 0; }
   .ad-orders-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 6px; color: #64748b; font-size: 12px; font-weight: 500; }
   .ad-orders-table td[data-label='상품·주문번호'] { grid-column: 1 / -1; }
   .ad-orders-table .ad-order-memo-row { display: block; margin-top: 14px; }
   .ad-orders-table .ad-order-memo-row td { display: block; padding: 12px; border: 0; border-radius: 8px; }
 }
 @container (max-width: 340px) {
-  .ad-orders-table .ad-order-group > tr:first-child { grid-template-columns: minmax(0, 1fr); }
+  .ad-orders-table .ad-order-group { grid-template-columns: minmax(0, 1fr); }
 }

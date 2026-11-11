@@ -1,0 +1,16 @@
+import fs from "node:fs/promises";
+import { FileBlob, SpreadsheetFile } from "file:///C:/Program%20Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1104-2876-0_26.1104.2876.0_x64__3k8sg7r9htsxt/dependencies/node/node_modules/@oai/artifact-tool/dist/artifact_tool.mjs";
+const source = "C:/FinalJobBridge/outputs/project-docs-completion-20261110/잡브릿지_프로젝트기준_전체보완.xlsx";
+const outputPath = "C:/FinalJobBridge/outputs/usecase-scroll-fix-20261110/잡브릿지_유스케이스명세서_스크롤수정.xlsx";
+const workbook = await SpreadsheetFile.importXlsx(await FileBlob.load(source));
+const sheet = workbook.worksheets.getItem("유스케이스 명세서");
+const before = sheet.freezePanes.getLocation?.() ?? "existing freeze pane";
+const preview = await workbook.render({ sheetName: "유스케이스 명세서", range: "A1:F25", scale: 1, format: "png" });
+await fs.writeFile("C:/FinalJobBridge/outputs/usecase-scroll-fix-20261110/usecase-before.png", new Uint8Array(await preview.arrayBuffer()));
+sheet.freezePanes.unfreeze();
+workbook.recalculate();
+const after = await workbook.render({ sheetName: "유스케이스 명세서", range: "A1:F25", scale: 1, format: "png" });
+await fs.writeFile("C:/FinalJobBridge/outputs/usecase-scroll-fix-20261110/usecase-after.png", new Uint8Array(await after.arrayBuffer()));
+const file = await SpreadsheetFile.exportXlsx(workbook);
+await file.save(outputPath);
+console.log(JSON.stringify({ before, freezePaneAfter: sheet.freezePanes.getLocation?.() ?? null, sheet: sheet.name, outputPath }));
